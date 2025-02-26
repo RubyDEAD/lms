@@ -1,4 +1,3 @@
-# gql/schema.graphqls
 type Book {
   id: ID!
   title: String!
