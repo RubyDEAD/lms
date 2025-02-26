@@ -1,0 +1,16 @@
+# gql/schema.graphqls
+type Book {
+  id: ID!
+  title: String!
+  author: String!
+  publishedYear: Int!
+}
+
+type Query {
+  getBooks: [Book!]!
+  getBookByID(id: ID!): Book
+}
+
+type Mutation {
+  addBook(title: String!, author: String!, publishedYear: Int!): Book!
+}
