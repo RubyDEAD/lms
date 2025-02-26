@@ -1,15 +1,16 @@
 
 import React from 'react';
-import '../src/homepage.css'
 
 
 
-export default function homepage() {
+function Dashboard() {
     return (
         <div className="body">
             <div className='container'> 
-                qwewq
+                <h1>DASHBOARD</h1>
             </div>
         </div>
     )   
 }
+
+export default Dashboard;
