@@ -47,15 +47,6 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
-	BorrowedBook struct {
-		BookID     func(childComplexity int) int
-		BorrowDate func(childComplexity int) int
-		BorrowID   func(childComplexity int) int
-		DueDate    func(childComplexity int) int
-		Patron     func(childComplexity int) int
-		ReturnDate func(childComplexity int) int
-	}
-
 	Membership struct {
 		Level        func(childComplexity int) int
 		MembershipID func(childComplexity int) int
@@ -63,25 +54,19 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		AddViolation            func(childComplexity int, patronID string, violationType model.ViolationType, violationInfo string) int
-		BorrowBook              func(childComplexity int, patronID string, bookID string, dueDate string) int
-		CreatePatron            func(childComplexity int, firstName string, lastName string, phoneNumber string) int
-		CreateReservation       func(childComplexity int, patronID string, bookID string) int
-		ReturnBook              func(childComplexity int, borrowID string, returnDate string) int
-		UpdatePatronStatus      func(childComplexity int, patronID string, patronStatus model.Status) int
-		UpdateReservationStatus func(childComplexity int, reservationID string, status model.ReservationStatus) int
+		AddViolation       func(childComplexity int, patronID string, violationType model.ViolationType, violationInfo string) int
+		CreatePatron       func(childComplexity int, firstName string, lastName string, phoneNumber string) int
+		UpdatePatronStatus func(childComplexity int, patronID string, patronStatus model.Status) int
 	}
 
 	Patron struct {
-		BorrowedBooks func(childComplexity int) int
-		FirstName     func(childComplexity int) int
-		LastName      func(childComplexity int) int
-		Membership    func(childComplexity int) int
-		PatronID      func(childComplexity int) int
-		PhoneNumber   func(childComplexity int) int
-		Reservations  func(childComplexity int) int
-		Status        func(childComplexity int) int
-		Violations    func(childComplexity int) int
+		FirstName   func(childComplexity int) int
+		LastName    func(childComplexity int) int
+		Membership  func(childComplexity int) int
+		PatronID    func(childComplexity int) int
+		PhoneNumber func(childComplexity int) int
+		Status      func(childComplexity int) int
+		Violations  func(childComplexity int) int
 	}
 
 	PatronStatus struct {
@@ -92,18 +77,8 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		GetAllPatrons            func(childComplexity int) int
-		GetBorrowedBooksByPatron func(childComplexity int, patronID string) int
-		GetPatron                func(childComplexity int, patronID string) int
-		GetReservationsByPatron  func(childComplexity int, patronID string) int
-	}
-
-	Reservation struct {
-		BookID          func(childComplexity int) int
-		Patron          func(childComplexity int) int
-		ReservationDate func(childComplexity int) int
-		ReservationID   func(childComplexity int) int
-		Status          func(childComplexity int) int
+		GetAllPatrons func(childComplexity int) int
+		GetPatron     func(childComplexity int, patronID string) int
 	}
 
 	ViolationRecord struct {
@@ -118,16 +93,10 @@ type MutationResolver interface {
 	CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string) (*model.Patron, error)
 	UpdatePatronStatus(ctx context.Context, patronID string, patronStatus model.Status) (*model.PatronStatus, error)
 	AddViolation(ctx context.Context, patronID string, violationType model.ViolationType, violationInfo string) (*model.ViolationRecord, error)
-	CreateReservation(ctx context.Context, patronID string, bookID string) (*model.Reservation, error)
-	UpdateReservationStatus(ctx context.Context, reservationID string, status model.ReservationStatus) (*model.Reservation, error)
-	BorrowBook(ctx context.Context, patronID string, bookID string, dueDate string) (*model.BorrowedBook, error)
-	ReturnBook(ctx context.Context, borrowID string, returnDate string) (*model.BorrowedBook, error)
 }
 type QueryResolver interface {
 	GetPatron(ctx context.Context, patronID string) (*model.Patron, error)
 	GetAllPatrons(ctx context.Context) ([]*model.Patron, error)
-	GetReservationsByPatron(ctx context.Context, patronID string) ([]*model.Reservation, error)
-	GetBorrowedBooksByPatron(ctx context.Context, patronID string) ([]*model.BorrowedBook, error)
 }
 
 type executableSchema struct {
@@ -148,48 +117,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	ec := executionContext{nil, e, 0, 0, nil}
 	_ = ec
 	switch typeName + "." + field {
-
-	case "BorrowedBook.book_id":
-		if e.complexity.BorrowedBook.BookID == nil {
-			break
-		}
-
-		return e.complexity.BorrowedBook.BookID(childComplexity), true
-
-	case "BorrowedBook.borrow_date":
-		if e.complexity.BorrowedBook.BorrowDate == nil {
-			break
-		}
-
-		return e.complexity.BorrowedBook.BorrowDate(childComplexity), true
-
-	case "BorrowedBook.borrow_id":
-		if e.complexity.BorrowedBook.BorrowID == nil {
-			break
-		}
-
-		return e.complexity.BorrowedBook.BorrowID(childComplexity), true
-
-	case "BorrowedBook.due_date":
-		if e.complexity.BorrowedBook.DueDate == nil {
-			break
-		}
-
-		return e.complexity.BorrowedBook.DueDate(childComplexity), true
-
-	case "BorrowedBook.patron":
-		if e.complexity.BorrowedBook.Patron == nil {
-			break
-		}
-
-		return e.complexity.BorrowedBook.Patron(childComplexity), true
-
-	case "BorrowedBook.return_date":
-		if e.complexity.BorrowedBook.ReturnDate == nil {
-			break
-		}
-
-		return e.complexity.BorrowedBook.ReturnDate(childComplexity), true
 
 	case "Membership.level":
 		if e.complexity.Membership.Level == nil {
@@ -224,18 +151,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.AddViolation(childComplexity, args["patron_id"].(string), args["violation_type"].(model.ViolationType), args["violation_info"].(string)), true
 
-	case "Mutation.borrowBook":
-		if e.complexity.Mutation.BorrowBook == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_borrowBook_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.BorrowBook(childComplexity, args["patron_id"].(string), args["book_id"].(string), args["due_date"].(string)), true
-
 	case "Mutation.createPatron":
 		if e.complexity.Mutation.CreatePatron == nil {
 			break
@@ -248,30 +163,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.CreatePatron(childComplexity, args["first_name"].(string), args["last_name"].(string), args["phone_number"].(string)), true
 
-	case "Mutation.createReservation":
-		if e.complexity.Mutation.CreateReservation == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_createReservation_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.CreateReservation(childComplexity, args["patron_id"].(string), args["book_id"].(string)), true
-
-	case "Mutation.returnBook":
-		if e.complexity.Mutation.ReturnBook == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_returnBook_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.ReturnBook(childComplexity, args["borrow_id"].(string), args["return_date"].(string)), true
-
 	case "Mutation.updatePatronStatus":
 		if e.complexity.Mutation.UpdatePatronStatus == nil {
 			break
@@ -283,25 +174,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.UpdatePatronStatus(childComplexity, args["patron_id"].(string), args["patron_status"].(model.Status)), true
-
-	case "Mutation.updateReservationStatus":
-		if e.complexity.Mutation.UpdateReservationStatus == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_updateReservationStatus_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.UpdateReservationStatus(childComplexity, args["reservation_id"].(string), args["status"].(model.ReservationStatus)), true
-
-	case "Patron.borrowed_books":
-		if e.complexity.Patron.BorrowedBooks == nil {
-			break
-		}
-
-		return e.complexity.Patron.BorrowedBooks(childComplexity), true
 
 	case "Patron.first_name":
 		if e.complexity.Patron.FirstName == nil {
@@ -337,13 +209,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Patron.PhoneNumber(childComplexity), true
-
-	case "Patron.reservations":
-		if e.complexity.Patron.Reservations == nil {
-			break
-		}
-
-		return e.complexity.Patron.Reservations(childComplexity), true
 
 	case "Patron.status":
 		if e.complexity.Patron.Status == nil {
@@ -394,18 +259,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.GetAllPatrons(childComplexity), true
 
-	case "Query.getBorrowedBooksByPatron":
-		if e.complexity.Query.GetBorrowedBooksByPatron == nil {
-			break
-		}
-
-		args, err := ec.field_Query_getBorrowedBooksByPatron_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.GetBorrowedBooksByPatron(childComplexity, args["patron_id"].(string)), true
-
 	case "Query.getPatron":
 		if e.complexity.Query.GetPatron == nil {
 			break
@@ -417,53 +270,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.GetPatron(childComplexity, args["patron_id"].(string)), true
-
-	case "Query.getReservationsByPatron":
-		if e.complexity.Query.GetReservationsByPatron == nil {
-			break
-		}
-
-		args, err := ec.field_Query_getReservationsByPatron_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.GetReservationsByPatron(childComplexity, args["patron_id"].(string)), true
-
-	case "Reservation.book_id":
-		if e.complexity.Reservation.BookID == nil {
-			break
-		}
-
-		return e.complexity.Reservation.BookID(childComplexity), true
-
-	case "Reservation.patron":
-		if e.complexity.Reservation.Patron == nil {
-			break
-		}
-
-		return e.complexity.Reservation.Patron(childComplexity), true
-
-	case "Reservation.reservation_date":
-		if e.complexity.Reservation.ReservationDate == nil {
-			break
-		}
-
-		return e.complexity.Reservation.ReservationDate(childComplexity), true
-
-	case "Reservation.reservation_id":
-		if e.complexity.Reservation.ReservationID == nil {
-			break
-		}
-
-		return e.complexity.Reservation.ReservationID(childComplexity), true
-
-	case "Reservation.status":
-		if e.complexity.Reservation.Status == nil {
-			break
-		}
-
-		return e.complexity.Reservation.Status(childComplexity), true
 
 	case "ViolationRecord.patron":
 		if e.complexity.ViolationRecord.Patron == nil {
@@ -675,65 +481,6 @@ func (ec *executionContext) field_Mutation_addViolation_argsViolationInfo(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_borrowBook_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_borrowBook_argsPatronID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patron_id"] = arg0
-	arg1, err := ec.field_Mutation_borrowBook_argsBookID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["book_id"] = arg1
-	arg2, err := ec.field_Mutation_borrowBook_argsDueDate(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["due_date"] = arg2
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_borrowBook_argsPatronID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
-	if tmp, ok := rawArgs["patron_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_borrowBook_argsBookID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("book_id"))
-	if tmp, ok := rawArgs["book_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_borrowBook_argsDueDate(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("due_date"))
-	if tmp, ok := rawArgs["due_date"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
 func (ec *executionContext) field_Mutation_createPatron_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -793,88 +540,6 @@ func (ec *executionContext) field_Mutation_createPatron_argsPhoneNumber(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_createReservation_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_createReservation_argsPatronID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patron_id"] = arg0
-	arg1, err := ec.field_Mutation_createReservation_argsBookID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["book_id"] = arg1
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_createReservation_argsPatronID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
-	if tmp, ok := rawArgs["patron_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_createReservation_argsBookID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("book_id"))
-	if tmp, ok := rawArgs["book_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_returnBook_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_returnBook_argsBorrowID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["borrow_id"] = arg0
-	arg1, err := ec.field_Mutation_returnBook_argsReturnDate(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["return_date"] = arg1
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_returnBook_argsBorrowID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("borrow_id"))
-	if tmp, ok := rawArgs["borrow_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_returnBook_argsReturnDate(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("return_date"))
-	if tmp, ok := rawArgs["return_date"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
 func (ec *executionContext) field_Mutation_updatePatronStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -916,47 +581,6 @@ func (ec *executionContext) field_Mutation_updatePatronStatus_argsPatronStatus(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_updateReservationStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_updateReservationStatus_argsReservationID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["reservation_id"] = arg0
-	arg1, err := ec.field_Mutation_updateReservationStatus_argsStatus(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["status"] = arg1
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_updateReservationStatus_argsReservationID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("reservation_id"))
-	if tmp, ok := rawArgs["reservation_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updateReservationStatus_argsStatus(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (model.ReservationStatus, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
-	if tmp, ok := rawArgs["status"]; ok {
-		return ec.unmarshalNReservationStatus2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx, tmp)
-	}
-
-	var zeroVal model.ReservationStatus
-	return zeroVal, nil
-}
-
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -980,29 +604,6 @@ func (ec *executionContext) field_Query___type_argsName(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_getBorrowedBooksByPatron_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_getBorrowedBooksByPatron_argsPatronID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patron_id"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Query_getBorrowedBooksByPatron_argsPatronID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
-	if tmp, ok := rawArgs["patron_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
 func (ec *executionContext) field_Query_getPatron_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1014,29 +615,6 @@ func (ec *executionContext) field_Query_getPatron_args(ctx context.Context, rawA
 	return args, nil
 }
 func (ec *executionContext) field_Query_getPatron_argsPatronID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
-	if tmp, ok := rawArgs["patron_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_getReservationsByPatron_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_getReservationsByPatron_argsPatronID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patron_id"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Query_getReservationsByPatron_argsPatronID(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (string, error) {
@@ -1149,287 +727,6 @@ func (ec *executionContext) field___Type_fields_argsIncludeDeprecated(
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _BorrowedBook_borrow_id(ctx context.Context, field graphql.CollectedField, obj *model.BorrowedBook) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowedBook_borrow_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BorrowID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_BorrowedBook_borrow_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BorrowedBook",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BorrowedBook_patron(ctx context.Context, field graphql.CollectedField, obj *model.BorrowedBook) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowedBook_patron(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Patron, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.Patron)
-	fc.Result = res
-	return ec.marshalNPatron2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatron(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_BorrowedBook_patron(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BorrowedBook",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "patron_id":
-				return ec.fieldContext_Patron_patron_id(ctx, field)
-			case "first_name":
-				return ec.fieldContext_Patron_first_name(ctx, field)
-			case "last_name":
-				return ec.fieldContext_Patron_last_name(ctx, field)
-			case "phone_number":
-				return ec.fieldContext_Patron_phone_number(ctx, field)
-			case "membership":
-				return ec.fieldContext_Patron_membership(ctx, field)
-			case "status":
-				return ec.fieldContext_Patron_status(ctx, field)
-			case "violations":
-				return ec.fieldContext_Patron_violations(ctx, field)
-			case "reservations":
-				return ec.fieldContext_Patron_reservations(ctx, field)
-			case "borrowed_books":
-				return ec.fieldContext_Patron_borrowed_books(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BorrowedBook_book_id(ctx context.Context, field graphql.CollectedField, obj *model.BorrowedBook) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowedBook_book_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BookID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_BorrowedBook_book_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BorrowedBook",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BorrowedBook_borrow_date(ctx context.Context, field graphql.CollectedField, obj *model.BorrowedBook) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowedBook_borrow_date(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BorrowDate, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_BorrowedBook_borrow_date(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BorrowedBook",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BorrowedBook_due_date(ctx context.Context, field graphql.CollectedField, obj *model.BorrowedBook) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowedBook_due_date(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.DueDate, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_BorrowedBook_due_date(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BorrowedBook",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BorrowedBook_return_date(ctx context.Context, field graphql.CollectedField, obj *model.BorrowedBook) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowedBook_return_date(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ReturnDate, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*string)
-	fc.Result = res
-	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_BorrowedBook_return_date(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BorrowedBook",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Membership_membership_id(ctx context.Context, field graphql.CollectedField, obj *model.Membership) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Membership_membership_id(ctx, field)
 	if err != nil {
@@ -1527,10 +824,6 @@ func (ec *executionContext) fieldContext_Membership_patron(_ context.Context, fi
 				return ec.fieldContext_Patron_status(ctx, field)
 			case "violations":
 				return ec.fieldContext_Patron_violations(ctx, field)
-			case "reservations":
-				return ec.fieldContext_Patron_reservations(ctx, field)
-			case "borrowed_books":
-				return ec.fieldContext_Patron_borrowed_books(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
@@ -1632,10 +925,6 @@ func (ec *executionContext) fieldContext_Mutation_createPatron(ctx context.Conte
 				return ec.fieldContext_Patron_status(ctx, field)
 			case "violations":
 				return ec.fieldContext_Patron_violations(ctx, field)
-			case "reservations":
-				return ec.fieldContext_Patron_reservations(ctx, field)
-			case "borrowed_books":
-				return ec.fieldContext_Patron_borrowed_books(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
@@ -1772,266 +1061,6 @@ func (ec *executionContext) fieldContext_Mutation_addViolation(ctx context.Conte
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_addViolation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_createReservation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_createReservation(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateReservation(rctx, fc.Args["patron_id"].(string), fc.Args["book_id"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.Reservation)
-	fc.Result = res
-	return ec.marshalOReservation2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_createReservation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "reservation_id":
-				return ec.fieldContext_Reservation_reservation_id(ctx, field)
-			case "patron":
-				return ec.fieldContext_Reservation_patron(ctx, field)
-			case "book_id":
-				return ec.fieldContext_Reservation_book_id(ctx, field)
-			case "reservation_date":
-				return ec.fieldContext_Reservation_reservation_date(ctx, field)
-			case "status":
-				return ec.fieldContext_Reservation_status(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Reservation", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_createReservation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_updateReservationStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_updateReservationStatus(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateReservationStatus(rctx, fc.Args["reservation_id"].(string), fc.Args["status"].(model.ReservationStatus))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.Reservation)
-	fc.Result = res
-	return ec.marshalOReservation2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_updateReservationStatus(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "reservation_id":
-				return ec.fieldContext_Reservation_reservation_id(ctx, field)
-			case "patron":
-				return ec.fieldContext_Reservation_patron(ctx, field)
-			case "book_id":
-				return ec.fieldContext_Reservation_book_id(ctx, field)
-			case "reservation_date":
-				return ec.fieldContext_Reservation_reservation_date(ctx, field)
-			case "status":
-				return ec.fieldContext_Reservation_status(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Reservation", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_updateReservationStatus_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_borrowBook(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_borrowBook(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().BorrowBook(rctx, fc.Args["patron_id"].(string), fc.Args["book_id"].(string), fc.Args["due_date"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.BorrowedBook)
-	fc.Result = res
-	return ec.marshalOBorrowedBook2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐBorrowedBook(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_borrowBook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "borrow_id":
-				return ec.fieldContext_BorrowedBook_borrow_id(ctx, field)
-			case "patron":
-				return ec.fieldContext_BorrowedBook_patron(ctx, field)
-			case "book_id":
-				return ec.fieldContext_BorrowedBook_book_id(ctx, field)
-			case "borrow_date":
-				return ec.fieldContext_BorrowedBook_borrow_date(ctx, field)
-			case "due_date":
-				return ec.fieldContext_BorrowedBook_due_date(ctx, field)
-			case "return_date":
-				return ec.fieldContext_BorrowedBook_return_date(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type BorrowedBook", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_borrowBook_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_returnBook(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_returnBook(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().ReturnBook(rctx, fc.Args["borrow_id"].(string), fc.Args["return_date"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.BorrowedBook)
-	fc.Result = res
-	return ec.marshalOBorrowedBook2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐBorrowedBook(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_returnBook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "borrow_id":
-				return ec.fieldContext_BorrowedBook_borrow_id(ctx, field)
-			case "patron":
-				return ec.fieldContext_BorrowedBook_patron(ctx, field)
-			case "book_id":
-				return ec.fieldContext_BorrowedBook_book_id(ctx, field)
-			case "borrow_date":
-				return ec.fieldContext_BorrowedBook_borrow_date(ctx, field)
-			case "due_date":
-				return ec.fieldContext_BorrowedBook_due_date(ctx, field)
-			case "return_date":
-				return ec.fieldContext_BorrowedBook_return_date(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type BorrowedBook", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_returnBook_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2365,114 +1394,6 @@ func (ec *executionContext) fieldContext_Patron_violations(_ context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _Patron_reservations(ctx context.Context, field graphql.CollectedField, obj *model.Patron) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Patron_reservations(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Reservations, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.([]*model.Reservation)
-	fc.Result = res
-	return ec.marshalOReservation2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Patron_reservations(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Patron",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "reservation_id":
-				return ec.fieldContext_Reservation_reservation_id(ctx, field)
-			case "patron":
-				return ec.fieldContext_Reservation_patron(ctx, field)
-			case "book_id":
-				return ec.fieldContext_Reservation_book_id(ctx, field)
-			case "reservation_date":
-				return ec.fieldContext_Reservation_reservation_date(ctx, field)
-			case "status":
-				return ec.fieldContext_Reservation_status(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Reservation", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Patron_borrowed_books(ctx context.Context, field graphql.CollectedField, obj *model.Patron) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Patron_borrowed_books(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BorrowedBooks, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.([]*model.BorrowedBook)
-	fc.Result = res
-	return ec.marshalOBorrowedBook2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐBorrowedBook(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Patron_borrowed_books(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Patron",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "borrow_id":
-				return ec.fieldContext_BorrowedBook_borrow_id(ctx, field)
-			case "patron":
-				return ec.fieldContext_BorrowedBook_patron(ctx, field)
-			case "book_id":
-				return ec.fieldContext_BorrowedBook_book_id(ctx, field)
-			case "borrow_date":
-				return ec.fieldContext_BorrowedBook_borrow_date(ctx, field)
-			case "due_date":
-				return ec.fieldContext_BorrowedBook_due_date(ctx, field)
-			case "return_date":
-				return ec.fieldContext_BorrowedBook_return_date(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type BorrowedBook", field.Name)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _PatronStatus_patron(ctx context.Context, field graphql.CollectedField, obj *model.PatronStatus) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_PatronStatus_patron(ctx, field)
 	if err != nil {
@@ -2526,10 +1447,6 @@ func (ec *executionContext) fieldContext_PatronStatus_patron(_ context.Context, 
 				return ec.fieldContext_Patron_status(ctx, field)
 			case "violations":
 				return ec.fieldContext_Patron_violations(ctx, field)
-			case "reservations":
-				return ec.fieldContext_Patron_reservations(ctx, field)
-			case "borrowed_books":
-				return ec.fieldContext_Patron_borrowed_books(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
@@ -2719,10 +1636,6 @@ func (ec *executionContext) fieldContext_Query_getPatron(ctx context.Context, fi
 				return ec.fieldContext_Patron_status(ctx, field)
 			case "violations":
 				return ec.fieldContext_Patron_violations(ctx, field)
-			case "reservations":
-				return ec.fieldContext_Patron_reservations(ctx, field)
-			case "borrowed_books":
-				return ec.fieldContext_Patron_borrowed_books(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
@@ -2791,143 +1704,9 @@ func (ec *executionContext) fieldContext_Query_getAllPatrons(_ context.Context, 
 				return ec.fieldContext_Patron_status(ctx, field)
 			case "violations":
 				return ec.fieldContext_Patron_violations(ctx, field)
-			case "reservations":
-				return ec.fieldContext_Patron_reservations(ctx, field)
-			case "borrowed_books":
-				return ec.fieldContext_Patron_borrowed_books(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_getReservationsByPatron(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getReservationsByPatron(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetReservationsByPatron(rctx, fc.Args["patron_id"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.([]*model.Reservation)
-	fc.Result = res
-	return ec.marshalOReservation2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_getReservationsByPatron(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "reservation_id":
-				return ec.fieldContext_Reservation_reservation_id(ctx, field)
-			case "patron":
-				return ec.fieldContext_Reservation_patron(ctx, field)
-			case "book_id":
-				return ec.fieldContext_Reservation_book_id(ctx, field)
-			case "reservation_date":
-				return ec.fieldContext_Reservation_reservation_date(ctx, field)
-			case "status":
-				return ec.fieldContext_Reservation_status(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Reservation", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_getReservationsByPatron_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_getBorrowedBooksByPatron(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getBorrowedBooksByPatron(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetBorrowedBooksByPatron(rctx, fc.Args["patron_id"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.([]*model.BorrowedBook)
-	fc.Result = res
-	return ec.marshalOBorrowedBook2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐBorrowedBook(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_getBorrowedBooksByPatron(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "borrow_id":
-				return ec.fieldContext_BorrowedBook_borrow_id(ctx, field)
-			case "patron":
-				return ec.fieldContext_BorrowedBook_patron(ctx, field)
-			case "book_id":
-				return ec.fieldContext_BorrowedBook_book_id(ctx, field)
-			case "borrow_date":
-				return ec.fieldContext_BorrowedBook_borrow_date(ctx, field)
-			case "due_date":
-				return ec.fieldContext_BorrowedBook_due_date(ctx, field)
-			case "return_date":
-				return ec.fieldContext_BorrowedBook_return_date(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type BorrowedBook", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_getBorrowedBooksByPatron_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
 	}
 	return fc, nil
 }
@@ -3063,246 +1842,6 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _Reservation_reservation_id(ctx context.Context, field graphql.CollectedField, obj *model.Reservation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Reservation_reservation_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ReservationID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Reservation_reservation_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Reservation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Reservation_patron(ctx context.Context, field graphql.CollectedField, obj *model.Reservation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Reservation_patron(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Patron, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.Patron)
-	fc.Result = res
-	return ec.marshalNPatron2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatron(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Reservation_patron(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Reservation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "patron_id":
-				return ec.fieldContext_Patron_patron_id(ctx, field)
-			case "first_name":
-				return ec.fieldContext_Patron_first_name(ctx, field)
-			case "last_name":
-				return ec.fieldContext_Patron_last_name(ctx, field)
-			case "phone_number":
-				return ec.fieldContext_Patron_phone_number(ctx, field)
-			case "membership":
-				return ec.fieldContext_Patron_membership(ctx, field)
-			case "status":
-				return ec.fieldContext_Patron_status(ctx, field)
-			case "violations":
-				return ec.fieldContext_Patron_violations(ctx, field)
-			case "reservations":
-				return ec.fieldContext_Patron_reservations(ctx, field)
-			case "borrowed_books":
-				return ec.fieldContext_Patron_borrowed_books(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Reservation_book_id(ctx context.Context, field graphql.CollectedField, obj *model.Reservation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Reservation_book_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BookID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Reservation_book_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Reservation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Reservation_reservation_date(ctx context.Context, field graphql.CollectedField, obj *model.Reservation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Reservation_reservation_date(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ReservationDate, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Reservation_reservation_date(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Reservation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Reservation_status(ctx context.Context, field graphql.CollectedField, obj *model.Reservation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Reservation_status(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Status, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(model.ReservationStatus)
-	fc.Result = res
-	return ec.marshalNReservationStatus2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Reservation_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Reservation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ReservationStatus does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _ViolationRecord_violation_record_id(ctx context.Context, field graphql.CollectedField, obj *model.ViolationRecord) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_ViolationRecord_violation_record_id(ctx, field)
 	if err != nil {
@@ -3400,10 +1939,6 @@ func (ec *executionContext) fieldContext_ViolationRecord_patron(_ context.Contex
 				return ec.fieldContext_Patron_status(ctx, field)
 			case "violations":
 				return ec.fieldContext_Patron_violations(ctx, field)
-			case "reservations":
-				return ec.fieldContext_Patron_reservations(ctx, field)
-			case "borrowed_books":
-				return ec.fieldContext_Patron_borrowed_books(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
@@ -5458,67 +3993,6 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** object.gotpl ****************************
 
-var borrowedBookImplementors = []string{"BorrowedBook"}
-
-func (ec *executionContext) _BorrowedBook(ctx context.Context, sel ast.SelectionSet, obj *model.BorrowedBook) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, borrowedBookImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("BorrowedBook")
-		case "borrow_id":
-			out.Values[i] = ec._BorrowedBook_borrow_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "patron":
-			out.Values[i] = ec._BorrowedBook_patron(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "book_id":
-			out.Values[i] = ec._BorrowedBook_book_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "borrow_date":
-			out.Values[i] = ec._BorrowedBook_borrow_date(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "due_date":
-			out.Values[i] = ec._BorrowedBook_due_date(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "return_date":
-			out.Values[i] = ec._BorrowedBook_return_date(ctx, field, obj)
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
 var membershipImplementors = []string{"Membership"}
 
 func (ec *executionContext) _Membership(ctx context.Context, sel ast.SelectionSet, obj *model.Membership) graphql.Marshaler {
@@ -5599,22 +4073,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_addViolation(ctx, field)
 			})
-		case "createReservation":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_createReservation(ctx, field)
-			})
-		case "updateReservationStatus":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_updateReservationStatus(ctx, field)
-			})
-		case "borrowBook":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_borrowBook(ctx, field)
-			})
-		case "returnBook":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_returnBook(ctx, field)
-			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5675,10 +4133,6 @@ func (ec *executionContext) _Patron(ctx context.Context, sel ast.SelectionSet, o
 			out.Values[i] = ec._Patron_status(ctx, field, obj)
 		case "violations":
 			out.Values[i] = ec._Patron_violations(ctx, field, obj)
-		case "reservations":
-			out.Values[i] = ec._Patron_reservations(ctx, field, obj)
-		case "borrowed_books":
-			out.Values[i] = ec._Patron_borrowed_books(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5813,44 +4267,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "getReservationsByPatron":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_getReservationsByPatron(ctx, field)
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "getBorrowedBooksByPatron":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_getBorrowedBooksByPatron(ctx, field)
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -5859,65 +4275,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var reservationImplementors = []string{"Reservation"}
-
-func (ec *executionContext) _Reservation(ctx context.Context, sel ast.SelectionSet, obj *model.Reservation) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, reservationImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("Reservation")
-		case "reservation_id":
-			out.Values[i] = ec._Reservation_reservation_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "patron":
-			out.Values[i] = ec._Reservation_patron(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "book_id":
-			out.Values[i] = ec._Reservation_book_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "reservation_date":
-			out.Values[i] = ec._Reservation_reservation_date(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "status":
-			out.Values[i] = ec._Reservation_status(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -6410,16 +4767,6 @@ func (ec *executionContext) marshalNPatron2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpat
 	return ec._Patron(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNReservationStatus2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, v any) (model.ReservationStatus, error) {
-	var res model.ReservationStatus
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNReservationStatus2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, sel ast.SelectionSet, v model.ReservationStatus) graphql.Marshaler {
-	return v
-}
-
 func (ec *executionContext) unmarshalNStatus2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐStatus(ctx context.Context, v any) (model.Status, error) {
 	var res model.Status
 	err := res.UnmarshalGQL(v)
@@ -6734,54 +5081,6 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
-func (ec *executionContext) marshalOBorrowedBook2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐBorrowedBook(ctx context.Context, sel ast.SelectionSet, v []*model.BorrowedBook) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalOBorrowedBook2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐBorrowedBook(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	return ret
-}
-
-func (ec *executionContext) marshalOBorrowedBook2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐBorrowedBook(ctx context.Context, sel ast.SelectionSet, v *model.BorrowedBook) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._BorrowedBook(ctx, sel, v)
-}
-
 func (ec *executionContext) marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx context.Context, sel ast.SelectionSet, v *model.Membership) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -6842,54 +5141,6 @@ func (ec *executionContext) marshalOPatronStatus2ᚖgithubᚗcomᚋGSaliseᚋlms
 		return graphql.Null
 	}
 	return ec._PatronStatus(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalOReservation2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐReservation(ctx context.Context, sel ast.SelectionSet, v []*model.Reservation) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalOReservation2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐReservation(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	return ret
-}
-
-func (ec *executionContext) marshalOReservation2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐReservation(ctx context.Context, sel ast.SelectionSet, v *model.Reservation) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._Reservation(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {

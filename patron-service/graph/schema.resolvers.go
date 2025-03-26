@@ -9,11 +9,28 @@ import (
 	"fmt"
 
 	"github.com/GSalise/lms/patron-service/graph/model"
+	"github.com/google/uuid"
 )
 
 // CreatePatron is the resolver for the createPatron field.
 func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string) (*model.Patron, error) {
-	panic(fmt.Errorf("not implemented: CreatePatron - createPatron"))
+	// Create a new patron instance
+	newPatron := &model.Patron{
+		PatronID:    uuid.New().String(),
+		FirstName:   firstName,
+		LastName:    lastName,
+		PhoneNumber: phoneNumber,
+	}
+	_, err := r.DB.Exec(ctx, `
+		INSERT INTO patrons
+		SET patron_id  (patron_id, first_name, last_name, phone_number)
+		VALUES ($1, $2, $3, $4)
+	`, newPatron.PatronID, newPatron.FirstName, newPatron.LastName, newPatron.PhoneNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create patron: %v", err)
+	}
+
+	return newPatron, nil
 }
 
 // UpdatePatronStatus is the resolver for the updatePatronStatus field.
@@ -26,26 +43,6 @@ func (r *mutationResolver) AddViolation(ctx context.Context, patronID string, vi
 	panic(fmt.Errorf("not implemented: AddViolation - addViolation"))
 }
 
-// CreateReservation is the resolver for the createReservation field.
-func (r *mutationResolver) CreateReservation(ctx context.Context, patronID string, bookID string) (*model.Reservation, error) {
-	panic(fmt.Errorf("not implemented: CreateReservation - createReservation"))
-}
-
-// UpdateReservationStatus is the resolver for the updateReservationStatus field.
-func (r *mutationResolver) UpdateReservationStatus(ctx context.Context, reservationID string, status model.ReservationStatus) (*model.Reservation, error) {
-	panic(fmt.Errorf("not implemented: UpdateReservationStatus - updateReservationStatus"))
-}
-
-// BorrowBook is the resolver for the borrowBook field.
-func (r *mutationResolver) BorrowBook(ctx context.Context, patronID string, bookID string, dueDate string) (*model.BorrowedBook, error) {
-	panic(fmt.Errorf("not implemented: BorrowBook - borrowBook"))
-}
-
-// ReturnBook is the resolver for the returnBook field.
-func (r *mutationResolver) ReturnBook(ctx context.Context, borrowID string, returnDate string) (*model.BorrowedBook, error) {
-	panic(fmt.Errorf("not implemented: ReturnBook - returnBook"))
-}
-
 // GetPatron is the resolver for the getPatron field.
 func (r *queryResolver) GetPatron(ctx context.Context, patronID string) (*model.Patron, error) {
 	panic(fmt.Errorf("not implemented: GetPatron - getPatron"))
@@ -54,16 +51,6 @@ func (r *queryResolver) GetPatron(ctx context.Context, patronID string) (*model.
 // GetAllPatrons is the resolver for the getAllPatrons field.
 func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, error) {
 	panic(fmt.Errorf("not implemented: GetAllPatrons - getAllPatrons"))
-}
-
-// GetReservationsByPatron is the resolver for the getReservationsByPatron field.
-func (r *queryResolver) GetReservationsByPatron(ctx context.Context, patronID string) ([]*model.Reservation, error) {
-	panic(fmt.Errorf("not implemented: GetReservationsByPatron - getReservationsByPatron"))
-}
-
-// GetBorrowedBooksByPatron is the resolver for the getBorrowedBooksByPatron field.
-func (r *queryResolver) GetBorrowedBooksByPatron(ctx context.Context, patronID string) ([]*model.BorrowedBook, error) {
-	panic(fmt.Errorf("not implemented: GetBorrowedBooksByPatron - getBorrowedBooksByPatron"))
 }
 
 // Mutation returns MutationResolver implementation.
@@ -82,10 +69,22 @@ type queryResolver struct{ *Resolver }
 //    it when you're done.
 //  - You have helper methods in this file. Move them out to keep these resolver files clean.
 /*
-	func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
+	func (r *mutationResolver) CreateReservation(ctx context.Context, patronID string, bookID string) (*model.Reservation, error) {
+	panic(fmt.Errorf("not implemented: CreateReservation - createReservation"))
 }
-func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todos - todos"))
+func (r *mutationResolver) UpdateReservationStatus(ctx context.Context, reservationID string, status model.ReservationStatus) (*model.Reservation, error) {
+	panic(fmt.Errorf("not implemented: UpdateReservationStatus - updateReservationStatus"))
+}
+func (r *mutationResolver) BorrowBook(ctx context.Context, patronID string, bookID string, dueDate string) (*model.BorrowedBook, error) {
+	panic(fmt.Errorf("not implemented: BorrowBook - borrowBook"))
+}
+func (r *mutationResolver) ReturnBook(ctx context.Context, borrowID string, returnDate string) (*model.BorrowedBook, error) {
+	panic(fmt.Errorf("not implemented: ReturnBook - returnBook"))
+}
+func (r *queryResolver) GetReservationsByPatron(ctx context.Context, patronID string) ([]*model.Reservation, error) {
+	panic(fmt.Errorf("not implemented: GetReservationsByPatron - getReservationsByPatron"))
+}
+func (r *queryResolver) GetBorrowedBooksByPatron(ctx context.Context, patronID string) ([]*model.BorrowedBook, error) {
+	panic(fmt.Errorf("not implemented: GetBorrowedBooksByPatron - getBorrowedBooksByPatron"))
 }
 */
