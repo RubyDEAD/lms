@@ -8,15 +8,6 @@ import (
 	"strconv"
 )
 
-type BorrowedBook struct {
-	BorrowID   string  `json:"borrow_id"`
-	Patron     *Patron `json:"patron"`
-	BookID     string  `json:"book_id"`
-	BorrowDate string  `json:"borrow_date"`
-	DueDate    string  `json:"due_date"`
-	ReturnDate *string `json:"return_date,omitempty"`
-}
-
 type Membership struct {
 	MembershipID string          `json:"membership_id"`
 	Patron       *Patron         `json:"patron"`
@@ -27,15 +18,13 @@ type Mutation struct {
 }
 
 type Patron struct {
-	PatronID      string             `json:"patron_id"`
-	FirstName     string             `json:"first_name"`
-	LastName      string             `json:"last_name"`
-	PhoneNumber   string             `json:"phone_number"`
-	Membership    *Membership        `json:"membership,omitempty"`
-	Status        *PatronStatus      `json:"status,omitempty"`
-	Violations    []*ViolationRecord `json:"violations,omitempty"`
-	Reservations  []*Reservation     `json:"reservations,omitempty"`
-	BorrowedBooks []*BorrowedBook    `json:"borrowed_books,omitempty"`
+	PatronID    string             `json:"patron_id"`
+	FirstName   string             `json:"first_name"`
+	LastName    string             `json:"last_name"`
+	PhoneNumber string             `json:"phone_number"`
+	Membership  *Membership        `json:"membership,omitempty"`
+	Status      *PatronStatus      `json:"status,omitempty"`
+	Violations  []*ViolationRecord `json:"violations,omitempty"`
 }
 
 type PatronStatus struct {
@@ -46,14 +35,6 @@ type PatronStatus struct {
 }
 
 type Query struct {
-}
-
-type Reservation struct {
-	ReservationID   string            `json:"reservation_id"`
-	Patron          *Patron           `json:"patron"`
-	BookID          string            `json:"book_id"`
-	ReservationDate string            `json:"reservation_date"`
-	Status          ReservationStatus `json:"status"`
 }
 
 type ViolationRecord struct {
@@ -103,49 +84,6 @@ func (e *MembershipLevel) UnmarshalGQL(v any) error {
 }
 
 func (e MembershipLevel) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-type ReservationStatus string
-
-const (
-	ReservationStatusPending   ReservationStatus = "PENDING"
-	ReservationStatusFulfilled ReservationStatus = "FULFILLED"
-	ReservationStatusCanceled  ReservationStatus = "CANCELED"
-)
-
-var AllReservationStatus = []ReservationStatus{
-	ReservationStatusPending,
-	ReservationStatusFulfilled,
-	ReservationStatusCanceled,
-}
-
-func (e ReservationStatus) IsValid() bool {
-	switch e {
-	case ReservationStatusPending, ReservationStatusFulfilled, ReservationStatusCanceled:
-		return true
-	}
-	return false
-}
-
-func (e ReservationStatus) String() string {
-	return string(e)
-}
-
-func (e *ReservationStatus) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = ReservationStatus(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid ReservationStatus", str)
-	}
-	return nil
-}
-
-func (e ReservationStatus) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }
 

@@ -26,26 +26,6 @@ func (r *mutationResolver) AddViolation(ctx context.Context, patronID string, vi
 	panic(fmt.Errorf("not implemented: AddViolation - addViolation"))
 }
 
-// CreateReservation is the resolver for the createReservation field.
-func (r *mutationResolver) CreateReservation(ctx context.Context, patronID string, bookID string) (*model.Reservation, error) {
-	panic(fmt.Errorf("not implemented: CreateReservation - createReservation"))
-}
-
-// UpdateReservationStatus is the resolver for the updateReservationStatus field.
-func (r *mutationResolver) UpdateReservationStatus(ctx context.Context, reservationID string, status model.ReservationStatus) (*model.Reservation, error) {
-	panic(fmt.Errorf("not implemented: UpdateReservationStatus - updateReservationStatus"))
-}
-
-// BorrowBook is the resolver for the borrowBook field.
-func (r *mutationResolver) BorrowBook(ctx context.Context, patronID string, bookID string, dueDate string) (*model.BorrowedBook, error) {
-	panic(fmt.Errorf("not implemented: BorrowBook - borrowBook"))
-}
-
-// ReturnBook is the resolver for the returnBook field.
-func (r *mutationResolver) ReturnBook(ctx context.Context, borrowID string, returnDate string) (*model.BorrowedBook, error) {
-	panic(fmt.Errorf("not implemented: ReturnBook - returnBook"))
-}
-
 // GetPatron is the resolver for the getPatron field.
 func (r *queryResolver) GetPatron(ctx context.Context, patronID string) (*model.Patron, error) {
 	panic(fmt.Errorf("not implemented: GetPatron - getPatron"))
@@ -56,16 +36,6 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 	panic(fmt.Errorf("not implemented: GetAllPatrons - getAllPatrons"))
 }
 
-// GetReservationsByPatron is the resolver for the getReservationsByPatron field.
-func (r *queryResolver) GetReservationsByPatron(ctx context.Context, patronID string) ([]*model.Reservation, error) {
-	panic(fmt.Errorf("not implemented: GetReservationsByPatron - getReservationsByPatron"))
-}
-
-// GetBorrowedBooksByPatron is the resolver for the getBorrowedBooksByPatron field.
-func (r *queryResolver) GetBorrowedBooksByPatron(ctx context.Context, patronID string) ([]*model.BorrowedBook, error) {
-	panic(fmt.Errorf("not implemented: GetBorrowedBooksByPatron - getBorrowedBooksByPatron"))
-}
-
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
@@ -74,18 +44,3 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
-}
-func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todos - todos"))
-}
-*/
