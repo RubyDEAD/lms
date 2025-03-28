@@ -50,13 +50,17 @@ type ComplexityRoot struct {
 	Membership struct {
 		Level        func(childComplexity int) int
 		MembershipID func(childComplexity int) int
-		Patron       func(childComplexity int) int
+		PatronID     func(childComplexity int) int
 	}
 
 	Mutation struct {
-		AddViolation       func(childComplexity int, patronID string, violationType model.ViolationType, violationInfo string) int
-		CreatePatron       func(childComplexity int, firstName string, lastName string, phoneNumber string) int
-		UpdatePatronStatus func(childComplexity int, patronID string, patronStatus model.Status) int
+		AddViolation                   func(childComplexity int, patronID string, violationType model.ViolationType, violationInfo string) int
+		CreatePatron                   func(childComplexity int, firstName string, lastName string, phoneNumber string) int
+		DeletePatronByID               func(childComplexity int, patronID string) int
+		UpdateMembershipByMembershipID func(childComplexity int, membershipID string, level model.MembershipLevel) int
+		UpdateMembershipByPatronID     func(childComplexity int, patronID string, level model.MembershipLevel) int
+		UpdatePatron                   func(childComplexity int, patronID string, firstName *string, lastName *string, phoneNumber *string) int
+		UpdatePatronStatus             func(childComplexity int, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) int
 	}
 
 	Patron struct {
@@ -70,19 +74,24 @@ type ComplexityRoot struct {
 	}
 
 	PatronStatus struct {
-		Patron       func(childComplexity int) int
+		PatronID     func(childComplexity int) int
 		PatronStatus func(childComplexity int) int
 		UnpaidFees   func(childComplexity int) int
 		WarningCount func(childComplexity int) int
 	}
 
 	Query struct {
-		GetAllPatrons func(childComplexity int) int
-		GetPatron     func(childComplexity int, patronID string) int
+		GetAllPatrons           func(childComplexity int) int
+		GetMembershipByLevel    func(childComplexity int, level model.MembershipLevel) int
+		GetMembershipByPatronID func(childComplexity int, patronID string) int
+		GetPatronByID           func(childComplexity int, patronID string) int
+		GetPatronStatusByType   func(childComplexity int, patronStatus model.Status) int
+		GetViolationByPatronID  func(childComplexity int, patronID string) int
+		GetViolationByType      func(childComplexity int, violationType model.ViolationType) int
 	}
 
 	ViolationRecord struct {
-		Patron            func(childComplexity int) int
+		PatronID          func(childComplexity int) int
 		ViolationInfo     func(childComplexity int) int
 		ViolationRecordID func(childComplexity int) int
 		ViolationType     func(childComplexity int) int
@@ -91,12 +100,21 @@ type ComplexityRoot struct {
 
 type MutationResolver interface {
 	CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string) (*model.Patron, error)
-	UpdatePatronStatus(ctx context.Context, patronID string, patronStatus model.Status) (*model.PatronStatus, error)
+	UpdatePatron(ctx context.Context, patronID string, firstName *string, lastName *string, phoneNumber *string) (*model.Patron, error)
+	DeletePatronByID(ctx context.Context, patronID string) (*model.Patron, error)
+	UpdateMembershipByPatronID(ctx context.Context, patronID string, level model.MembershipLevel) (*model.Membership, error)
+	UpdateMembershipByMembershipID(ctx context.Context, membershipID string, level model.MembershipLevel) (*model.Membership, error)
+	UpdatePatronStatus(ctx context.Context, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) (*model.PatronStatus, error)
 	AddViolation(ctx context.Context, patronID string, violationType model.ViolationType, violationInfo string) (*model.ViolationRecord, error)
 }
 type QueryResolver interface {
-	GetPatron(ctx context.Context, patronID string) (*model.Patron, error)
+	GetPatronByID(ctx context.Context, patronID string) (*model.Patron, error)
 	GetAllPatrons(ctx context.Context) ([]*model.Patron, error)
+	GetMembershipByLevel(ctx context.Context, level model.MembershipLevel) ([]*model.Membership, error)
+	GetMembershipByPatronID(ctx context.Context, patronID string) (*model.Membership, error)
+	GetViolationByPatronID(ctx context.Context, patronID string) ([]*model.ViolationRecord, error)
+	GetViolationByType(ctx context.Context, violationType model.ViolationType) ([]*model.ViolationRecord, error)
+	GetPatronStatusByType(ctx context.Context, patronStatus model.Status) ([]*model.PatronStatus, error)
 }
 
 type executableSchema struct {
@@ -132,12 +150,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Membership.MembershipID(childComplexity), true
 
-	case "Membership.patron":
-		if e.complexity.Membership.Patron == nil {
+	case "Membership.patron_id":
+		if e.complexity.Membership.PatronID == nil {
 			break
 		}
 
-		return e.complexity.Membership.Patron(childComplexity), true
+		return e.complexity.Membership.PatronID(childComplexity), true
 
 	case "Mutation.addViolation":
 		if e.complexity.Mutation.AddViolation == nil {
@@ -163,6 +181,54 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.CreatePatron(childComplexity, args["first_name"].(string), args["last_name"].(string), args["phone_number"].(string)), true
 
+	case "Mutation.deletePatronById":
+		if e.complexity.Mutation.DeletePatronByID == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deletePatronById_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeletePatronByID(childComplexity, args["patron_id"].(string)), true
+
+	case "Mutation.updateMembershipByMembershipId":
+		if e.complexity.Mutation.UpdateMembershipByMembershipID == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateMembershipByMembershipId_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateMembershipByMembershipID(childComplexity, args["membership_id"].(string), args["level"].(model.MembershipLevel)), true
+
+	case "Mutation.updateMembershipByPatronId":
+		if e.complexity.Mutation.UpdateMembershipByPatronID == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateMembershipByPatronId_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateMembershipByPatronID(childComplexity, args["patron_id"].(string), args["level"].(model.MembershipLevel)), true
+
+	case "Mutation.updatePatron":
+		if e.complexity.Mutation.UpdatePatron == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updatePatron_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdatePatron(childComplexity, args["patron_id"].(string), args["first_name"].(*string), args["last_name"].(*string), args["phone_number"].(*string)), true
+
 	case "Mutation.updatePatronStatus":
 		if e.complexity.Mutation.UpdatePatronStatus == nil {
 			break
@@ -173,7 +239,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdatePatronStatus(childComplexity, args["patron_id"].(string), args["patron_status"].(model.Status)), true
+		return e.complexity.Mutation.UpdatePatronStatus(childComplexity, args["patron_id"].(string), args["warning_count"].(*int32), args["unpaid_fees"].(*float64), args["patron_status"].(*model.Status)), true
 
 	case "Patron.first_name":
 		if e.complexity.Patron.FirstName == nil {
@@ -224,12 +290,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Patron.Violations(childComplexity), true
 
-	case "PatronStatus.patron":
-		if e.complexity.PatronStatus.Patron == nil {
+	case "PatronStatus.patron_id":
+		if e.complexity.PatronStatus.PatronID == nil {
 			break
 		}
 
-		return e.complexity.PatronStatus.Patron(childComplexity), true
+		return e.complexity.PatronStatus.PatronID(childComplexity), true
 
 	case "PatronStatus.patron_status":
 		if e.complexity.PatronStatus.PatronStatus == nil {
@@ -259,24 +325,84 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.GetAllPatrons(childComplexity), true
 
-	case "Query.getPatron":
-		if e.complexity.Query.GetPatron == nil {
+	case "Query.getMembershipByLevel":
+		if e.complexity.Query.GetMembershipByLevel == nil {
 			break
 		}
 
-		args, err := ec.field_Query_getPatron_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_getMembershipByLevel_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Query.GetPatron(childComplexity, args["patron_id"].(string)), true
+		return e.complexity.Query.GetMembershipByLevel(childComplexity, args["level"].(model.MembershipLevel)), true
 
-	case "ViolationRecord.patron":
-		if e.complexity.ViolationRecord.Patron == nil {
+	case "Query.getMembershipByPatronId":
+		if e.complexity.Query.GetMembershipByPatronID == nil {
 			break
 		}
 
-		return e.complexity.ViolationRecord.Patron(childComplexity), true
+		args, err := ec.field_Query_getMembershipByPatronId_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetMembershipByPatronID(childComplexity, args["patron_id"].(string)), true
+
+	case "Query.getPatronById":
+		if e.complexity.Query.GetPatronByID == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getPatronById_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetPatronByID(childComplexity, args["patron_id"].(string)), true
+
+	case "Query.getPatronStatusByType":
+		if e.complexity.Query.GetPatronStatusByType == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getPatronStatusByType_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetPatronStatusByType(childComplexity, args["patron_status"].(model.Status)), true
+
+	case "Query.getViolationByPatronId":
+		if e.complexity.Query.GetViolationByPatronID == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getViolationByPatronId_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetViolationByPatronID(childComplexity, args["patron_id"].(string)), true
+
+	case "Query.getViolationByType":
+		if e.complexity.Query.GetViolationByType == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getViolationByType_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetViolationByType(childComplexity, args["violation_type"].(model.ViolationType)), true
+
+	case "ViolationRecord.patron_id":
+		if e.complexity.ViolationRecord.PatronID == nil {
+			break
+		}
+
+		return e.complexity.ViolationRecord.PatronID(childComplexity), true
 
 	case "ViolationRecord.violation_info":
 		if e.complexity.ViolationRecord.ViolationInfo == nil {
@@ -540,6 +666,111 @@ func (ec *executionContext) field_Mutation_createPatron_argsPhoneNumber(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Mutation_deletePatronById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_deletePatronById_argsPatronID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["patron_id"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_deletePatronById_argsPatronID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
+	if tmp, ok := rawArgs["patron_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updateMembershipByMembershipId_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_updateMembershipByMembershipId_argsMembershipID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["membership_id"] = arg0
+	arg1, err := ec.field_Mutation_updateMembershipByMembershipId_argsLevel(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["level"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_updateMembershipByMembershipId_argsMembershipID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("membership_id"))
+	if tmp, ok := rawArgs["membership_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updateMembershipByMembershipId_argsLevel(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (model.MembershipLevel, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("level"))
+	if tmp, ok := rawArgs["level"]; ok {
+		return ec.unmarshalNMembershipLevel2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembershipLevel(ctx, tmp)
+	}
+
+	var zeroVal model.MembershipLevel
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updateMembershipByPatronId_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_updateMembershipByPatronId_argsPatronID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["patron_id"] = arg0
+	arg1, err := ec.field_Mutation_updateMembershipByPatronId_argsLevel(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["level"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_updateMembershipByPatronId_argsPatronID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
+	if tmp, ok := rawArgs["patron_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updateMembershipByPatronId_argsLevel(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (model.MembershipLevel, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("level"))
+	if tmp, ok := rawArgs["level"]; ok {
+		return ec.unmarshalNMembershipLevel2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembershipLevel(ctx, tmp)
+	}
+
+	var zeroVal model.MembershipLevel
+	return zeroVal, nil
+}
+
 func (ec *executionContext) field_Mutation_updatePatronStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -548,11 +779,21 @@ func (ec *executionContext) field_Mutation_updatePatronStatus_args(ctx context.C
 		return nil, err
 	}
 	args["patron_id"] = arg0
-	arg1, err := ec.field_Mutation_updatePatronStatus_argsPatronStatus(ctx, rawArgs)
+	arg1, err := ec.field_Mutation_updatePatronStatus_argsWarningCount(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["patron_status"] = arg1
+	args["warning_count"] = arg1
+	arg2, err := ec.field_Mutation_updatePatronStatus_argsUnpaidFees(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["unpaid_fees"] = arg2
+	arg3, err := ec.field_Mutation_updatePatronStatus_argsPatronStatus(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["patron_status"] = arg3
 	return args, nil
 }
 func (ec *executionContext) field_Mutation_updatePatronStatus_argsPatronID(
@@ -568,16 +809,119 @@ func (ec *executionContext) field_Mutation_updatePatronStatus_argsPatronID(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Mutation_updatePatronStatus_argsWarningCount(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*int32, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("warning_count"))
+	if tmp, ok := rawArgs["warning_count"]; ok {
+		return ec.unmarshalOInt2ᚖint32(ctx, tmp)
+	}
+
+	var zeroVal *int32
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updatePatronStatus_argsUnpaidFees(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*float64, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("unpaid_fees"))
+	if tmp, ok := rawArgs["unpaid_fees"]; ok {
+		return ec.unmarshalOFloat2ᚖfloat64(ctx, tmp)
+	}
+
+	var zeroVal *float64
+	return zeroVal, nil
+}
+
 func (ec *executionContext) field_Mutation_updatePatronStatus_argsPatronStatus(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (model.Status, error) {
+) (*model.Status, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_status"))
 	if tmp, ok := rawArgs["patron_status"]; ok {
-		return ec.unmarshalNStatus2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐStatus(ctx, tmp)
+		return ec.unmarshalOStatus2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐStatus(ctx, tmp)
 	}
 
-	var zeroVal model.Status
+	var zeroVal *model.Status
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updatePatron_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_updatePatron_argsPatronID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["patron_id"] = arg0
+	arg1, err := ec.field_Mutation_updatePatron_argsFirstName(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["first_name"] = arg1
+	arg2, err := ec.field_Mutation_updatePatron_argsLastName(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["last_name"] = arg2
+	arg3, err := ec.field_Mutation_updatePatron_argsPhoneNumber(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["phone_number"] = arg3
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_updatePatron_argsPatronID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
+	if tmp, ok := rawArgs["patron_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updatePatron_argsFirstName(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("first_name"))
+	if tmp, ok := rawArgs["first_name"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updatePatron_argsLastName(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("last_name"))
+	if tmp, ok := rawArgs["last_name"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updatePatron_argsPhoneNumber(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("phone_number"))
+	if tmp, ok := rawArgs["phone_number"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
 	return zeroVal, nil
 }
 
@@ -604,17 +948,40 @@ func (ec *executionContext) field_Query___type_argsName(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_getPatron_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Query_getMembershipByLevel_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Query_getPatron_argsPatronID(ctx, rawArgs)
+	arg0, err := ec.field_Query_getMembershipByLevel_argsLevel(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["level"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Query_getMembershipByLevel_argsLevel(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (model.MembershipLevel, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("level"))
+	if tmp, ok := rawArgs["level"]; ok {
+		return ec.unmarshalNMembershipLevel2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembershipLevel(ctx, tmp)
+	}
+
+	var zeroVal model.MembershipLevel
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_getMembershipByPatronId_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_getMembershipByPatronId_argsPatronID(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
 	args["patron_id"] = arg0
 	return args, nil
 }
-func (ec *executionContext) field_Query_getPatron_argsPatronID(
+func (ec *executionContext) field_Query_getMembershipByPatronId_argsPatronID(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (string, error) {
@@ -624,6 +991,98 @@ func (ec *executionContext) field_Query_getPatron_argsPatronID(
 	}
 
 	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_getPatronById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_getPatronById_argsPatronID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["patron_id"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Query_getPatronById_argsPatronID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
+	if tmp, ok := rawArgs["patron_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_getPatronStatusByType_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_getPatronStatusByType_argsPatronStatus(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["patron_status"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Query_getPatronStatusByType_argsPatronStatus(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (model.Status, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_status"))
+	if tmp, ok := rawArgs["patron_status"]; ok {
+		return ec.unmarshalNStatus2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐStatus(ctx, tmp)
+	}
+
+	var zeroVal model.Status
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_getViolationByPatronId_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_getViolationByPatronId_argsPatronID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["patron_id"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Query_getViolationByPatronId_argsPatronID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
+	if tmp, ok := rawArgs["patron_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_getViolationByType_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_getViolationByType_argsViolationType(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["violation_type"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Query_getViolationByType_argsViolationType(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (model.ViolationType, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("violation_type"))
+	if tmp, ok := rawArgs["violation_type"]; ok {
+		return ec.unmarshalNViolationType2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐViolationType(ctx, tmp)
+	}
+
+	var zeroVal model.ViolationType
 	return zeroVal, nil
 }
 
@@ -771,8 +1230,8 @@ func (ec *executionContext) fieldContext_Membership_membership_id(_ context.Cont
 	return fc, nil
 }
 
-func (ec *executionContext) _Membership_patron(ctx context.Context, field graphql.CollectedField, obj *model.Membership) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Membership_patron(ctx, field)
+func (ec *executionContext) _Membership_patron_id(ctx context.Context, field graphql.CollectedField, obj *model.Membership) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Membership_patron_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -785,7 +1244,7 @@ func (ec *executionContext) _Membership_patron(ctx context.Context, field graphq
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Patron, nil
+		return obj.PatronID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -797,35 +1256,19 @@ func (ec *executionContext) _Membership_patron(ctx context.Context, field graphq
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Patron)
+	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNPatron2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatron(ctx, field.Selections, res)
+	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Membership_patron(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Membership_patron_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Membership",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "patron_id":
-				return ec.fieldContext_Patron_patron_id(ctx, field)
-			case "first_name":
-				return ec.fieldContext_Patron_first_name(ctx, field)
-			case "last_name":
-				return ec.fieldContext_Patron_last_name(ctx, field)
-			case "phone_number":
-				return ec.fieldContext_Patron_phone_number(ctx, field)
-			case "membership":
-				return ec.fieldContext_Patron_membership(ctx, field)
-			case "status":
-				return ec.fieldContext_Patron_status(ctx, field)
-			case "violations":
-				return ec.fieldContext_Patron_violations(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
+			return nil, errors.New("field of type ID does not have child fields")
 		},
 	}
 	return fc, nil
@@ -943,6 +1386,262 @@ func (ec *executionContext) fieldContext_Mutation_createPatron(ctx context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_updatePatron(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_updatePatron(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpdatePatron(rctx, fc.Args["patron_id"].(string), fc.Args["first_name"].(*string), fc.Args["last_name"].(*string), fc.Args["phone_number"].(*string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Patron)
+	fc.Result = res
+	return ec.marshalOPatron2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatron(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updatePatron(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "patron_id":
+				return ec.fieldContext_Patron_patron_id(ctx, field)
+			case "first_name":
+				return ec.fieldContext_Patron_first_name(ctx, field)
+			case "last_name":
+				return ec.fieldContext_Patron_last_name(ctx, field)
+			case "phone_number":
+				return ec.fieldContext_Patron_phone_number(ctx, field)
+			case "membership":
+				return ec.fieldContext_Patron_membership(ctx, field)
+			case "status":
+				return ec.fieldContext_Patron_status(ctx, field)
+			case "violations":
+				return ec.fieldContext_Patron_violations(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updatePatron_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deletePatronById(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_deletePatronById(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeletePatronByID(rctx, fc.Args["patron_id"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Patron)
+	fc.Result = res
+	return ec.marshalOPatron2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatron(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_deletePatronById(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "patron_id":
+				return ec.fieldContext_Patron_patron_id(ctx, field)
+			case "first_name":
+				return ec.fieldContext_Patron_first_name(ctx, field)
+			case "last_name":
+				return ec.fieldContext_Patron_last_name(ctx, field)
+			case "phone_number":
+				return ec.fieldContext_Patron_phone_number(ctx, field)
+			case "membership":
+				return ec.fieldContext_Patron_membership(ctx, field)
+			case "status":
+				return ec.fieldContext_Patron_status(ctx, field)
+			case "violations":
+				return ec.fieldContext_Patron_violations(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deletePatronById_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateMembershipByPatronId(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_updateMembershipByPatronId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpdateMembershipByPatronID(rctx, fc.Args["patron_id"].(string), fc.Args["level"].(model.MembershipLevel))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Membership)
+	fc.Result = res
+	return ec.marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updateMembershipByPatronId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "membership_id":
+				return ec.fieldContext_Membership_membership_id(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_Membership_patron_id(ctx, field)
+			case "level":
+				return ec.fieldContext_Membership_level(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Membership", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateMembershipByPatronId_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateMembershipByMembershipId(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_updateMembershipByMembershipId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpdateMembershipByMembershipID(rctx, fc.Args["membership_id"].(string), fc.Args["level"].(model.MembershipLevel))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Membership)
+	fc.Result = res
+	return ec.marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updateMembershipByMembershipId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "membership_id":
+				return ec.fieldContext_Membership_membership_id(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_Membership_patron_id(ctx, field)
+			case "level":
+				return ec.fieldContext_Membership_level(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Membership", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateMembershipByMembershipId_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_updatePatronStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Mutation_updatePatronStatus(ctx, field)
 	if err != nil {
@@ -957,7 +1656,7 @@ func (ec *executionContext) _Mutation_updatePatronStatus(ctx context.Context, fi
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdatePatronStatus(rctx, fc.Args["patron_id"].(string), fc.Args["patron_status"].(model.Status))
+		return ec.resolvers.Mutation().UpdatePatronStatus(rctx, fc.Args["patron_id"].(string), fc.Args["warning_count"].(*int32), fc.Args["unpaid_fees"].(*float64), fc.Args["patron_status"].(*model.Status))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -979,8 +1678,8 @@ func (ec *executionContext) fieldContext_Mutation_updatePatronStatus(ctx context
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "patron":
-				return ec.fieldContext_PatronStatus_patron(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_PatronStatus_patron_id(ctx, field)
 			case "warning_count":
 				return ec.fieldContext_PatronStatus_warning_count(ctx, field)
 			case "patron_status":
@@ -1043,8 +1742,8 @@ func (ec *executionContext) fieldContext_Mutation_addViolation(ctx context.Conte
 			switch field.Name {
 			case "violation_record_id":
 				return ec.fieldContext_ViolationRecord_violation_record_id(ctx, field)
-			case "patron":
-				return ec.fieldContext_ViolationRecord_patron(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_ViolationRecord_patron_id(ctx, field)
 			case "violation_type":
 				return ec.fieldContext_ViolationRecord_violation_type(ctx, field)
 			case "violation_info":
@@ -1281,8 +1980,8 @@ func (ec *executionContext) fieldContext_Patron_membership(_ context.Context, fi
 			switch field.Name {
 			case "membership_id":
 				return ec.fieldContext_Membership_membership_id(ctx, field)
-			case "patron":
-				return ec.fieldContext_Membership_patron(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_Membership_patron_id(ctx, field)
 			case "level":
 				return ec.fieldContext_Membership_level(ctx, field)
 			}
@@ -1328,8 +2027,8 @@ func (ec *executionContext) fieldContext_Patron_status(_ context.Context, field 
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "patron":
-				return ec.fieldContext_PatronStatus_patron(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_PatronStatus_patron_id(ctx, field)
 			case "warning_count":
 				return ec.fieldContext_PatronStatus_warning_count(ctx, field)
 			case "patron_status":
@@ -1381,8 +2080,8 @@ func (ec *executionContext) fieldContext_Patron_violations(_ context.Context, fi
 			switch field.Name {
 			case "violation_record_id":
 				return ec.fieldContext_ViolationRecord_violation_record_id(ctx, field)
-			case "patron":
-				return ec.fieldContext_ViolationRecord_patron(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_ViolationRecord_patron_id(ctx, field)
 			case "violation_type":
 				return ec.fieldContext_ViolationRecord_violation_type(ctx, field)
 			case "violation_info":
@@ -1394,8 +2093,8 @@ func (ec *executionContext) fieldContext_Patron_violations(_ context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _PatronStatus_patron(ctx context.Context, field graphql.CollectedField, obj *model.PatronStatus) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_PatronStatus_patron(ctx, field)
+func (ec *executionContext) _PatronStatus_patron_id(ctx context.Context, field graphql.CollectedField, obj *model.PatronStatus) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PatronStatus_patron_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1408,7 +2107,7 @@ func (ec *executionContext) _PatronStatus_patron(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Patron, nil
+		return obj.PatronID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1420,35 +2119,19 @@ func (ec *executionContext) _PatronStatus_patron(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Patron)
+	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNPatron2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatron(ctx, field.Selections, res)
+	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_PatronStatus_patron(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_PatronStatus_patron_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "PatronStatus",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "patron_id":
-				return ec.fieldContext_Patron_patron_id(ctx, field)
-			case "first_name":
-				return ec.fieldContext_Patron_first_name(ctx, field)
-			case "last_name":
-				return ec.fieldContext_Patron_last_name(ctx, field)
-			case "phone_number":
-				return ec.fieldContext_Patron_phone_number(ctx, field)
-			case "membership":
-				return ec.fieldContext_Patron_membership(ctx, field)
-			case "status":
-				return ec.fieldContext_Patron_status(ctx, field)
-			case "violations":
-				return ec.fieldContext_Patron_violations(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
+			return nil, errors.New("field of type ID does not have child fields")
 		},
 	}
 	return fc, nil
@@ -1586,8 +2269,8 @@ func (ec *executionContext) fieldContext_PatronStatus_unpaid_fees(_ context.Cont
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_getPatron(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getPatron(ctx, field)
+func (ec *executionContext) _Query_getPatronById(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getPatronById(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1600,7 +2283,7 @@ func (ec *executionContext) _Query_getPatron(ctx context.Context, field graphql.
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetPatron(rctx, fc.Args["patron_id"].(string))
+		return ec.resolvers.Query().GetPatronByID(rctx, fc.Args["patron_id"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1614,7 +2297,7 @@ func (ec *executionContext) _Query_getPatron(ctx context.Context, field graphql.
 	return ec.marshalOPatron2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatron(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_getPatron(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_getPatronById(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -1647,7 +2330,7 @@ func (ec *executionContext) fieldContext_Query_getPatron(ctx context.Context, fi
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_getPatron_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_getPatronById_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -1707,6 +2390,312 @@ func (ec *executionContext) fieldContext_Query_getAllPatrons(_ context.Context, 
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getMembershipByLevel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getMembershipByLevel(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetMembershipByLevel(rctx, fc.Args["level"].(model.MembershipLevel))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.([]*model.Membership)
+	fc.Result = res
+	return ec.marshalOMembership2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_getMembershipByLevel(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "membership_id":
+				return ec.fieldContext_Membership_membership_id(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_Membership_patron_id(ctx, field)
+			case "level":
+				return ec.fieldContext_Membership_level(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Membership", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getMembershipByLevel_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getMembershipByPatronId(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getMembershipByPatronId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetMembershipByPatronID(rctx, fc.Args["patron_id"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Membership)
+	fc.Result = res
+	return ec.marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_getMembershipByPatronId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "membership_id":
+				return ec.fieldContext_Membership_membership_id(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_Membership_patron_id(ctx, field)
+			case "level":
+				return ec.fieldContext_Membership_level(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Membership", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getMembershipByPatronId_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getViolationByPatronId(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getViolationByPatronId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetViolationByPatronID(rctx, fc.Args["patron_id"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.([]*model.ViolationRecord)
+	fc.Result = res
+	return ec.marshalOViolationRecord2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐViolationRecord(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_getViolationByPatronId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "violation_record_id":
+				return ec.fieldContext_ViolationRecord_violation_record_id(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_ViolationRecord_patron_id(ctx, field)
+			case "violation_type":
+				return ec.fieldContext_ViolationRecord_violation_type(ctx, field)
+			case "violation_info":
+				return ec.fieldContext_ViolationRecord_violation_info(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ViolationRecord", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getViolationByPatronId_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getViolationByType(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getViolationByType(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetViolationByType(rctx, fc.Args["violation_type"].(model.ViolationType))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.([]*model.ViolationRecord)
+	fc.Result = res
+	return ec.marshalOViolationRecord2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐViolationRecord(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_getViolationByType(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "violation_record_id":
+				return ec.fieldContext_ViolationRecord_violation_record_id(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_ViolationRecord_patron_id(ctx, field)
+			case "violation_type":
+				return ec.fieldContext_ViolationRecord_violation_type(ctx, field)
+			case "violation_info":
+				return ec.fieldContext_ViolationRecord_violation_info(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ViolationRecord", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getViolationByType_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getPatronStatusByType(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getPatronStatusByType(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetPatronStatusByType(rctx, fc.Args["patron_status"].(model.Status))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.([]*model.PatronStatus)
+	fc.Result = res
+	return ec.marshalOPatronStatus2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatronStatus(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_getPatronStatusByType(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "patron_id":
+				return ec.fieldContext_PatronStatus_patron_id(ctx, field)
+			case "warning_count":
+				return ec.fieldContext_PatronStatus_warning_count(ctx, field)
+			case "patron_status":
+				return ec.fieldContext_PatronStatus_patron_status(ctx, field)
+			case "unpaid_fees":
+				return ec.fieldContext_PatronStatus_unpaid_fees(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PatronStatus", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getPatronStatusByType_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -1886,8 +2875,8 @@ func (ec *executionContext) fieldContext_ViolationRecord_violation_record_id(_ c
 	return fc, nil
 }
 
-func (ec *executionContext) _ViolationRecord_patron(ctx context.Context, field graphql.CollectedField, obj *model.ViolationRecord) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_ViolationRecord_patron(ctx, field)
+func (ec *executionContext) _ViolationRecord_patron_id(ctx context.Context, field graphql.CollectedField, obj *model.ViolationRecord) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ViolationRecord_patron_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1900,7 +2889,7 @@ func (ec *executionContext) _ViolationRecord_patron(ctx context.Context, field g
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Patron, nil
+		return obj.PatronID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1912,35 +2901,19 @@ func (ec *executionContext) _ViolationRecord_patron(ctx context.Context, field g
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Patron)
+	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNPatron2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatron(ctx, field.Selections, res)
+	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_ViolationRecord_patron(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_ViolationRecord_patron_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "ViolationRecord",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "patron_id":
-				return ec.fieldContext_Patron_patron_id(ctx, field)
-			case "first_name":
-				return ec.fieldContext_Patron_first_name(ctx, field)
-			case "last_name":
-				return ec.fieldContext_Patron_last_name(ctx, field)
-			case "phone_number":
-				return ec.fieldContext_Patron_phone_number(ctx, field)
-			case "membership":
-				return ec.fieldContext_Patron_membership(ctx, field)
-			case "status":
-				return ec.fieldContext_Patron_status(ctx, field)
-			case "violations":
-				return ec.fieldContext_Patron_violations(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
+			return nil, errors.New("field of type ID does not have child fields")
 		},
 	}
 	return fc, nil
@@ -4009,8 +4982,8 @@ func (ec *executionContext) _Membership(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "patron":
-			out.Values[i] = ec._Membership_patron(ctx, field, obj)
+		case "patron_id":
+			out.Values[i] = ec._Membership_patron_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4064,6 +5037,22 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "createPatron":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createPatron(ctx, field)
+			})
+		case "updatePatron":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updatePatron(ctx, field)
+			})
+		case "deletePatronById":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deletePatronById(ctx, field)
+			})
+		case "updateMembershipByPatronId":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateMembershipByPatronId(ctx, field)
+			})
+		case "updateMembershipByMembershipId":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateMembershipByMembershipId(ctx, field)
 			})
 		case "updatePatronStatus":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
@@ -4167,8 +5156,8 @@ func (ec *executionContext) _PatronStatus(ctx context.Context, sel ast.Selection
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("PatronStatus")
-		case "patron":
-			out.Values[i] = ec._PatronStatus_patron(ctx, field, obj)
+		case "patron_id":
+			out.Values[i] = ec._PatronStatus_patron_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4229,7 +5218,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Query")
-		case "getPatron":
+		case "getPatronById":
 			field := field
 
 			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
@@ -4238,7 +5227,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_getPatron(ctx, field)
+				res = ec._Query_getPatronById(ctx, field)
 				return res
 			}
 
@@ -4258,6 +5247,101 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_getAllPatrons(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getMembershipByLevel":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getMembershipByLevel(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getMembershipByPatronId":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getMembershipByPatronId(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getViolationByPatronId":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getViolationByPatronId(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getViolationByType":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getViolationByType(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getPatronStatusByType":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getPatronStatusByType(ctx, field)
 				return res
 			}
 
@@ -4314,8 +5398,8 @@ func (ec *executionContext) _ViolationRecord(ctx context.Context, sel ast.Select
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "patron":
-			out.Values[i] = ec._ViolationRecord_patron(ctx, field, obj)
+		case "patron_id":
+			out.Values[i] = ec._ViolationRecord_patron_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4757,16 +5841,6 @@ func (ec *executionContext) marshalNMembershipLevel2githubᚗcomᚋGSaliseᚋlms
 	return v
 }
 
-func (ec *executionContext) marshalNPatron2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatron(ctx context.Context, sel ast.SelectionSet, v *model.Patron) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._Patron(ctx, sel, v)
-}
-
 func (ec *executionContext) unmarshalNStatus2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐStatus(ctx context.Context, v any) (model.Status, error) {
 	var res model.Status
 	err := res.UnmarshalGQL(v)
@@ -5081,6 +6155,79 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
+func (ec *executionContext) unmarshalOFloat2ᚖfloat64(ctx context.Context, v any) (*float64, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalFloatContext(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOFloat2ᚖfloat64(ctx context.Context, sel ast.SelectionSet, v *float64) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	res := graphql.MarshalFloatContext(*v)
+	return graphql.WrapContextMarshaler(ctx, res)
+}
+
+func (ec *executionContext) unmarshalOInt2ᚖint32(ctx context.Context, v any) (*int32, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalInt32(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOInt2ᚖint32(ctx context.Context, sel ast.SelectionSet, v *int32) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	res := graphql.MarshalInt32(*v)
+	return res
+}
+
+func (ec *executionContext) marshalOMembership2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx context.Context, sel ast.SelectionSet, v []*model.Membership) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	return ret
+}
+
 func (ec *executionContext) marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx context.Context, sel ast.SelectionSet, v *model.Membership) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -5136,11 +6283,68 @@ func (ec *executionContext) marshalOPatron2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpat
 	return ec._Patron(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOPatronStatus2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatronStatus(ctx context.Context, sel ast.SelectionSet, v []*model.PatronStatus) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalOPatronStatus2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatronStatus(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	return ret
+}
+
 func (ec *executionContext) marshalOPatronStatus2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatronStatus(ctx context.Context, sel ast.SelectionSet, v *model.PatronStatus) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._PatronStatus(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOStatus2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐStatus(ctx context.Context, v any) (*model.Status, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(model.Status)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOStatus2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐStatus(ctx context.Context, sel ast.SelectionSet, v *model.Status) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {
