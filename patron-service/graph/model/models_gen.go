@@ -10,7 +10,7 @@ import (
 
 type Membership struct {
 	MembershipID string          `json:"membership_id"`
-	Patron       *Patron         `json:"patron"`
+	PatronID     string          `json:"patron_id"`
 	Level        MembershipLevel `json:"level"`
 }
 
@@ -28,7 +28,7 @@ type Patron struct {
 }
 
 type PatronStatus struct {
-	Patron       *Patron `json:"patron"`
+	PatronID     string  `json:"patron_id"`
 	WarningCount int32   `json:"warning_count"`
 	PatronStatus Status  `json:"patron_status"`
 	UnpaidFees   float64 `json:"unpaid_fees"`
@@ -39,7 +39,7 @@ type Query struct {
 
 type ViolationRecord struct {
 	ViolationRecordID string        `json:"violation_record_id"`
-	Patron            *Patron       `json:"patron"`
+	PatronID          string        `json:"patron_id"`
 	ViolationType     ViolationType `json:"violation_type"`
 	ViolationInfo     string        `json:"violation_info"`
 }
@@ -47,9 +47,9 @@ type ViolationRecord struct {
 type MembershipLevel string
 
 const (
-	MembershipLevelBronze MembershipLevel = "BRONZE"
-	MembershipLevelSilver MembershipLevel = "SILVER"
-	MembershipLevelGold   MembershipLevel = "GOLD"
+	MembershipLevelBronze MembershipLevel = "Bronze"
+	MembershipLevelSilver MembershipLevel = "Silver"
+	MembershipLevelGold   MembershipLevel = "Gold"
 )
 
 var AllMembershipLevel = []MembershipLevel{
@@ -90,10 +90,10 @@ func (e MembershipLevel) MarshalGQL(w io.Writer) {
 type Status string
 
 const (
-	StatusGood    Status = "GOOD"
-	StatusWarned  Status = "WARNED"
-	StatusBanned  Status = "BANNED"
-	StatusPending Status = "PENDING"
+	StatusGood    Status = "Good"
+	StatusWarned  Status = "Warned"
+	StatusBanned  Status = "Banned"
+	StatusPending Status = "Pending"
 )
 
 var AllStatus = []Status{
@@ -135,9 +135,9 @@ func (e Status) MarshalGQL(w io.Writer) {
 type ViolationType string
 
 const (
-	ViolationTypeLateReturn  ViolationType = "LATE_RETURN"
-	ViolationTypeUnpaidFees  ViolationType = "UNPAID_FEES"
-	ViolationTypeDamagedBook ViolationType = "DAMAGED_BOOK"
+	ViolationTypeLateReturn  ViolationType = "Late_Return"
+	ViolationTypeUnpaidFees  ViolationType = "Unpaid_Fees"
+	ViolationTypeDamagedBook ViolationType = "Damaged_Book"
 )
 
 var AllViolationType = []ViolationType{
