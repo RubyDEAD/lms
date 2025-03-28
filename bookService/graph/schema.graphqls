@@ -29,6 +29,9 @@ input BookFilter {
 }
 
 type Query {
+  getBooks:[Book!]!
+  getAuthor:[Author!]!
+  getBookCopies:[Book_copies!]!
   getFilteredBooks(filter: BookFilter): [Book!]! # Filter books based on criteria
   getBookById(id: String!): Book
   getBookCopiesById(id: String!):[Book_copies!]!
