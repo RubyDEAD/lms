@@ -1,4 +1,8 @@
 
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Lilita+One&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+
 .App {
   text-align: center;
 }
@@ -26,7 +30,7 @@
 
 
 .sidebar {
-  width: 250px;
+  width: 300px;
   background-color: #BBAB8C;
   color: white;
   height: 100vh;
@@ -34,7 +38,8 @@
   top: 0;
   left: 0;
   padding-top: 20px;
-  padding-left: 20px;
+  padding-left: 30px;
+  margin-top: 50px;
 }
 
 .sidebar-title h1 {
@@ -43,6 +48,7 @@
   color: #fff;
   margin-bottom: 40px;
   margin-right: 20px;
+  font-family: "Roboto";
 }
 
 /* Sidebar navigation */
@@ -53,7 +59,9 @@
 }
 
 .sidebar-nav li {
-  margin: 20px 0;
+  margin: 30px 20px;
+  font-family: "Roboto";
+  text-align: left;
 }
 
 .sidebar-nav .sidebar-link {
@@ -69,4 +77,77 @@
   background-color: #FAEED1;
   color:black;
   border-radius: 10px;
+}
+
+
+.topbar {
+  width: 100%;
+  height: 50px;
+  background-color: #333;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.topbar-container {
+  width: 100%;
+  max-width: 1200px;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.top-left h1 {
+  font-size: 20px;
+  font-weight: bold;
+  color: white;
+}
+
+.top-right {
+  display: flex;
+  align-items: center;
+}
+
+.topbar-icon-container {
+  position: relative;
+  margin-left: 20px;
+  cursor: pointer;
+}
+
+.topbar-icon-container i {
+  font-size: 20px;
+  color: white;
+}
+
+.top-icon-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 18px;
+  height: 18px;
+  background-color: red;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.topbar-avatar-link {
+  margin-left: 20px;
+  cursor: pointer;
+}
+
+.topbar-avatar-link svg {
+  color: white;
+}
+
+/* Hover Effects */
+.topbar-icon-container:hover i,
+.topbar-avatar-link:hover svg {
+  color: #4e89e2;
 }
