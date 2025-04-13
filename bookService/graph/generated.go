@@ -8,6 +8,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -41,6 +42,7 @@ type Config struct {
 type ResolverRoot interface {
 	Mutation() MutationResolver
 	Query() QueryResolver
+	Subscription() SubscriptionResolver
 }
 
 type DirectiveRoot struct {
@@ -49,6 +51,12 @@ type DirectiveRoot struct {
 type ComplexityRoot struct {
 	Author struct {
 		AuthorName func(childComplexity int) int
+		ID         func(childComplexity int) int
+	}
+
+	Bcopy struct {
+		BookID     func(childComplexity int) int
+		BookStatus func(childComplexity int) int
 		ID         func(childComplexity int) int
 	}
 
@@ -90,6 +98,10 @@ type ComplexityRoot struct {
 		GetFilteredBooks  func(childComplexity int, filter *model.BookFilter) int
 		SearchBooks       func(childComplexity int, query string) int
 	}
+
+	Subscription struct {
+		BookAdded func(childComplexity int) int
+	}
 }
 
 type MutationResolver interface {
@@ -110,6 +122,9 @@ type QueryResolver interface {
 	GetBookByID(ctx context.Context, id string) (*model.Book, error)
 	GetBookCopiesByID(ctx context.Context, id string) ([]*model.BookCopies, error)
 	SearchBooks(ctx context.Context, query string) ([]*model.Book, error)
+}
+type SubscriptionResolver interface {
+	BookAdded(ctx context.Context) (<-chan *model.Book, error)
 }
 
 type executableSchema struct {
@@ -144,6 +159,27 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Author.ID(childComplexity), true
+
+	case "Bcopy.book_id":
+		if e.complexity.Bcopy.BookID == nil {
+			break
+		}
+
+		return e.complexity.Bcopy.BookID(childComplexity), true
+
+	case "Bcopy.book_status":
+		if e.complexity.Bcopy.BookStatus == nil {
+			break
+		}
+
+		return e.complexity.Bcopy.BookStatus(childComplexity), true
+
+	case "Bcopy.id":
+		if e.complexity.Bcopy.ID == nil {
+			break
+		}
+
+		return e.complexity.Bcopy.ID(childComplexity), true
 
 	case "Book.author_name":
 		if e.complexity.Book.AuthorName == nil {
@@ -394,6 +430,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.SearchBooks(childComplexity, args["query"].(string)), true
 
+	case "Subscription.bookAdded":
+		if e.complexity.Subscription.BookAdded == nil {
+			break
+		}
+
+		return e.complexity.Subscription.BookAdded(childComplexity), true
+
 	}
 	return 0, false
 }
@@ -446,6 +489,23 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			ctx = graphql.WithUnmarshalerMap(ctx, inputUnmarshalMap)
 			data := ec._Mutation(ctx, opCtx.Operation.SelectionSet)
 			var buf bytes.Buffer
+			data.MarshalGQL(&buf)
+
+			return &graphql.Response{
+				Data: buf.Bytes(),
+			}
+		}
+	case ast.Subscription:
+		next := ec._Subscription(ctx, opCtx.Operation.SelectionSet)
+
+		var buf bytes.Buffer
+		return func(ctx context.Context) *graphql.Response {
+			buf.Reset()
+			data := next(ctx)
+
+			if data == nil {
+				return nil
+			}
 			data.MarshalGQL(&buf)
 
 			return &graphql.Response{
@@ -1140,6 +1200,138 @@ func (ec *executionContext) _Author_author_name(ctx context.Context, field graph
 func (ec *executionContext) fieldContext_Author_author_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Author",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Bcopy_id(ctx context.Context, field graphql.CollectedField, obj *model.Bcopy) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Bcopy_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Bcopy_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Bcopy",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Bcopy_book_id(ctx context.Context, field graphql.CollectedField, obj *model.Bcopy) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Bcopy_book_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.BookID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Bcopy_book_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Bcopy",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Bcopy_book_status(ctx context.Context, field graphql.CollectedField, obj *model.Bcopy) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Bcopy_book_status(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.BookStatus, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Bcopy_book_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Bcopy",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -2741,6 +2933,76 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 				return ec.fieldContext___Schema_directives(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Schema", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_bookAdded(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_bookAdded(ctx, field)
+	if err != nil {
+		return nil
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().BookAdded(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func(ctx context.Context) graphql.Marshaler {
+		select {
+		case res, ok := <-resTmp.(<-chan *model.Book):
+			if !ok {
+				return nil
+			}
+			return graphql.WriterFunc(func(w io.Writer) {
+				w.Write([]byte{'{'})
+				graphql.MarshalString(field.Alias).MarshalGQL(w)
+				w.Write([]byte{':'})
+				ec.marshalNBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBook(ctx, field.Selections, res).MarshalGQL(w)
+				w.Write([]byte{'}'})
+			})
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (ec *executionContext) fieldContext_Subscription_bookAdded(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Book_id(ctx, field)
+			case "title":
+				return ec.fieldContext_Book_title(ctx, field)
+			case "author_name":
+				return ec.fieldContext_Book_author_name(ctx, field)
+			case "date_published":
+				return ec.fieldContext_Book_date_published(ctx, field)
+			case "description":
+				return ec.fieldContext_Book_description(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Book", field.Name)
 		},
 	}
 	return fc, nil
@@ -4790,6 +5052,55 @@ func (ec *executionContext) _Author(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
+var bcopyImplementors = []string{"Bcopy"}
+
+func (ec *executionContext) _Bcopy(ctx context.Context, sel ast.SelectionSet, obj *model.Bcopy) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, bcopyImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Bcopy")
+		case "id":
+			out.Values[i] = ec._Bcopy_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "book_id":
+			out.Values[i] = ec._Bcopy_book_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "book_status":
+			out.Values[i] = ec._Bcopy_book_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var bookImplementors = []string{"Book"}
 
 func (ec *executionContext) _Book(ctx context.Context, sel ast.SelectionSet, obj *model.Book) graphql.Marshaler {
@@ -5215,6 +5526,26 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	}
 
 	return out
+}
+
+var subscriptionImplementors = []string{"Subscription"}
+
+func (ec *executionContext) _Subscription(ctx context.Context, sel ast.SelectionSet) func(ctx context.Context) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, subscriptionImplementors)
+	ctx = graphql.WithFieldContext(ctx, &graphql.FieldContext{
+		Object: "Subscription",
+	})
+	if len(fields) != 1 {
+		ec.Errorf(ctx, "must subscribe to exactly one stream")
+		return nil
+	}
+
+	switch fields[0].Name {
+	case "bookAdded":
+		return ec._Subscription_bookAdded(ctx, fields[0])
+	default:
+		panic("unknown field " + strconv.Quote(fields[0].Name))
+	}
 }
 
 var __DirectiveImplementors = []string{"__Directive"}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Cat6utpcableclarke/bookService/graph/model"
+	"github.com/google/uuid"
 )
 
 // AddBook adds a new book along with the author (if the author does not exist).
@@ -35,18 +36,29 @@ func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName
 
 	}
 
-	return &model.Book{
+	book := &model.Book{
 		ID:            bookID,
 		Title:         title,
 		AuthorName:    authorName,
 		DatePublished: datePublished,
 		Description:   description,
-	}, nil
+	}
+	r.mu.Lock()
+	for key, observer := range r.BookAddedObservers {
+		select {
+		case observer <- book:
+		default:
+			// Clean up dead subscribers
+			close(observer)
+			delete(r.BookAddedObservers, key)
+		}
+	}
+	r.mu.Unlock()
+	return book, nil
 }
 
 // AddBCopy is the resolver for the addBCopy field.
 func (r *mutationResolver) AddBCopy(ctx context.Context, bookID string) (*model.BookCopies, error) {
-
 	_, err := r.DB.Exec(ctx, "INSERT INTO book_copies (book_id) VALUES ($1)", bookID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert book copy: %v", err)
@@ -160,7 +172,6 @@ func (r *mutationResolver) DeleteBook(ctx context.Context, id string) (bool, err
 
 // DeleteBCopy is the resolver for the deleteBCopy field.
 func (r *mutationResolver) DeleteBCopy(ctx context.Context, id string) (bool, error) {
-
 	intID, err := strconv.Atoi(id)
 	if err != nil {
 		return false, fmt.Errorf("invalid ID format: %v", err)
@@ -348,11 +359,34 @@ func (r *queryResolver) SearchBooks(ctx context.Context, query string) ([]*model
 	return books, nil
 }
 
+// BookAdded is the resolver for the bookAdded field.
+func (r *subscriptionResolver) BookAdded(ctx context.Context) (<-chan *model.Book, error) {
+	id := uuid.NewString()
+	events := make(chan *model.Book, 1) // Buffered to prevent blocking
+
+	r.mu.Lock()
+	r.BookAddedObservers[id] = events
+	r.mu.Unlock()
+
+	go func() {
+		<-ctx.Done() // Remove observer when client disconnects
+		r.mu.Lock()
+		delete(r.BookAddedObservers, id)
+		r.mu.Unlock()
+	}()
+
+	return events, nil
+}
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+// Subscription returns SubscriptionResolver implementation.
+func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
+
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }

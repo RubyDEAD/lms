@@ -32,6 +32,10 @@ input BookFilter {
   date_published: String
 }
 
+type Subscription {
+  bookAdded: Book! # Notifies when a new book is added
+}
+
 type Query {
   getBooks:[Book!]!
   getAuthor:[Author!]!
@@ -52,3 +56,4 @@ type Mutation {
   deleteBCopy(id: ID!): Boolean!
   deleteAuthor(id: ID!): Boolean!
 }
+
