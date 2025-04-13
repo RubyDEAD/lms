@@ -8,7 +8,8 @@
 
 ### Patron Service
 To do:
-1. Implement a rollback system in the event something goes wrong in the mutations
-2. Add timestamps
-3. Add subscriptions
-4. Usernames and emails (if need be)
+1. Usernames and emails (if need be)
+
+Notes for Front-End:
+Inig himo sa patron-creation page, applyi og regex ang phone number na field
+Mao ni ako gi gamit : '^[0-9]{10,15}$'
