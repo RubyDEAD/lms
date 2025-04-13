@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/GSalise/lms/patron-service/graph/model"
@@ -28,12 +29,13 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 	PatronErr := r.DB.QueryRow(ctx, `
 		INSERT INTO patrons (first_name, last_name, phone_number)
 		VALUES ($1,$2,$3)
-		RETURNING patron_id, first_name, last_name, phone_number
+		RETURNING patron_id, first_name, last_name, phone_number, patron_created::text
 	`, firstName, lastName, phoneNumber).Scan(
 		&patron.PatronID,
 		&patron.FirstName,
 		&patron.LastName,
 		&patron.PhoneNumber,
+		&patron.PatronCreated,
 	)
 
 	if PatronErr != nil {
@@ -74,7 +76,7 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 	patron_status.PatronID = patron.PatronID
 
 	violationRows, violationErr := r.DB.Query(ctx, `
-		SELECT violation_record_id, violation_type, violation_info
+		SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 		FROM violation_records
 		WHERE patron_id = $1
 	`, patron.PatronID)
@@ -91,6 +93,8 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 			&violation.ViolationRecordID,
 			&violation.ViolationType,
 			&violation.ViolationInfo,
+			&violation.ViolationCreated,
+			&violation.ViolationStatus,
 		)
 
 		if err != nil {
@@ -101,6 +105,19 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 	}
 
 	patron.Violations = violations
+
+	patronCopy := patron
+
+	r.SubscribersMutex.Lock()
+	for subscriber := range r.PatronSubscribers {
+		select {
+		case subscriber <- &patronCopy:
+			// No action needed
+		default:
+			log.Printf("Subscriber channel full, skipping notification for patron %s", patron.PatronID)
+		}
+	}
+	r.SubscribersMutex.Unlock()
 
 	return &patron, nil
 }
@@ -165,7 +182,7 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 	}
 
 	FinalErr := r.DB.QueryRow(ctx, `
-		SELECT *
+		SELECT patron_id, first_name, last_name, phone_number, patron_created::text
 		FROM patrons
 		WHERE patron_id = $1
 	`, patronID).Scan(
@@ -173,6 +190,7 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 		&patron.FirstName,
 		&patron.LastName,
 		&patron.PhoneNumber,
+		&patron.PatronCreated,
 	)
 
 	if FinalErr != nil {
@@ -212,7 +230,7 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 		patron_status.PatronID = patron.PatronID
 
 		violationRows, violationErr := r.DB.Query(ctx, `
-		SELECT violation_record_id, violation_type, violation_info
+		SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 		FROM violation_records
 		WHERE patron_id = $1
 		`, patronID)
@@ -229,6 +247,8 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 				&violation.ViolationRecordID,
 				&violation.ViolationType,
 				&violation.ViolationInfo,
+				&violation.ViolationCreated,
+				&violation.ViolationStatus,
 			)
 
 			if err != nil {
@@ -253,7 +273,7 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 	var violations []*model.ViolationRecord
 
 	err := r.DB.QueryRow(ctx, `
-        SELECT patron_id, first_name, last_name, phone_number 
+        SELECT patron_id, first_name, last_name, phone_number, patron_created::text
         FROM patrons 
         WHERE patron_id = $1
     `, patronID).Scan(
@@ -261,6 +281,7 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 		&patron.FirstName,
 		&patron.LastName,
 		&patron.PhoneNumber,
+		&patron.PatronCreated,
 	)
 
 	if err != nil {
@@ -303,7 +324,7 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 		patron_status.PatronID = patron.PatronID
 
 		violationRows, violationErr := r.DB.Query(ctx, `
-		SELECT violation_record_id, violation_type, violation_info
+		SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 		FROM violation_records
 		WHERE patron_id = $1
 		`, patronID)
@@ -320,6 +341,8 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 				&violation.ViolationRecordID,
 				&violation.ViolationType,
 				&violation.ViolationInfo,
+				&violation.ViolationCreated,
+				&violation.ViolationStatus,
 			)
 
 			if err != nil {
@@ -518,16 +541,83 @@ func (r *mutationResolver) AddViolation(ctx context.Context, patronID string, vi
 		violation.PatronID = patronID
 
 		err := r.DB.QueryRow(ctx, `
-	    	SELECT violation_record_id 
+	    	SELECT violation_record_id, violation_created::text, violation_status 
 			FROM violation_records 
 			WHERE patron_id = $1
-		`, patronID).Scan(&violation.ViolationRecordID)
+		`, patronID).Scan(
+			&violation.ViolationRecordID,
+			&violation.ViolationCreated,
+			&violation.ViolationStatus,
+		)
 
 		if err != nil {
 			return nil, fmt.Errorf("fetching violation_record_id failed: %v", err)
 		}
 
 	}
+
+	violationCopy := violation
+
+	r.SubscribersMutex.Lock()
+	for subscriber := range r.ViolationSubscribers {
+		select {
+		case subscriber <- &violationCopy:
+			// No action needed
+		default:
+			log.Printf("Subscriber channel full, skipping notification for patron %s", violation.ViolationRecordID)
+		}
+	}
+	r.SubscribersMutex.Unlock()
+
+	return &violation, nil
+}
+
+// UpdateViolationStatus is the resolver for the updateViolationStatus field.
+func (r *mutationResolver) UpdateViolationStatus(ctx context.Context, violationID string, violationStatus model.ViolationStatus) (*model.ViolationRecord, error) {
+	var exists bool
+	err := r.DB.QueryRow(ctx, `
+	    SELECT EXISTS(SELECT 1 FROM violation_records WHERE violation_record_id = $1)
+	`, violationID).Scan(&exists)
+
+	if err != nil {
+		return nil, fmt.Errorf("database error checking violation existence: %v", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("violation does not exist")
+	}
+
+	var violation model.ViolationRecord
+	violation.ViolationRecordID = violationID
+	violation.ViolationStatus = violationStatus
+
+	vioErr := r.DB.QueryRow(ctx, `
+		UPDATE violation_records
+		SET violation_status = $1
+		WHERE violation_record_id = $2
+		RETURNING patron_id, violation_type, violation_info, violation_created::text
+	`, violationStatus, violationID).Scan(
+		&violation.PatronID,
+		&violation.ViolationType,
+		&violation.ViolationInfo,
+		&violation.ViolationCreated,
+	)
+
+	if vioErr != nil {
+		return nil, fmt.Errorf("updating violation status failed %v", vioErr)
+	}
+
+	violationCopy := violation
+
+	r.SubscribersMutex.Lock()
+	for subscriber := range r.ViolationSubscribers {
+		select {
+		case subscriber <- &violationCopy:
+			// No action needed
+		default:
+			log.Printf("Subscriber channel full, skipping notification for patron %s", violation.ViolationRecordID)
+		}
+	}
+	r.SubscribersMutex.Unlock()
 
 	return &violation, nil
 }
@@ -540,13 +630,14 @@ func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*mo
 	var violations []*model.ViolationRecord
 
 	err := r.DB.QueryRow(ctx, `
-		SELECT first_name, last_name, phone_number
+		SELECT first_name, last_name, phone_number, patron_created::text
 		FROM patrons
 		WHERE patron_id = $1
 	`, patronID).Scan(
 		&patron.FirstName,
 		&patron.LastName,
 		&patron.PhoneNumber,
+		&patron.PatronCreated,
 	)
 
 	if err != nil {
@@ -582,7 +673,7 @@ func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*mo
 	)
 
 	violationRows, violationErr := r.DB.Query(ctx, `
-		SELECT violation_record_id, violation_type, violation_info
+		SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 		FROM violation_records
 		WHERE patron_id = $1
 	`, patronID)
@@ -599,6 +690,8 @@ func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*mo
 			&violation.ViolationRecordID,
 			&violation.ViolationType,
 			&violation.ViolationInfo,
+			&violation.ViolationCreated,
+			&violation.ViolationStatus,
 		)
 
 		if err != nil {
@@ -625,7 +718,7 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 	var patrons []*model.Patron
 
 	rows, err := r.DB.Query(ctx, `
-		SELECT patron_id, first_name, last_name, phone_number
+		SELECT patron_id, first_name, last_name, phone_number, patron_created::text
 		FROM patrons
 	`)
 
@@ -646,6 +739,7 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 			&patron.FirstName,
 			&patron.LastName,
 			&patron.PhoneNumber,
+			&patron.PatronCreated,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan patron: %v", err)
@@ -685,7 +779,7 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 		patron_status.PatronID = patron.PatronID
 
 		violationRows, violationErr := r.DB.Query(ctx, `
-		SELECT violation_record_id, violation_type, violation_info
+		SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 		FROM violation_records
 		WHERE patron_id = $1
 		`, patron.PatronID)
@@ -702,6 +796,8 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 				&violation.ViolationRecordID,
 				&violation.ViolationType,
 				&violation.ViolationInfo,
+				&violation.ViolationCreated,
+				&violation.ViolationStatus,
 			)
 
 			if err != nil {
@@ -782,7 +878,7 @@ func (r *queryResolver) GetViolationByPatronID(ctx context.Context, patronID str
 	var violations []*model.ViolationRecord
 
 	violationRows, violationErr := r.DB.Query(ctx, `
-	SELECT violation_record_id, violation_type, violation_info
+	SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 	FROM violation_records
 	WHERE patron_id = $1
 	`, patronID)
@@ -799,6 +895,8 @@ func (r *queryResolver) GetViolationByPatronID(ctx context.Context, patronID str
 			&violation.ViolationRecordID,
 			&violation.ViolationType,
 			&violation.ViolationInfo,
+			&violation.ViolationCreated,
+			&violation.ViolationStatus,
 		)
 
 		if err != nil {
@@ -817,7 +915,7 @@ func (r *queryResolver) GetViolationByType(ctx context.Context, violationType mo
 	dbViolationType := strings.ReplaceAll(string(violationType), "_", " ")
 
 	violationRows, violationErr := r.DB.Query(ctx, `
-	SELECT violation_record_id, patron_id, violation_info
+	SELECT violation_record_id, patron_id, violation_info, violation_created::text, violation_status
 	FROM violation_records
 	WHERE violation_type = $1
 	`, dbViolationType)
@@ -834,6 +932,8 @@ func (r *queryResolver) GetViolationByType(ctx context.Context, violationType mo
 			&violation.ViolationRecordID,
 			&violation.PatronID,
 			&violation.ViolationInfo,
+			&violation.ViolationCreated,
+			&violation.ViolationStatus,
 		)
 
 		if err != nil {
@@ -881,11 +981,97 @@ func (r *queryResolver) GetPatronStatusByType(ctx context.Context, patronStatus 
 	return patron_statuses, nil
 }
 
+// PatronCreated is the resolver for the patronCreated field.
+func (r *subscriptionResolver) PatronCreated(ctx context.Context) (<-chan *model.Patron, error) {
+	patronChan := make(chan *model.Patron, 1)
+
+	r.SubscribersMutex.Lock()
+	r.PatronSubscribers[patronChan] = true
+	r.SubscribersMutex.Unlock()
+
+	go func() {
+		<-ctx.Done()
+		r.SubscribersMutex.Lock()
+		delete(r.PatronSubscribers, patronChan)
+		close(patronChan)
+		r.SubscribersMutex.Unlock()
+	}()
+
+	return patronChan, nil
+}
+
+// OngoingViolations is the resolver for the ongoingViolations field.
+func (r *subscriptionResolver) OngoingViolations(ctx context.Context) (<-chan *model.ViolationRecord, error) {
+	violationChan := make(chan *model.ViolationRecord, 1)
+
+	r.SubscribersMutex.Lock()
+	r.ViolationSubscribers[violationChan] = true
+	r.SubscribersMutex.Unlock()
+
+	go func() {
+		<-ctx.Done()
+		r.SubscribersMutex.Lock()
+		delete(r.ViolationSubscribers, violationChan)
+		close(violationChan)
+		r.SubscribersMutex.Unlock()
+	}()
+
+	return violationChan, nil
+}
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+// Subscription returns SubscriptionResolver implementation.
+func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
+
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *mutationResolver) UpdateViolationStatusByPatronID(ctx context.Context, patronID string, violationStatus model.ViolationStatus) (*model.ViolationRecord, error) {
+	var exists bool
+	err := r.DB.QueryRow(ctx, `
+	    SELECT EXISTS(SELECT 1 FROM patrons WHERE patron_id = $1)
+	`, patronID).Scan(&exists)
+
+	if err != nil {
+		return nil, fmt.Errorf("database error checking patron existence: %v", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("patron does not exist")
+	}
+
+	var violation model.ViolationRecord
+	violation.PatronID = patronID
+	violation.ViolationStatus = violationStatus
+
+	vioErr := r.DB.QueryRow(ctx, `
+		UPDATE violation_records
+		SET violation_status = $1
+		WHERE patron_id = $2
+		RETURNING violation_record_id, violation_type, violation_info, violation_created::text
+	`, violationStatus, patronID).Scan(
+		&violation.ViolationRecordID,
+		&violation.ViolationType,
+		&violation.ViolationInfo,
+		&violation.ViolationCreated,
+	)
+
+	if vioErr != nil {
+		return nil, fmt.Errorf("updating violation status failed %v", vioErr)
+	}
+
+	return &violation, nil
+}
+*/

@@ -1,6 +1,8 @@
 package graph
 
 import (
+	"sync"
+
 	"github.com/GSalise/lms/patron-service/graph/model"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -12,4 +14,10 @@ import (
 type Resolver struct {
 	DB          *pgxpool.Pool
 	PatronStore map[string]model.Patron
+
+	// This stores the connection of the clients of the subscribers
+	PatronSubscribers    map[chan *model.Patron]bool
+	ViolationSubscribers map[chan *model.ViolationRecord]bool
+	// protects the subscribers from concurrent access
+	SubscribersMutex sync.Mutex
 }
