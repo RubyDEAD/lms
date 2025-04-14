@@ -319,7 +319,7 @@ func (r *queryResolver) GetBookByID(ctx context.Context, id string) (*model.Book
 
 // GetBookCopiesByID fetches all copies of a book by book ID.
 func (r *queryResolver) GetBookCopiesByID(ctx context.Context, id string) ([]*model.BookCopies, error) {
-	rows, err := r.DB.Query(ctx, "SELECT id, book_id, book_status, FROM book_copies WHERE book_id=$1", id)
+	rows, err := r.DB.Query(ctx, "SELECT id, book_id, book_status FROM book_copies WHERE book_id=$1", id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch book copies: %v", err)
 	}
