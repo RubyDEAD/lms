@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -17,19 +16,19 @@ import (
 	"github.com/Cat6utpcableclarke/bookService/graph"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
+	"github.com/rs/cors"
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
 const defaultPort = "8080"
 
 func main() {
-
 	dbURL := "postgresql://postgres.hwkuzfsecehszlftxqpn:cat6utpcable@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
 
 	// Create a database connection pool
 	db, err := pgx.Connect(context.Background(), dbURL)
 	if err != nil {
-		log.Fatalf(" Unable to connect to database: %v", err)
+		log.Fatalf("Unable to connect to database: %v", err)
 	}
 	defer db.Close(context.Background())
 
@@ -62,8 +61,17 @@ func main() {
 		Cache: lru.New[string](100),
 	})
 
+	// Enable CORS
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"}, // Allow requests from your front-end
+		AllowCredentials: true,
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"}, // Allow specific HTTP methods
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+	}).Handler(srv)
+
+	// Use corsHandler for the /query endpoint
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", srv)
+	http.Handle("/query", corsHandler)
 
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
