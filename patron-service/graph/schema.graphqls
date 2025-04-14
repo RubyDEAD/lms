@@ -3,6 +3,7 @@ type Patron {
   first_name: String!
   last_name: String!
   phone_number: String!
+  patron_created: String!
   membership: Membership
   status: PatronStatus
   violations: [ViolationRecord]
@@ -34,11 +35,18 @@ enum Status {
   Pending
 }
 
+enum ViolationStatus {
+  Ongoing
+  Resolved
+}
+
 type ViolationRecord {
   violation_record_id: ID!
   patron_id: ID!
   violation_type: ViolationType!
   violation_info: String!
+  violation_created: String!
+  violation_status: ViolationStatus!
 }
 
 enum ViolationType {
@@ -70,4 +78,10 @@ type Mutation {
   updatePatronStatus(patron_id: ID!, warning_count: Int, unpaid_fees: Float, patron_status: Status): PatronStatus
 
   addViolation(patron_id: ID!, violation_type: ViolationType!, violation_info: String!): ViolationRecord
+  updateViolationStatus(violation_id: ID! violation_status: ViolationStatus!): ViolationRecord
+}
+
+type Subscription {
+  patronCreated: Patron
+  ongoingViolations: ViolationRecord
 }

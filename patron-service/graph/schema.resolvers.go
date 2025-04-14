@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/GSalise/lms/patron-service/graph/model"
@@ -21,26 +22,32 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 	var patron_status model.PatronStatus
 	var violations []*model.ViolationRecord
 
-	// Note: also add rollback in the event an error occurs
-	// Note: add a condition that will only allow the correct regex for phone_number
-	// add violations model but make it null
+	// Note: add a condition that will only allow the correct regex for phone_number - front end na bahala ana kapoy
 
-	PatronErr := r.DB.QueryRow(ctx, `
+	tx, transactErr := r.DB.Begin(ctx)
+	if transactErr != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
+	}
+
+	defer tx.Rollback(ctx)
+
+	PatronErr := tx.QueryRow(ctx, `
 		INSERT INTO patrons (first_name, last_name, phone_number)
 		VALUES ($1,$2,$3)
-		RETURNING patron_id, first_name, last_name, phone_number
+		RETURNING patron_id, first_name, last_name, phone_number, patron_created::text
 	`, firstName, lastName, phoneNumber).Scan(
 		&patron.PatronID,
 		&patron.FirstName,
 		&patron.LastName,
 		&patron.PhoneNumber,
+		&patron.PatronCreated,
 	)
 
 	if PatronErr != nil {
 		return nil, fmt.Errorf("failed to insert patron: %v", PatronErr)
 	}
 
-	MembershipErr := r.DB.QueryRow(ctx, `
+	MembershipErr := tx.QueryRow(ctx, `
 		INSERT INTO memberships (patron_id)
 		VALUES($1)
 		RETURNING membership_id, level
@@ -56,7 +63,7 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 	patron.Membership = &membership
 	membership.PatronID = patron.PatronID
 
-	PStatusErr := r.DB.QueryRow(ctx, `
+	PStatusErr := tx.QueryRow(ctx, `
 		INSERT INTO patron_status (patron_id)
 		VALUES($1)
 		RETURNING warning_count, patron_status, unpaid_fees 
@@ -73,8 +80,8 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 	patron.Status = &patron_status
 	patron_status.PatronID = patron.PatronID
 
-	violationRows, violationErr := r.DB.Query(ctx, `
-		SELECT violation_record_id, violation_type, violation_info
+	violationRows, violationErr := tx.Query(ctx, `
+		SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 		FROM violation_records
 		WHERE patron_id = $1
 	`, patron.PatronID)
@@ -91,6 +98,8 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 			&violation.ViolationRecordID,
 			&violation.ViolationType,
 			&violation.ViolationInfo,
+			&violation.ViolationCreated,
+			&violation.ViolationStatus,
 		)
 
 		if err != nil {
@@ -102,6 +111,23 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 
 	patron.Violations = violations
 
+	if transactErr := tx.Commit(ctx); transactErr != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
+	}
+
+	patronCopy := patron
+
+	r.SubscribersMutex.Lock()
+	for subscriber := range r.PatronSubscribers {
+		select {
+		case subscriber <- &patronCopy:
+			// No action needed
+		default:
+			log.Printf("Subscriber channel full, skipping notification for patron %s", patron.PatronID)
+		}
+	}
+	r.SubscribersMutex.Unlock()
+
 	return &patron, nil
 }
 
@@ -112,10 +138,15 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 	var patron_status model.PatronStatus
 	var violations []*model.ViolationRecord
 
-	// Note: also add rollback in the event an error occurs
+	tx, transactErr := r.DB.Begin(ctx)
+	if transactErr != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
+	}
+
+	defer tx.Rollback(ctx)
 
 	var exists bool
-	err := r.DB.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
         SELECT EXISTS(SELECT 1 FROM patrons WHERE patron_id = $1)
     `, patronID).Scan(&exists)
 
@@ -127,7 +158,7 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 	}
 
 	if firstName != nil {
-		_, InsertErr := r.DB.Exec(ctx, `
+		_, InsertErr := tx.Exec(ctx, `
 			UPDATE patrons
 			SET first_name = $1
 			WHERE patron_id = $2
@@ -139,7 +170,7 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 	}
 
 	if lastName != nil {
-		_, InsertErr := r.DB.Exec(ctx, `
+		_, InsertErr := tx.Exec(ctx, `
 			UPDATE patrons
 			SET last_name = $1
 			WHERE patron_id = $2
@@ -153,7 +184,7 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 	// Note: add a condition that will only allow the correct regex for phone_number
 
 	if phoneNumber != nil {
-		_, InsertErr := r.DB.Exec(ctx, `
+		_, InsertErr := tx.Exec(ctx, `
 			UPDATE patrons
 			SET phone_number = $1
 			WHERE patron_id = $2
@@ -164,8 +195,8 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 		}
 	}
 
-	FinalErr := r.DB.QueryRow(ctx, `
-		SELECT *
+	FinalErr := tx.QueryRow(ctx, `
+		SELECT patron_id, first_name, last_name, phone_number, patron_created::text
 		FROM patrons
 		WHERE patron_id = $1
 	`, patronID).Scan(
@@ -173,12 +204,13 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 		&patron.FirstName,
 		&patron.LastName,
 		&patron.PhoneNumber,
+		&patron.PatronCreated,
 	)
 
 	if FinalErr != nil {
 		return nil, fmt.Errorf("failed to update patron: %v", FinalErr)
 	} else {
-		MembershipErr := r.DB.QueryRow(ctx, `
+		MembershipErr := tx.QueryRow(ctx, `
 			SELECT membership_id, level
 			FROM memberships
 			WHERE patron_id = $1
@@ -194,7 +226,7 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 		patron.Membership = &membership
 		membership.PatronID = patron.PatronID
 
-		PStatusErr := r.DB.QueryRow(ctx, `
+		PStatusErr := tx.QueryRow(ctx, `
 			SELECT warning_count, patron_status, unpaid_fees
 			FROM patron_status
 			WHERE patron_id = $1 
@@ -211,8 +243,8 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 		patron.Status = &patron_status
 		patron_status.PatronID = patron.PatronID
 
-		violationRows, violationErr := r.DB.Query(ctx, `
-		SELECT violation_record_id, violation_type, violation_info
+		violationRows, violationErr := tx.Query(ctx, `
+		SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 		FROM violation_records
 		WHERE patron_id = $1
 		`, patronID)
@@ -229,6 +261,8 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 				&violation.ViolationRecordID,
 				&violation.ViolationType,
 				&violation.ViolationInfo,
+				&violation.ViolationCreated,
+				&violation.ViolationStatus,
 			)
 
 			if err != nil {
@@ -240,6 +274,10 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 
 		patron.Violations = violations
 
+	}
+
+	if transactErr := tx.Commit(ctx); transactErr != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
 	}
 
 	return &patron, nil
@@ -252,8 +290,15 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 	var patron_status model.PatronStatus
 	var violations []*model.ViolationRecord
 
-	err := r.DB.QueryRow(ctx, `
-        SELECT patron_id, first_name, last_name, phone_number 
+	tx, transactErr := r.DB.Begin(ctx)
+	if transactErr != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
+	}
+
+	defer tx.Rollback(ctx)
+
+	err := tx.QueryRow(ctx, `
+        SELECT patron_id, first_name, last_name, phone_number, patron_created::text
         FROM patrons 
         WHERE patron_id = $1
     `, patronID).Scan(
@@ -261,6 +306,7 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 		&patron.FirstName,
 		&patron.LastName,
 		&patron.PhoneNumber,
+		&patron.PatronCreated,
 	)
 
 	if err != nil {
@@ -269,7 +315,7 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 		}
 		return nil, fmt.Errorf("failed to fetch patron: %v", err)
 	} else {
-		MembershipErr := r.DB.QueryRow(ctx, `
+		MembershipErr := tx.QueryRow(ctx, `
 			SELECT membership_id, level
 			FROM memberships
 			WHERE patron_id = $1
@@ -285,7 +331,7 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 		patron.Membership = &membership
 		membership.PatronID = patron.PatronID
 
-		PStatusErr := r.DB.QueryRow(ctx, `
+		PStatusErr := tx.QueryRow(ctx, `
 			SELECT warning_count, patron_status, unpaid_fees
 			FROM patron_status
 			WHERE patron_id = $1 
@@ -302,8 +348,8 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 		patron.Status = &patron_status
 		patron_status.PatronID = patron.PatronID
 
-		violationRows, violationErr := r.DB.Query(ctx, `
-		SELECT violation_record_id, violation_type, violation_info
+		violationRows, violationErr := tx.Query(ctx, `
+		SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 		FROM violation_records
 		WHERE patron_id = $1
 		`, patronID)
@@ -320,6 +366,8 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 				&violation.ViolationRecordID,
 				&violation.ViolationType,
 				&violation.ViolationInfo,
+				&violation.ViolationCreated,
+				&violation.ViolationStatus,
 			)
 
 			if err != nil {
@@ -333,13 +381,17 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 
 	}
 
-	_, DeleteErr := r.DB.Exec(ctx, `
+	_, DeleteErr := tx.Exec(ctx, `
 		DELETE from patrons
 		WHERE patron_id = $1
 	`, patronID)
 
 	if DeleteErr != nil {
 		return nil, fmt.Errorf("deletion failed: %v", DeleteErr)
+	}
+
+	if transactErr := tx.Commit(ctx); transactErr != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
 	}
 
 	return &patron, nil
@@ -362,7 +414,14 @@ func (r *mutationResolver) UpdateMembershipByPatronID(ctx context.Context, patro
 	var membership model.Membership
 	membership.PatronID = patronID
 
-	MembershipUpErr := r.DB.QueryRow(ctx, `
+	tx, transactErr := r.DB.Begin(ctx)
+	if transactErr != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
+	}
+
+	defer tx.Rollback(ctx)
+
+	MembershipUpErr := tx.QueryRow(ctx, `
 		UPDATE memberships
 		SET level = $1
 		WHERE patron_id = $2
@@ -374,6 +433,10 @@ func (r *mutationResolver) UpdateMembershipByPatronID(ctx context.Context, patro
 
 	if MembershipUpErr != nil {
 		return nil, fmt.Errorf("failed to update memebership: %v", MembershipUpErr)
+	}
+
+	if transactErr := tx.Commit(ctx); transactErr != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
 	}
 
 	return &membership, nil
@@ -397,7 +460,14 @@ func (r *mutationResolver) UpdateMembershipByMembershipID(ctx context.Context, m
 
 	membership.MembershipID = membershipID
 
-	MembershipUpErr := r.DB.QueryRow(ctx, `
+	tx, transactErr := r.DB.Begin(ctx)
+	if transactErr != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
+	}
+
+	defer tx.Rollback(ctx)
+
+	MembershipUpErr := tx.QueryRow(ctx, `
 		UPDATE memberships
 		SET level = $1
 		WHERE membership_id = $2
@@ -409,6 +479,10 @@ func (r *mutationResolver) UpdateMembershipByMembershipID(ctx context.Context, m
 
 	if MembershipUpErr != nil {
 		return nil, fmt.Errorf("failed to update memebership: %v", MembershipUpErr)
+	}
+
+	if transactErr := tx.Commit(ctx); transactErr != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
 	}
 
 	return &membership, nil
@@ -431,8 +505,15 @@ func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID stri
 	var patron_status model.PatronStatus
 	patron_status.PatronID = patronID
 
+	tx, transactErr := r.DB.Begin(ctx)
+	if transactErr != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
+	}
+
+	defer tx.Rollback(ctx)
+
 	if warningCount != nil {
-		_, StatusUpErr := r.DB.Exec(ctx, `
+		_, StatusUpErr := tx.Exec(ctx, `
 			UPDATE patron_status
 			SET warning_count = $1
 			WHERE patron_id = $2
@@ -444,7 +525,7 @@ func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID stri
 	}
 
 	if patronStatus != nil {
-		_, StatusUpErr := r.DB.Exec(ctx, `
+		_, StatusUpErr := tx.Exec(ctx, `
 			UPDATE patron_status
 			SET patron_status = $1
 			WHERE patron_id = $2
@@ -456,7 +537,7 @@ func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID stri
 	}
 
 	if unpaidFees != nil {
-		_, StatusUpErr := r.DB.Exec(ctx, `
+		_, StatusUpErr := tx.Exec(ctx, `
 			UPDATE patron_status
 			SET unpaid_fees = $1
 			WHERE patron_id = $2
@@ -467,7 +548,7 @@ func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID stri
 		}
 	}
 
-	FinalErr := r.DB.QueryRow(ctx, `
+	FinalErr := tx.QueryRow(ctx, `
 		SELECT warning_count, patron_status, unpaid_fees
 		FROM patron_status
 		WHERE patron_id = $1
@@ -479,6 +560,10 @@ func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID stri
 
 	if FinalErr != nil {
 		return nil, fmt.Errorf("fetching updated patron status failed: %v", FinalErr)
+	}
+
+	if transactErr := tx.Commit(ctx); transactErr != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
 	}
 
 	return &patron_status, nil
@@ -498,14 +583,20 @@ func (r *mutationResolver) AddViolation(ctx context.Context, patronID string, vi
 		return nil, fmt.Errorf("patron does not exist")
 	}
 
-	// I am not going to change the database cause I can't be bothered which is why
-	// this exists
+	// I am not going to change the database cause I can't be bothered which is why this exists
 	dbViolationType := strings.ReplaceAll(string(violationType), "_", " ")
 
 	var violation model.ViolationRecord
 	violation.PatronID = patronID
 
-	_, ViolationInErr := r.DB.Exec(ctx, `
+	tx, transactErr := r.DB.Begin(ctx)
+	if transactErr != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
+	}
+
+	defer tx.Rollback(ctx)
+
+	_, ViolationInErr := tx.Exec(ctx, `
 		INSERT INTO violation_records(patron_id, violation_type, violation_info)
 		VALUES($1,$2,$3)
 	`, patronID, dbViolationType, violationInfo)
@@ -517,17 +608,99 @@ func (r *mutationResolver) AddViolation(ctx context.Context, patronID string, vi
 		violation.ViolationType = violationType
 		violation.PatronID = patronID
 
-		err := r.DB.QueryRow(ctx, `
-	    	SELECT violation_record_id 
+		err := tx.QueryRow(ctx, `
+	    	SELECT violation_record_id, violation_created::text, violation_status 
 			FROM violation_records 
 			WHERE patron_id = $1
-		`, patronID).Scan(&violation.ViolationRecordID)
+		`, patronID).Scan(
+			&violation.ViolationRecordID,
+			&violation.ViolationCreated,
+			&violation.ViolationStatus,
+		)
 
 		if err != nil {
 			return nil, fmt.Errorf("fetching violation_record_id failed: %v", err)
 		}
 
 	}
+
+	if transactErr := tx.Commit(ctx); transactErr != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
+	}
+
+	violationCopy := violation
+
+	r.SubscribersMutex.Lock()
+	for subscriber := range r.ViolationSubscribers {
+		select {
+		case subscriber <- &violationCopy:
+			// No action needed
+		default:
+			log.Printf("Subscriber channel full, skipping notification for patron %s", violation.ViolationRecordID)
+		}
+	}
+	r.SubscribersMutex.Unlock()
+
+	return &violation, nil
+}
+
+// UpdateViolationStatus is the resolver for the updateViolationStatus field.
+func (r *mutationResolver) UpdateViolationStatus(ctx context.Context, violationID string, violationStatus model.ViolationStatus) (*model.ViolationRecord, error) {
+	var exists bool
+	err := r.DB.QueryRow(ctx, `
+	    SELECT EXISTS(SELECT 1 FROM violation_records WHERE violation_record_id = $1)
+	`, violationID).Scan(&exists)
+
+	if err != nil {
+		return nil, fmt.Errorf("database error checking violation existence: %v", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("violation does not exist")
+	}
+
+	var violation model.ViolationRecord
+	violation.ViolationRecordID = violationID
+	violation.ViolationStatus = violationStatus
+
+	tx, transactErr := r.DB.Begin(ctx)
+	if transactErr != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
+	}
+
+	defer tx.Rollback(ctx)
+
+	vioErr := tx.QueryRow(ctx, `
+		UPDATE violation_records
+		SET violation_status = $1
+		WHERE violation_record_id = $2
+		RETURNING patron_id, violation_type, violation_info, violation_created::text
+	`, violationStatus, violationID).Scan(
+		&violation.PatronID,
+		&violation.ViolationType,
+		&violation.ViolationInfo,
+		&violation.ViolationCreated,
+	)
+
+	if vioErr != nil {
+		return nil, fmt.Errorf("updating violation status failed %v", vioErr)
+	}
+
+	if transactErr := tx.Commit(ctx); transactErr != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
+	}
+
+	violationCopy := violation
+
+	r.SubscribersMutex.Lock()
+	for subscriber := range r.ViolationSubscribers {
+		select {
+		case subscriber <- &violationCopy:
+			// No action needed
+		default:
+			log.Printf("Subscriber channel full, skipping notification for patron %s", violation.ViolationRecordID)
+		}
+	}
+	r.SubscribersMutex.Unlock()
 
 	return &violation, nil
 }
@@ -540,13 +713,14 @@ func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*mo
 	var violations []*model.ViolationRecord
 
 	err := r.DB.QueryRow(ctx, `
-		SELECT first_name, last_name, phone_number
+		SELECT first_name, last_name, phone_number, patron_created::text
 		FROM patrons
 		WHERE patron_id = $1
 	`, patronID).Scan(
 		&patron.FirstName,
 		&patron.LastName,
 		&patron.PhoneNumber,
+		&patron.PatronCreated,
 	)
 
 	if err != nil {
@@ -582,7 +756,7 @@ func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*mo
 	)
 
 	violationRows, violationErr := r.DB.Query(ctx, `
-		SELECT violation_record_id, violation_type, violation_info
+		SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 		FROM violation_records
 		WHERE patron_id = $1
 	`, patronID)
@@ -599,6 +773,8 @@ func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*mo
 			&violation.ViolationRecordID,
 			&violation.ViolationType,
 			&violation.ViolationInfo,
+			&violation.ViolationCreated,
+			&violation.ViolationStatus,
 		)
 
 		if err != nil {
@@ -625,7 +801,7 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 	var patrons []*model.Patron
 
 	rows, err := r.DB.Query(ctx, `
-		SELECT patron_id, first_name, last_name, phone_number
+		SELECT patron_id, first_name, last_name, phone_number, patron_created::text
 		FROM patrons
 	`)
 
@@ -646,6 +822,7 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 			&patron.FirstName,
 			&patron.LastName,
 			&patron.PhoneNumber,
+			&patron.PatronCreated,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan patron: %v", err)
@@ -685,7 +862,7 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 		patron_status.PatronID = patron.PatronID
 
 		violationRows, violationErr := r.DB.Query(ctx, `
-		SELECT violation_record_id, violation_type, violation_info
+		SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 		FROM violation_records
 		WHERE patron_id = $1
 		`, patron.PatronID)
@@ -702,6 +879,8 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 				&violation.ViolationRecordID,
 				&violation.ViolationType,
 				&violation.ViolationInfo,
+				&violation.ViolationCreated,
+				&violation.ViolationStatus,
 			)
 
 			if err != nil {
@@ -782,7 +961,7 @@ func (r *queryResolver) GetViolationByPatronID(ctx context.Context, patronID str
 	var violations []*model.ViolationRecord
 
 	violationRows, violationErr := r.DB.Query(ctx, `
-	SELECT violation_record_id, violation_type, violation_info
+	SELECT violation_record_id, violation_type, violation_info, violation_created::text, violation_status
 	FROM violation_records
 	WHERE patron_id = $1
 	`, patronID)
@@ -799,6 +978,8 @@ func (r *queryResolver) GetViolationByPatronID(ctx context.Context, patronID str
 			&violation.ViolationRecordID,
 			&violation.ViolationType,
 			&violation.ViolationInfo,
+			&violation.ViolationCreated,
+			&violation.ViolationStatus,
 		)
 
 		if err != nil {
@@ -817,7 +998,7 @@ func (r *queryResolver) GetViolationByType(ctx context.Context, violationType mo
 	dbViolationType := strings.ReplaceAll(string(violationType), "_", " ")
 
 	violationRows, violationErr := r.DB.Query(ctx, `
-	SELECT violation_record_id, patron_id, violation_info
+	SELECT violation_record_id, patron_id, violation_info, violation_created::text, violation_status
 	FROM violation_records
 	WHERE violation_type = $1
 	`, dbViolationType)
@@ -834,6 +1015,8 @@ func (r *queryResolver) GetViolationByType(ctx context.Context, violationType mo
 			&violation.ViolationRecordID,
 			&violation.PatronID,
 			&violation.ViolationInfo,
+			&violation.ViolationCreated,
+			&violation.ViolationStatus,
 		)
 
 		if err != nil {
@@ -881,11 +1064,97 @@ func (r *queryResolver) GetPatronStatusByType(ctx context.Context, patronStatus 
 	return patron_statuses, nil
 }
 
+// PatronCreated is the resolver for the patronCreated field.
+func (r *subscriptionResolver) PatronCreated(ctx context.Context) (<-chan *model.Patron, error) {
+	patronChan := make(chan *model.Patron, 1)
+
+	r.SubscribersMutex.Lock()
+	r.PatronSubscribers[patronChan] = true
+	r.SubscribersMutex.Unlock()
+
+	go func() {
+		<-ctx.Done()
+		r.SubscribersMutex.Lock()
+		delete(r.PatronSubscribers, patronChan)
+		close(patronChan)
+		r.SubscribersMutex.Unlock()
+	}()
+
+	return patronChan, nil
+}
+
+// OngoingViolations is the resolver for the ongoingViolations field.
+func (r *subscriptionResolver) OngoingViolations(ctx context.Context) (<-chan *model.ViolationRecord, error) {
+	violationChan := make(chan *model.ViolationRecord, 1)
+
+	r.SubscribersMutex.Lock()
+	r.ViolationSubscribers[violationChan] = true
+	r.SubscribersMutex.Unlock()
+
+	go func() {
+		<-ctx.Done()
+		r.SubscribersMutex.Lock()
+		delete(r.ViolationSubscribers, violationChan)
+		close(violationChan)
+		r.SubscribersMutex.Unlock()
+	}()
+
+	return violationChan, nil
+}
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+// Subscription returns SubscriptionResolver implementation.
+func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
+
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *mutationResolver) UpdateViolationStatusByPatronID(ctx context.Context, patronID string, violationStatus model.ViolationStatus) (*model.ViolationRecord, error) {
+	var exists bool
+	err := r.DB.QueryRow(ctx, `
+	    SELECT EXISTS(SELECT 1 FROM patrons WHERE patron_id = $1)
+	`, patronID).Scan(&exists)
+
+	if err != nil {
+		return nil, fmt.Errorf("database error checking patron existence: %v", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("patron does not exist")
+	}
+
+	var violation model.ViolationRecord
+	violation.PatronID = patronID
+	violation.ViolationStatus = violationStatus
+
+	vioErr := r.DB.QueryRow(ctx, `
+		UPDATE violation_records
+		SET violation_status = $1
+		WHERE patron_id = $2
+		RETURNING violation_record_id, violation_type, violation_info, violation_created::text
+	`, violationStatus, patronID).Scan(
+		&violation.ViolationRecordID,
+		&violation.ViolationType,
+		&violation.ViolationInfo,
+		&violation.ViolationCreated,
+	)
+
+	if vioErr != nil {
+		return nil, fmt.Errorf("updating violation status failed %v", vioErr)
+	}
+
+	return &violation, nil
+}
+*/
