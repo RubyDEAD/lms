@@ -1,0 +1,37 @@
+////PUT ur schema (kato lang sa )
+type Query {
+  getBooks: [Book!]!
+  getBookById(id: String!): Book
+  getBookCopiesById(id: String!): [Book_copies!]!
+}
+
+type Mutation {
+  addBook(title: String!, authorName: String!, datePublished: String!, description: String!): Book!
+}
+
+type Book {
+  id: String!
+  title: String!
+  author_name: String!
+  date_published: String! # ISO 8601 format (YYYY-MM-DD)
+  description: String!
+}
+
+type Author {
+  id: Int!
+  author_name: String!
+}
+
+type Book_copies {
+  id:ID!
+  book_id: String!
+  title: String!
+  author_name: String!
+  date_published: String! # ISO 8601 format (YYYY-MM-DD)
+  description: String!
+  book_status:String!
+}
+
+type Subscription {
+  bookAdded: Book!
+}
