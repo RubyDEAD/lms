@@ -54,12 +54,6 @@ type ComplexityRoot struct {
 		ID         func(childComplexity int) int
 	}
 
-	Bcopy struct {
-		BookID     func(childComplexity int) int
-		BookStatus func(childComplexity int) int
-		ID         func(childComplexity int) int
-	}
-
 	Book struct {
 		AuthorName    func(childComplexity int) int
 		DatePublished func(childComplexity int) int
@@ -137,27 +131,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Author.ID(childComplexity), true
-
-	case "Bcopy.book_id":
-		if e.complexity.Bcopy.BookID == nil {
-			break
-		}
-
-		return e.complexity.Bcopy.BookID(childComplexity), true
-
-	case "Bcopy.book_status":
-		if e.complexity.Bcopy.BookStatus == nil {
-			break
-		}
-
-		return e.complexity.Bcopy.BookStatus(childComplexity), true
-
-	case "Bcopy.id":
-		if e.complexity.Bcopy.ID == nil {
-			break
-		}
-
-		return e.complexity.Bcopy.ID(childComplexity), true
 
 	case "Book.author_name":
 		if e.complexity.Book.AuthorName == nil {
@@ -757,138 +730,6 @@ func (ec *executionContext) _Author_author_name(ctx context.Context, field graph
 func (ec *executionContext) fieldContext_Author_author_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Author",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Bcopy_id(ctx context.Context, field graphql.CollectedField, obj *model.Bcopy) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Bcopy_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(int32)
-	fc.Result = res
-	return ec.marshalNInt2int32(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Bcopy_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Bcopy",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Bcopy_book_id(ctx context.Context, field graphql.CollectedField, obj *model.Bcopy) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Bcopy_book_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BookID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Bcopy_book_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Bcopy",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Bcopy_book_status(ctx context.Context, field graphql.CollectedField, obj *model.Bcopy) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Bcopy_book_status(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BookStatus, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Bcopy_book_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Bcopy",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -3863,55 +3704,6 @@ func (ec *executionContext) _Author(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "author_name":
 			out.Values[i] = ec._Author_author_name(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var bcopyImplementors = []string{"Bcopy"}
-
-func (ec *executionContext) _Bcopy(ctx context.Context, sel ast.SelectionSet, obj *model.Bcopy) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, bcopyImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("Bcopy")
-		case "id":
-			out.Values[i] = ec._Bcopy_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "book_id":
-			out.Values[i] = ec._Bcopy_book_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "book_status":
-			out.Values[i] = ec._Bcopy_book_status(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

@@ -1,4 +1,4 @@
-////PUT ur schema (kato lang sa )
+
 type Query {
   getBooks: [Book!]!
   getBookById(id: String!): Book
