@@ -10,9 +10,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/Cat6utpcableclarke/API-gateway/graph/model"
+	"github.com/coder/websocket"
 )
 
 const bookServiceURL = "http://localhost:8080/query" // Replace with your bookService URL
@@ -20,12 +22,12 @@ const bookServiceURL = "http://localhost:8080/query" // Replace with your bookSe
 // AddBook is the resolver for the addBook field.
 func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName string, datePublished string, description string) (*model.Book, error) {
 	query := `
-        mutation AddBook($title: String!, $authorName: String!, $datePublished: String!, $description: String!) {
-            addBook(title: $title, authorName: $authorName, datePublished: $datePublished, description: $description) {
+        mutation AddBook($title: String!, $author_name: String!, $datePublished: String!, $description: String!) {
+            addBook(title: $title, author_name: $author_name, datePublished: $datePublished, description: $description) {
                 id
                 title
-                authorName
-                datePublished
+                author_name
+                date_published
                 description
             }
         }
@@ -33,7 +35,7 @@ func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName
 
 	variables := map[string]interface{}{
 		"title":         title,
-		"authorName":    authorName,
+		"author_name":   authorName,
 		"datePublished": datePublished,
 		"description":   description,
 	}
@@ -160,27 +162,12 @@ func (r *queryResolver) GetBookCopiesByID(ctx context.Context, id string) ([]*mo
 
 // BookAdded is the resolver for the bookAdded field.
 func (r *subscriptionResolver) BookAdded(ctx context.Context) (<-chan *model.Book, error) {
-	// Create a channel to forward subscription events
-	bookChannel := make(chan *model.Book, 1)
-
-	// Simulate forwarding the subscription to the bookService
-	go func() {
-		defer close(bookChannel)
-
-		// Example: Simulate receiving a new book from the bookService
-		newBook := &model.Book{
-			ID:            "1",
-			Title:         "New Book Title",
-			AuthorName:    "Author Name",
-			DatePublished: "2025-04-13",
-			Description:   "A description of the new book.",
-		}
-
-		// Send the new book to the client
-		bookChannel <- newBook
-	}()
-
-	return bookChannel, nil
+	bookChan := make(chan *model.Book)
+	err := SubscribeToBookAdded(ctx, bookChan)
+	if err != nil {
+		return nil, err
+	}
+	return bookChan, nil
 }
 
 // Helper function to forward requests to the bookService
@@ -216,6 +203,62 @@ func forwardRequest(ctx context.Context, query string, variables map[string]inte
 	return io.ReadAll(resp.Body)
 }
 
+func SubscribeToBookAdded(ctx context.Context, out chan<- *model.Book) error {
+	c, _, err := websocket.Dial(ctx, "ws://localhost:8080/query", nil)
+	if err != nil {
+		return err
+	}
+
+	// connection_init
+	if err := c.Write(ctx, websocket.MessageText, []byte(`{"type":"connection_init"}`)); err != nil {
+		return err
+	}
+	_, _, _ = c.Read(ctx) // wait for ack
+
+	// send subscription
+	payload := map[string]interface{}{
+		"id":   "1",
+		"type": "start",
+		"payload": map[string]interface{}{
+			"query": `subscription { bookAdded { id title author_name date_published description } }`,
+		},
+	}
+	msg, _ := json.Marshal(payload)
+	if err := c.Write(ctx, websocket.MessageText, msg); err != nil {
+		return err
+	}
+
+	go func() {
+		for {
+			_, data, err := c.Read(ctx)
+			if err != nil {
+				log.Println("WebSocket read failed:", err)
+				close(out)
+				return
+			}
+
+			var msg struct {
+				Type    string `json:"type"`
+				Payload struct {
+					Data struct {
+						BookAdded *model.Book `json:"bookAdded"`
+					} `json:"data"`
+				} `json:"payload"`
+			}
+			if err := json.Unmarshal(data, &msg); err != nil {
+				log.Println("Failed to unmarshal message:", err)
+				continue
+			}
+
+			if msg.Type == "data" {
+				out <- msg.Payload.Data.BookAdded
+			}
+		}
+	}()
+
+	return nil
+}
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
@@ -228,3 +271,5 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
+
+// subscribeToBookAdded is a placeholder function for subscription logic.
