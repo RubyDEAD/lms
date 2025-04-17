@@ -13,3 +13,6 @@ To do:
 Notes for Front-End:
 Inig himo sa patron-creation page, applyi og regex ang phone number na field
 Mao ni ako gi gamit : '^[0-9]{10,15}$'
+
+
+

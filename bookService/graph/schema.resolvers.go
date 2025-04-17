@@ -7,9 +7,11 @@ package graph
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/Cat6utpcableclarke/bookService/graph/model"
+	"github.com/google/uuid"
 )
 
 // AddBook adds a new book along with the author (if the author does not exist).
@@ -34,12 +36,72 @@ func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName
 
 	}
 
-	return &model.Book{
+	book := &model.Book{
 		ID:            bookID,
 		Title:         title,
 		AuthorName:    authorName,
 		DatePublished: datePublished,
 		Description:   description,
+	}
+	r.mu.Lock()
+	for key, observer := range r.BookAddedObservers {
+		select {
+		case observer <- book:
+		default:
+			// Clean up dead subscribers
+			close(observer)
+			delete(r.BookAddedObservers, key)
+		}
+	}
+	r.mu.Unlock()
+	return book, nil
+}
+
+// AddBCopy is the resolver for the addBCopy field.
+func (r *mutationResolver) AddBCopy(ctx context.Context, bookID string) (*model.BookCopies, error) {
+	_, err := r.DB.Exec(ctx, "INSERT INTO book_copies (book_id) VALUES ($1)", bookID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert book copy: %v", err)
+	}
+
+	var copy model.BookCopies
+	var datePublished time.Time // Store as time.Time to handle DATE type
+	query := `
+		SELECT bc.id, bc.book_id, b.title, a.author_name, b.date_published, b.description, bc.book_status
+		FROM book_copies AS bc
+		JOIN books AS b ON bc.book_id = b.id
+		JOIN authors AS a ON b.author_id = a.id
+		WHERE bc.book_id = $1
+	`
+	err = r.DB.QueryRow(ctx, query, bookID).Scan(&copy.ID, &copy.BookID, &copy.Title, &copy.AuthorName, &datePublished, &copy.Description, &copy.BookStatus)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch book copy: %v", err)
+	}
+	// Convert `datePublished` to string (ISO 8601 format)
+	formattedDate := datePublished.Format("2006-01-02")
+	copy.DatePublished = formattedDate
+
+	return &copy, nil
+}
+
+// AddAuthor is the resolver for the addAuthor field.
+func (r *mutationResolver) AddAuthor(ctx context.Context, authorName string) (*model.Author, error) {
+	var authorID int
+	query := `
+        INSERT INTO authors (author_name) 
+        VALUES ($1) 
+        ON CONFLICT (author_name) 
+        DO UPDATE SET author_name = EXCLUDED.author_name 
+        RETURNING id
+    `
+	err := r.DB.QueryRow(ctx, query, authorName).Scan(&authorID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert or update author: %w", err)
+	}
+
+	return &model.Author{
+		ID:         int32(authorID),
+		AuthorName: authorName,
 	}, nil
 }
 
@@ -108,9 +170,31 @@ func (r *mutationResolver) DeleteBook(ctx context.Context, id string) (bool, err
 	return true, nil
 }
 
+// DeleteBCopy is the resolver for the deleteBCopy field.
+func (r *mutationResolver) DeleteBCopy(ctx context.Context, id string) (bool, error) {
+	intID, err := strconv.Atoi(id)
+	if err != nil {
+		return false, fmt.Errorf("invalid ID format: %v", err)
+	}
+
+	_, err = r.DB.Exec(ctx, "DELETE FROM book_copies WHERE id=$1", intID)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete book copy: %v", err)
+	}
+	return true, nil
+}
+
+// DeleteAuthor is the resolver for the deleteAuthor field.
+func (r *mutationResolver) DeleteAuthor(ctx context.Context, id string) (bool, error) {
+	_, err := r.DB.Exec(ctx, "DELETE FROM authors WHERE id=$1", id)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete author: %v", err)
+	}
+	return true, nil
+}
+
 // GetBooks is the resolver for the getBooks field.
 func (r *queryResolver) GetBooks(ctx context.Context) ([]*model.Book, error) {
-
 	var books []*model.Book
 	rows, err := r.DB.Query(ctx, "SELECT b.id, b.title, a.author_name, b.date_published, b.description FROM books b JOIN authors a ON b.author_id = a.id")
 	if err != nil {
@@ -235,7 +319,10 @@ func (r *queryResolver) GetBookByID(ctx context.Context, id string) (*model.Book
 
 // GetBookCopiesByID fetches all copies of a book by book ID.
 func (r *queryResolver) GetBookCopiesByID(ctx context.Context, id string) ([]*model.BookCopies, error) {
-	rows, err := r.DB.Query(ctx, "SELECT id, book_id, book_status, FROM book_copies WHERE book_id=$1", id)
+	// Query to fetch book copies by book ID
+	query := `SELECT bc.id, bc.book_id, b.title, a.author_name, b.date_published, b.description, bc.book_status FROM book_copies AS bc JOIN books AS b ON bc.book_id = b.id JOIN authors AS a ON b.author_id = a.id WHERE bc.book_id = $1`
+
+	rows, err := r.DB.Query(ctx, query, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch book copies: %v", err)
 	}
@@ -244,12 +331,32 @@ func (r *queryResolver) GetBookCopiesByID(ctx context.Context, id string) ([]*mo
 	var copies []*model.BookCopies
 	for rows.Next() {
 		var copy model.BookCopies
-		err := rows.Scan(&copy.ID, &copy.BookID, &copy.BookStatus)
+		var datePublished time.Time // Use time.Time to handle DATE type
+
+		// Scan the row into the BookCopies model
+		err := rows.Scan(
+			&copy.ID,
+			&copy.BookID,
+			&copy.Title,
+			&copy.AuthorName,
+			&datePublished,
+			&copy.Description,
+			&copy.BookStatus,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan book copy: %v", err)
 		}
+
+		// Convert `datePublished` to string (ISO 8601 format)
+		copy.DatePublished = datePublished.Format("2006-01-02")
 		copies = append(copies, &copy)
 	}
+
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate over book copies: %v", err)
+	}
+
 	return copies, nil
 }
 
@@ -275,11 +382,34 @@ func (r *queryResolver) SearchBooks(ctx context.Context, query string) ([]*model
 	return books, nil
 }
 
+// BookAdded is the resolver for the bookAdded field.
+func (r *subscriptionResolver) BookAdded(ctx context.Context) (<-chan *model.Book, error) {
+	id := uuid.NewString()
+	events := make(chan *model.Book, 1) // Buffered to prevent blocking
+
+	r.mu.Lock()
+	r.BookAddedObservers[id] = events
+	r.mu.Unlock()
+
+	go func() {
+		<-ctx.Done() // Remove observer when client disconnects
+		r.mu.Lock()
+		delete(r.BookAddedObservers, id)
+		r.mu.Unlock()
+	}()
+
+	return events, nil
+}
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+// Subscription returns SubscriptionResolver implementation.
+func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
+
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }

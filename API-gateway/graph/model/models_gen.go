@@ -7,24 +7,12 @@ type Author struct {
 	AuthorName string `json:"author_name"`
 }
 
-type Bcopy struct {
-	ID         int32  `json:"id"`
-	BookID     string `json:"book_id"`
-	BookStatus string `json:"book_status"`
-}
-
 type Book struct {
 	ID            string `json:"id"`
 	Title         string `json:"title"`
 	AuthorName    string `json:"author_name"`
 	DatePublished string `json:"date_published"`
 	Description   string `json:"description"`
-}
-
-type BookFilter struct {
-	Title         *string `json:"title,omitempty"`
-	AuthorName    *string `json:"author_name,omitempty"`
-	DatePublished *string `json:"date_published,omitempty"`
 }
 
 type BookCopies struct {

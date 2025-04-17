@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -13,49 +11,42 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/Cat6utpcableclarke/bookService/graph"
+	"github.com/Cat6utpcableclarke/API-gateway/graph"
 	"github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v5"
 	"github.com/rs/cors"
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-const defaultPort = "8080"
+const defaultPort = "8081"
 
 func main() {
-	dbURL := "postgresql://postgres.hwkuzfsecehszlftxqpn:cat6utpcable@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
-
-	// Create a database connection pool
-	db, err := pgx.Connect(context.Background(), dbURL)
-	if err != nil {
-		log.Fatalf("Unable to connect to database: %v", err)
-	}
-	defer db.Close(context.Background())
-
-	fmt.Println("Successfully connected to Supabase using pgx!")
-
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
 	}
 
-	resolver := graph.NewResolver(db)
-	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
+	// Create the GraphQL server
+	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
 
+	// Add WebSocket transport for subscriptions
 	srv.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				return true
+				return true // Allow all origins (adjust for production)
 			},
 		},
 		KeepAlivePingInterval: 10 * time.Second,
 	})
-	srv.AddTransport(transport.Options{})
-	srv.AddTransport(transport.GET{})
-	srv.AddTransport(transport.POST{})
 
+	// Add HTTP transport for queries and mutations
+	srv.AddTransport(transport.POST{})
+	srv.AddTransport(transport.GET{})
+	srv.AddTransport(transport.Options{})
+
+	// Set query caching
 	srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
+	// Enable introspection and persisted queries
 	srv.Use(extension.Introspection{})
 	srv.Use(extension.AutomaticPersistedQuery{
 		Cache: lru.New[string](100),
@@ -63,16 +54,17 @@ func main() {
 
 	// Enable CORS
 	corsHandler := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:8081"}, // Allow requests from your front-end
+		AllowedOrigins:   []string{"http://localhost:3000"}, // Allow requests from your front-end
 		AllowCredentials: true,
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"}, // Allow specific HTTP methods
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 	}).Handler(srv)
 
-	// Use corsHandler for the /query endpoint
-	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
+	// Set up HTTP handlers
+	http.Handle("/", playground.Handler("GraphQL Playground", "/query"))
 	http.Handle("/query", corsHandler)
 
+	// Start the server
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

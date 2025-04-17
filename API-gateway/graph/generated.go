@@ -15,7 +15,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
-	"github.com/Cat6utpcableclarke/bookService/graph/model"
+	"github.com/Cat6utpcableclarke/API-gateway/graph/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -54,12 +54,6 @@ type ComplexityRoot struct {
 		ID         func(childComplexity int) int
 	}
 
-	Bcopy struct {
-		BookID     func(childComplexity int) int
-		BookStatus func(childComplexity int) int
-		ID         func(childComplexity int) int
-	}
-
 	Book struct {
 		AuthorName    func(childComplexity int) int
 		DatePublished func(childComplexity int) int
@@ -79,24 +73,13 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		AddAuthor            func(childComplexity int, authorName string) int
-		AddBCopy             func(childComplexity int, bookID string) int
-		AddBook              func(childComplexity int, title string, authorName string, datePublished string, description string) int
-		DeleteAuthor         func(childComplexity int, id string) int
-		DeleteBCopy          func(childComplexity int, id string) int
-		DeleteBook           func(childComplexity int, id string) int
-		UpdateBook           func(childComplexity int, id string, title *string, authorName string, datePublished *string, description *string) int
-		UpdateBookCopyStatus func(childComplexity int, id string, bookStatus *string) int
+		AddBook func(childComplexity int, title string, authorName string, datePublished string, description string) int
 	}
 
 	Query struct {
-		GetAuthor         func(childComplexity int) int
 		GetBookByID       func(childComplexity int, id string) int
-		GetBookCopies     func(childComplexity int) int
 		GetBookCopiesByID func(childComplexity int, id string) int
 		GetBooks          func(childComplexity int) int
-		GetFilteredBooks  func(childComplexity int, filter *model.BookFilter) int
-		SearchBooks       func(childComplexity int, query string) int
 	}
 
 	Subscription struct {
@@ -106,22 +89,11 @@ type ComplexityRoot struct {
 
 type MutationResolver interface {
 	AddBook(ctx context.Context, title string, authorName string, datePublished string, description string) (*model.Book, error)
-	AddBCopy(ctx context.Context, bookID string) (*model.BookCopies, error)
-	AddAuthor(ctx context.Context, authorName string) (*model.Author, error)
-	UpdateBook(ctx context.Context, id string, title *string, authorName string, datePublished *string, description *string) (*model.Book, error)
-	UpdateBookCopyStatus(ctx context.Context, id string, bookStatus *string) (*model.BookCopies, error)
-	DeleteBook(ctx context.Context, id string) (bool, error)
-	DeleteBCopy(ctx context.Context, id string) (bool, error)
-	DeleteAuthor(ctx context.Context, id string) (bool, error)
 }
 type QueryResolver interface {
 	GetBooks(ctx context.Context) ([]*model.Book, error)
-	GetAuthor(ctx context.Context) ([]*model.Author, error)
-	GetBookCopies(ctx context.Context) ([]*model.BookCopies, error)
-	GetFilteredBooks(ctx context.Context, filter *model.BookFilter) ([]*model.Book, error)
 	GetBookByID(ctx context.Context, id string) (*model.Book, error)
 	GetBookCopiesByID(ctx context.Context, id string) ([]*model.BookCopies, error)
-	SearchBooks(ctx context.Context, query string) ([]*model.Book, error)
 }
 type SubscriptionResolver interface {
 	BookAdded(ctx context.Context) (<-chan *model.Book, error)
@@ -159,27 +131,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Author.ID(childComplexity), true
-
-	case "Bcopy.book_id":
-		if e.complexity.Bcopy.BookID == nil {
-			break
-		}
-
-		return e.complexity.Bcopy.BookID(childComplexity), true
-
-	case "Bcopy.book_status":
-		if e.complexity.Bcopy.BookStatus == nil {
-			break
-		}
-
-		return e.complexity.Bcopy.BookStatus(childComplexity), true
-
-	case "Bcopy.id":
-		if e.complexity.Bcopy.ID == nil {
-			break
-		}
-
-		return e.complexity.Bcopy.ID(childComplexity), true
 
 	case "Book.author_name":
 		if e.complexity.Book.AuthorName == nil {
@@ -265,30 +216,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Book_copies.Title(childComplexity), true
 
-	case "Mutation.addAuthor":
-		if e.complexity.Mutation.AddAuthor == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_addAuthor_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.AddAuthor(childComplexity, args["author_name"].(string)), true
-
-	case "Mutation.addBCopy":
-		if e.complexity.Mutation.AddBCopy == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_addBCopy_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.AddBCopy(childComplexity, args["book_id"].(string)), true
-
 	case "Mutation.addBook":
 		if e.complexity.Mutation.AddBook == nil {
 			break
@@ -299,74 +226,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.AddBook(childComplexity, args["title"].(string), args["author_name"].(string), args["datePublished"].(string), args["description"].(string)), true
-
-	case "Mutation.deleteAuthor":
-		if e.complexity.Mutation.DeleteAuthor == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_deleteAuthor_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.DeleteAuthor(childComplexity, args["id"].(string)), true
-
-	case "Mutation.deleteBCopy":
-		if e.complexity.Mutation.DeleteBCopy == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_deleteBCopy_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.DeleteBCopy(childComplexity, args["id"].(string)), true
-
-	case "Mutation.deleteBook":
-		if e.complexity.Mutation.DeleteBook == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_deleteBook_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.DeleteBook(childComplexity, args["id"].(string)), true
-
-	case "Mutation.updateBook":
-		if e.complexity.Mutation.UpdateBook == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_updateBook_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.UpdateBook(childComplexity, args["id"].(string), args["title"].(*string), args["author_name"].(string), args["datePublished"].(*string), args["description"].(*string)), true
-
-	case "Mutation.updateBookCopyStatus":
-		if e.complexity.Mutation.UpdateBookCopyStatus == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_updateBookCopyStatus_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.UpdateBookCopyStatus(childComplexity, args["id"].(string), args["book_status"].(*string)), true
-
-	case "Query.getAuthor":
-		if e.complexity.Query.GetAuthor == nil {
-			break
-		}
-
-		return e.complexity.Query.GetAuthor(childComplexity), true
+		return e.complexity.Mutation.AddBook(childComplexity, args["title"].(string), args["authorName"].(string), args["datePublished"].(string), args["description"].(string)), true
 
 	case "Query.getBookById":
 		if e.complexity.Query.GetBookByID == nil {
@@ -379,13 +239,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.GetBookByID(childComplexity, args["id"].(string)), true
-
-	case "Query.getBookCopies":
-		if e.complexity.Query.GetBookCopies == nil {
-			break
-		}
-
-		return e.complexity.Query.GetBookCopies(childComplexity), true
 
 	case "Query.getBookCopiesById":
 		if e.complexity.Query.GetBookCopiesByID == nil {
@@ -406,30 +259,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.GetBooks(childComplexity), true
 
-	case "Query.getFilteredBooks":
-		if e.complexity.Query.GetFilteredBooks == nil {
-			break
-		}
-
-		args, err := ec.field_Query_getFilteredBooks_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.GetFilteredBooks(childComplexity, args["filter"].(*model.BookFilter)), true
-
-	case "Query.searchBooks":
-		if e.complexity.Query.SearchBooks == nil {
-			break
-		}
-
-		args, err := ec.field_Query_searchBooks_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.SearchBooks(childComplexity, args["query"].(string)), true
-
 	case "Subscription.bookAdded":
 		if e.complexity.Subscription.BookAdded == nil {
 			break
@@ -444,9 +273,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
-	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
-		ec.unmarshalInputBookFilter,
-	)
+	inputUnmarshalMap := graphql.BuildUnmarshalerMap()
 	first := true
 
 	switch opCtx.Operation.Operation {
@@ -579,52 +406,6 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
-func (ec *executionContext) field_Mutation_addAuthor_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_addAuthor_argsAuthorName(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["author_name"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_addAuthor_argsAuthorName(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("author_name"))
-	if tmp, ok := rawArgs["author_name"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_addBCopy_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_addBCopy_argsBookID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["book_id"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_addBCopy_argsBookID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("book_id"))
-	if tmp, ok := rawArgs["book_id"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
 func (ec *executionContext) field_Mutation_addBook_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -637,7 +418,7 @@ func (ec *executionContext) field_Mutation_addBook_args(ctx context.Context, raw
 	if err != nil {
 		return nil, err
 	}
-	args["author_name"] = arg1
+	args["authorName"] = arg1
 	arg2, err := ec.field_Mutation_addBook_argsDatePublished(ctx, rawArgs)
 	if err != nil {
 		return nil, err
@@ -667,8 +448,8 @@ func (ec *executionContext) field_Mutation_addBook_argsAuthorName(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("author_name"))
-	if tmp, ok := rawArgs["author_name"]; ok {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("authorName"))
+	if tmp, ok := rawArgs["authorName"]; ok {
 		return ec.unmarshalNString2string(ctx, tmp)
 	}
 
@@ -699,211 +480,6 @@ func (ec *executionContext) field_Mutation_addBook_argsDescription(
 	}
 
 	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_deleteAuthor_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_deleteAuthor_argsID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["id"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_deleteAuthor_argsID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
-	if tmp, ok := rawArgs["id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_deleteBCopy_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_deleteBCopy_argsID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["id"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_deleteBCopy_argsID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
-	if tmp, ok := rawArgs["id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_deleteBook_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_deleteBook_argsID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["id"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_deleteBook_argsID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
-	if tmp, ok := rawArgs["id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updateBookCopyStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_updateBookCopyStatus_argsID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["id"] = arg0
-	arg1, err := ec.field_Mutation_updateBookCopyStatus_argsBookStatus(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["book_status"] = arg1
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_updateBookCopyStatus_argsID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
-	if tmp, ok := rawArgs["id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updateBookCopyStatus_argsBookStatus(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("book_status"))
-	if tmp, ok := rawArgs["book_status"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updateBook_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_updateBook_argsID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["id"] = arg0
-	arg1, err := ec.field_Mutation_updateBook_argsTitle(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["title"] = arg1
-	arg2, err := ec.field_Mutation_updateBook_argsAuthorName(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["author_name"] = arg2
-	arg3, err := ec.field_Mutation_updateBook_argsDatePublished(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["datePublished"] = arg3
-	arg4, err := ec.field_Mutation_updateBook_argsDescription(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["description"] = arg4
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_updateBook_argsID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
-	if tmp, ok := rawArgs["id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updateBook_argsTitle(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("title"))
-	if tmp, ok := rawArgs["title"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updateBook_argsAuthorName(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("author_name"))
-	if tmp, ok := rawArgs["author_name"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updateBook_argsDatePublished(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("datePublished"))
-	if tmp, ok := rawArgs["datePublished"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updateBook_argsDescription(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
-	if tmp, ok := rawArgs["description"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
 	return zeroVal, nil
 }
 
@@ -969,52 +545,6 @@ func (ec *executionContext) field_Query_getBookCopiesById_argsID(
 ) (string, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
 	if tmp, ok := rawArgs["id"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_getFilteredBooks_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_getFilteredBooks_argsFilter(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["filter"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Query_getFilteredBooks_argsFilter(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*model.BookFilter, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("filter"))
-	if tmp, ok := rawArgs["filter"]; ok {
-		return ec.unmarshalOBookFilter2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookFilter(ctx, tmp)
-	}
-
-	var zeroVal *model.BookFilter
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_searchBooks_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_searchBooks_argsQuery(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["query"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Query_searchBooks_argsQuery(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("query"))
-	if tmp, ok := rawArgs["query"]; ok {
 		return ec.unmarshalNString2string(ctx, tmp)
 	}
 
@@ -1200,138 +730,6 @@ func (ec *executionContext) _Author_author_name(ctx context.Context, field graph
 func (ec *executionContext) fieldContext_Author_author_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Author",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Bcopy_id(ctx context.Context, field graphql.CollectedField, obj *model.Bcopy) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Bcopy_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(int32)
-	fc.Result = res
-	return ec.marshalNInt2int32(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Bcopy_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Bcopy",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Bcopy_book_id(ctx context.Context, field graphql.CollectedField, obj *model.Bcopy) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Bcopy_book_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BookID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Bcopy_book_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Bcopy",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Bcopy_book_status(ctx context.Context, field graphql.CollectedField, obj *model.Bcopy) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Bcopy_book_status(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BookStatus, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Bcopy_book_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Bcopy",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -1884,7 +1282,7 @@ func (ec *executionContext) _Mutation_addBook(ctx context.Context, field graphql
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().AddBook(rctx, fc.Args["title"].(string), fc.Args["author_name"].(string), fc.Args["datePublished"].(string), fc.Args["description"].(string))
+		return ec.resolvers.Mutation().AddBook(rctx, fc.Args["title"].(string), fc.Args["authorName"].(string), fc.Args["datePublished"].(string), fc.Args["description"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1898,7 +1296,7 @@ func (ec *executionContext) _Mutation_addBook(ctx context.Context, field graphql
 	}
 	res := resTmp.(*model.Book)
 	fc.Result = res
-	return ec.marshalNBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBook(ctx, field.Selections, res)
+	return ec.marshalNBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBook(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_addBook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1937,441 +1335,6 @@ func (ec *executionContext) fieldContext_Mutation_addBook(ctx context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_addBCopy(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_addBCopy(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().AddBCopy(rctx, fc.Args["book_id"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.BookCopies)
-	fc.Result = res
-	return ec.marshalNBook_copies2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookCopies(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_addBCopy(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Book_copies_id(ctx, field)
-			case "book_id":
-				return ec.fieldContext_Book_copies_book_id(ctx, field)
-			case "title":
-				return ec.fieldContext_Book_copies_title(ctx, field)
-			case "author_name":
-				return ec.fieldContext_Book_copies_author_name(ctx, field)
-			case "date_published":
-				return ec.fieldContext_Book_copies_date_published(ctx, field)
-			case "description":
-				return ec.fieldContext_Book_copies_description(ctx, field)
-			case "book_status":
-				return ec.fieldContext_Book_copies_book_status(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Book_copies", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_addBCopy_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_addAuthor(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_addAuthor(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().AddAuthor(rctx, fc.Args["author_name"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.Author)
-	fc.Result = res
-	return ec.marshalNAuthor2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐAuthor(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_addAuthor(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Author_id(ctx, field)
-			case "author_name":
-				return ec.fieldContext_Author_author_name(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Author", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_addAuthor_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_updateBook(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_updateBook(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateBook(rctx, fc.Args["id"].(string), fc.Args["title"].(*string), fc.Args["author_name"].(string), fc.Args["datePublished"].(*string), fc.Args["description"].(*string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.Book)
-	fc.Result = res
-	return ec.marshalNBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBook(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_updateBook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Book_id(ctx, field)
-			case "title":
-				return ec.fieldContext_Book_title(ctx, field)
-			case "author_name":
-				return ec.fieldContext_Book_author_name(ctx, field)
-			case "date_published":
-				return ec.fieldContext_Book_date_published(ctx, field)
-			case "description":
-				return ec.fieldContext_Book_description(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Book", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_updateBook_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_updateBookCopyStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_updateBookCopyStatus(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateBookCopyStatus(rctx, fc.Args["id"].(string), fc.Args["book_status"].(*string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.BookCopies)
-	fc.Result = res
-	return ec.marshalNBook_copies2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookCopies(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_updateBookCopyStatus(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Book_copies_id(ctx, field)
-			case "book_id":
-				return ec.fieldContext_Book_copies_book_id(ctx, field)
-			case "title":
-				return ec.fieldContext_Book_copies_title(ctx, field)
-			case "author_name":
-				return ec.fieldContext_Book_copies_author_name(ctx, field)
-			case "date_published":
-				return ec.fieldContext_Book_copies_date_published(ctx, field)
-			case "description":
-				return ec.fieldContext_Book_copies_description(ctx, field)
-			case "book_status":
-				return ec.fieldContext_Book_copies_book_status(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Book_copies", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_updateBookCopyStatus_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_deleteBook(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_deleteBook(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DeleteBook(rctx, fc.Args["id"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(bool)
-	fc.Result = res
-	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_deleteBook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Boolean does not have child fields")
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_deleteBook_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_deleteBCopy(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_deleteBCopy(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DeleteBCopy(rctx, fc.Args["id"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(bool)
-	fc.Result = res
-	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_deleteBCopy(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Boolean does not have child fields")
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_deleteBCopy_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_deleteAuthor(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_deleteAuthor(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DeleteAuthor(rctx, fc.Args["id"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(bool)
-	fc.Result = res
-	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_deleteAuthor(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Boolean does not have child fields")
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_deleteAuthor_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Query_getBooks(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Query_getBooks(ctx, field)
 	if err != nil {
@@ -2400,7 +1363,7 @@ func (ec *executionContext) _Query_getBooks(ctx context.Context, field graphql.C
 	}
 	res := resTmp.([]*model.Book)
 	fc.Result = res
-	return ec.marshalNBook2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookᚄ(ctx, field.Selections, res)
+	return ec.marshalNBook2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBookᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_getBooks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2424,183 +1387,6 @@ func (ec *executionContext) fieldContext_Query_getBooks(_ context.Context, field
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Book", field.Name)
 		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_getAuthor(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getAuthor(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetAuthor(rctx)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]*model.Author)
-	fc.Result = res
-	return ec.marshalNAuthor2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐAuthorᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_getAuthor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Author_id(ctx, field)
-			case "author_name":
-				return ec.fieldContext_Author_author_name(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Author", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_getBookCopies(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getBookCopies(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetBookCopies(rctx)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]*model.BookCopies)
-	fc.Result = res
-	return ec.marshalNBook_copies2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookCopiesᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_getBookCopies(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Book_copies_id(ctx, field)
-			case "book_id":
-				return ec.fieldContext_Book_copies_book_id(ctx, field)
-			case "title":
-				return ec.fieldContext_Book_copies_title(ctx, field)
-			case "author_name":
-				return ec.fieldContext_Book_copies_author_name(ctx, field)
-			case "date_published":
-				return ec.fieldContext_Book_copies_date_published(ctx, field)
-			case "description":
-				return ec.fieldContext_Book_copies_description(ctx, field)
-			case "book_status":
-				return ec.fieldContext_Book_copies_book_status(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Book_copies", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_getFilteredBooks(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getFilteredBooks(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetFilteredBooks(rctx, fc.Args["filter"].(*model.BookFilter))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]*model.Book)
-	fc.Result = res
-	return ec.marshalNBook2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_getFilteredBooks(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Book_id(ctx, field)
-			case "title":
-				return ec.fieldContext_Book_title(ctx, field)
-			case "author_name":
-				return ec.fieldContext_Book_author_name(ctx, field)
-			case "date_published":
-				return ec.fieldContext_Book_date_published(ctx, field)
-			case "description":
-				return ec.fieldContext_Book_description(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Book", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_getFilteredBooks_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
 	}
 	return fc, nil
 }
@@ -2630,7 +1416,7 @@ func (ec *executionContext) _Query_getBookById(ctx context.Context, field graphq
 	}
 	res := resTmp.(*model.Book)
 	fc.Result = res
-	return ec.marshalOBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBook(ctx, field.Selections, res)
+	return ec.marshalOBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBook(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_getBookById(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2697,7 +1483,7 @@ func (ec *executionContext) _Query_getBookCopiesById(ctx context.Context, field 
 	}
 	res := resTmp.([]*model.BookCopies)
 	fc.Result = res
-	return ec.marshalNBook_copies2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookCopiesᚄ(ctx, field.Selections, res)
+	return ec.marshalNBook_copies2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBookCopiesᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_getBookCopiesById(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2734,73 +1520,6 @@ func (ec *executionContext) fieldContext_Query_getBookCopiesById(ctx context.Con
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_getBookCopiesById_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_searchBooks(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_searchBooks(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().SearchBooks(rctx, fc.Args["query"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]*model.Book)
-	fc.Result = res
-	return ec.marshalNBook2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_searchBooks(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Book_id(ctx, field)
-			case "title":
-				return ec.fieldContext_Book_title(ctx, field)
-			case "author_name":
-				return ec.fieldContext_Book_author_name(ctx, field)
-			case "date_published":
-				return ec.fieldContext_Book_date_published(ctx, field)
-			case "description":
-				return ec.fieldContext_Book_description(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Book", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_searchBooks_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2849,6 +1568,8 @@ func (ec *executionContext) fieldContext_Query___type(ctx context.Context, field
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -2861,8 +1582,6 @@ func (ec *executionContext) fieldContext_Query___type(ctx context.Context, field
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -2974,7 +1693,7 @@ func (ec *executionContext) _Subscription_bookAdded(ctx context.Context, field g
 				w.Write([]byte{'{'})
 				graphql.MarshalString(field.Alias).MarshalGQL(w)
 				w.Write([]byte{':'})
-				ec.marshalNBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBook(ctx, field.Selections, res).MarshalGQL(w)
+				ec.marshalNBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBook(ctx, field.Selections, res).MarshalGQL(w)
 				w.Write([]byte{'}'})
 			})
 		case <-ctx.Done():
@@ -3093,6 +1812,50 @@ func (ec *executionContext) fieldContext___Directive_description(_ context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) ___Directive_isRepeatable(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Directive_isRepeatable(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.IsRepeatable, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext___Directive_isRepeatable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Directive",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Directive_locations(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext___Directive_locations(ctx, field)
 	if err != nil {
@@ -3202,50 +1965,6 @@ func (ec *executionContext) fieldContext___Directive_args(ctx context.Context, f
 	if fc.Args, err = ec.field___Directive_args_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) ___Directive_isRepeatable(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext___Directive_isRepeatable(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.IsRepeatable, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(bool)
-	fc.Result = res
-	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext___Directive_isRepeatable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "__Directive",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Boolean does not have child fields")
-		},
 	}
 	return fc, nil
 }
@@ -3619,6 +2338,8 @@ func (ec *executionContext) fieldContext___Field_type(_ context.Context, field g
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -3631,8 +2352,6 @@ func (ec *executionContext) fieldContext___Field_type(_ context.Context, field g
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -3857,6 +2576,8 @@ func (ec *executionContext) fieldContext___InputValue_type(_ context.Context, fi
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -3869,8 +2590,6 @@ func (ec *executionContext) fieldContext___InputValue_type(_ context.Context, fi
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -4092,6 +2811,8 @@ func (ec *executionContext) fieldContext___Schema_types(_ context.Context, field
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -4104,8 +2825,6 @@ func (ec *executionContext) fieldContext___Schema_types(_ context.Context, field
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -4160,6 +2879,8 @@ func (ec *executionContext) fieldContext___Schema_queryType(_ context.Context, f
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -4172,8 +2893,6 @@ func (ec *executionContext) fieldContext___Schema_queryType(_ context.Context, f
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -4225,6 +2944,8 @@ func (ec *executionContext) fieldContext___Schema_mutationType(_ context.Context
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -4237,8 +2958,6 @@ func (ec *executionContext) fieldContext___Schema_mutationType(_ context.Context
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -4290,6 +3009,8 @@ func (ec *executionContext) fieldContext___Schema_subscriptionType(_ context.Con
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -4302,8 +3023,6 @@ func (ec *executionContext) fieldContext___Schema_subscriptionType(_ context.Con
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -4356,12 +3075,12 @@ func (ec *executionContext) fieldContext___Schema_directives(_ context.Context, 
 				return ec.fieldContext___Directive_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Directive_description(ctx, field)
+			case "isRepeatable":
+				return ec.fieldContext___Directive_isRepeatable(ctx, field)
 			case "locations":
 				return ec.fieldContext___Directive_locations(ctx, field)
 			case "args":
 				return ec.fieldContext___Directive_args(ctx, field)
-			case "isRepeatable":
-				return ec.fieldContext___Directive_isRepeatable(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Directive", field.Name)
 		},
@@ -4495,6 +3214,47 @@ func (ec *executionContext) fieldContext___Type_description(_ context.Context, f
 	return fc, nil
 }
 
+func (ec *executionContext) ___Type_specifiedByURL(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_specifiedByURL(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.SpecifiedByURL(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext___Type_specifiedByURL(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Type_fields(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext___Type_fields(ctx, field)
 	if err != nil {
@@ -4603,6 +3363,8 @@ func (ec *executionContext) fieldContext___Type_interfaces(_ context.Context, fi
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -4615,8 +3377,6 @@ func (ec *executionContext) fieldContext___Type_interfaces(_ context.Context, fi
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -4668,6 +3428,8 @@ func (ec *executionContext) fieldContext___Type_possibleTypes(_ context.Context,
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -4680,8 +3442,6 @@ func (ec *executionContext) fieldContext___Type_possibleTypes(_ context.Context,
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -4850,6 +3610,8 @@ func (ec *executionContext) fieldContext___Type_ofType(_ context.Context, field 
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -4862,53 +3624,10 @@ func (ec *executionContext) fieldContext___Type_ofType(_ context.Context, field 
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) ___Type_specifiedByURL(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext___Type_specifiedByURL(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.SpecifiedByURL(), nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*string)
-	fc.Result = res
-	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext___Type_specifiedByURL(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "__Type",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -4959,47 +3678,6 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
-func (ec *executionContext) unmarshalInputBookFilter(ctx context.Context, obj any) (model.BookFilter, error) {
-	var it model.BookFilter
-	asMap := map[string]any{}
-	for k, v := range obj.(map[string]any) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"title", "author_name", "date_published"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "title":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("title"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Title = data
-		case "author_name":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("author_name"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.AuthorName = data
-		case "date_published":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("date_published"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.DatePublished = data
-		}
-	}
-
-	return it, nil
-}
-
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -5026,55 +3704,6 @@ func (ec *executionContext) _Author(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "author_name":
 			out.Values[i] = ec._Author_author_name(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var bcopyImplementors = []string{"Bcopy"}
-
-func (ec *executionContext) _Bcopy(ctx context.Context, sel ast.SelectionSet, obj *model.Bcopy) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, bcopyImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("Bcopy")
-		case "id":
-			out.Values[i] = ec._Bcopy_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "book_id":
-			out.Values[i] = ec._Bcopy_book_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "book_status":
-			out.Values[i] = ec._Bcopy_book_status(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -5255,55 +3884,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "addBCopy":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_addBCopy(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "addAuthor":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_addAuthor(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "updateBook":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_updateBook(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "updateBookCopyStatus":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_updateBookCopyStatus(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "deleteBook":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_deleteBook(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "deleteBCopy":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_deleteBCopy(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "deleteAuthor":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_deleteAuthor(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5368,72 +3948,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "getAuthor":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_getAuthor(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "getBookCopies":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_getBookCopies(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "getFilteredBooks":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_getFilteredBooks(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "getBookById":
 			field := field
 
@@ -5463,28 +3977,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_getBookCopiesById(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "searchBooks":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_searchBooks(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -5566,6 +4058,11 @@ func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionS
 			}
 		case "description":
 			out.Values[i] = ec.___Directive_description(ctx, field, obj)
+		case "isRepeatable":
+			out.Values[i] = ec.___Directive_isRepeatable(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "locations":
 			out.Values[i] = ec.___Directive_locations(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -5573,11 +4070,6 @@ func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionS
 			}
 		case "args":
 			out.Values[i] = ec.___Directive_args(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "isRepeatable":
-			out.Values[i] = ec.___Directive_isRepeatable(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -5840,6 +4332,8 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 			out.Values[i] = ec.___Type_name(ctx, field, obj)
 		case "description":
 			out.Values[i] = ec.___Type_description(ctx, field, obj)
+		case "specifiedByURL":
+			out.Values[i] = ec.___Type_specifiedByURL(ctx, field, obj)
 		case "fields":
 			out.Values[i] = ec.___Type_fields(ctx, field, obj)
 		case "interfaces":
@@ -5852,8 +4346,6 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 			out.Values[i] = ec.___Type_inputFields(ctx, field, obj)
 		case "ofType":
 			out.Values[i] = ec.___Type_ofType(ctx, field, obj)
-		case "specifiedByURL":
-			out.Values[i] = ec.___Type_specifiedByURL(ctx, field, obj)
 		case "isOneOf":
 			out.Values[i] = ec.___Type_isOneOf(ctx, field, obj)
 		default:
@@ -5883,69 +4375,11 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
-func (ec *executionContext) marshalNAuthor2githubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐAuthor(ctx context.Context, sel ast.SelectionSet, v model.Author) graphql.Marshaler {
-	return ec._Author(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNAuthor2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐAuthorᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Author) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNAuthor2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐAuthor(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNAuthor2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐAuthor(ctx context.Context, sel ast.SelectionSet, v *model.Author) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._Author(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNBook2githubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBook(ctx context.Context, sel ast.SelectionSet, v model.Book) graphql.Marshaler {
+func (ec *executionContext) marshalNBook2githubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBook(ctx context.Context, sel ast.SelectionSet, v model.Book) graphql.Marshaler {
 	return ec._Book(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNBook2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Book) graphql.Marshaler {
+func (ec *executionContext) marshalNBook2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBookᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Book) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -5969,7 +4403,7 @@ func (ec *executionContext) marshalNBook2ᚕᚖgithubᚗcomᚋCat6utpcableclarke
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBook(ctx, sel, v[i])
+			ret[i] = ec.marshalNBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBook(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -5989,7 +4423,7 @@ func (ec *executionContext) marshalNBook2ᚕᚖgithubᚗcomᚋCat6utpcableclarke
 	return ret
 }
 
-func (ec *executionContext) marshalNBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBook(ctx context.Context, sel ast.SelectionSet, v *model.Book) graphql.Marshaler {
+func (ec *executionContext) marshalNBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBook(ctx context.Context, sel ast.SelectionSet, v *model.Book) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -5999,11 +4433,7 @@ func (ec *executionContext) marshalNBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋ
 	return ec._Book(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNBook_copies2githubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookCopies(ctx context.Context, sel ast.SelectionSet, v model.BookCopies) graphql.Marshaler {
-	return ec._Book_copies(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNBook_copies2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookCopiesᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BookCopies) graphql.Marshaler {
+func (ec *executionContext) marshalNBook_copies2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBookCopiesᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BookCopies) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -6027,7 +4457,7 @@ func (ec *executionContext) marshalNBook_copies2ᚕᚖgithubᚗcomᚋCat6utpcabl
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNBook_copies2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookCopies(ctx, sel, v[i])
+			ret[i] = ec.marshalNBook_copies2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBookCopies(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -6047,7 +4477,7 @@ func (ec *executionContext) marshalNBook_copies2ᚕᚖgithubᚗcomᚋCat6utpcabl
 	return ret
 }
 
-func (ec *executionContext) marshalNBook_copies2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookCopies(ctx context.Context, sel ast.SelectionSet, v *model.BookCopies) graphql.Marshaler {
+func (ec *executionContext) marshalNBook_copies2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBookCopies(ctx context.Context, sel ast.SelectionSet, v *model.BookCopies) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -6182,9 +4612,7 @@ func (ec *executionContext) marshalN__DirectiveLocation2string(ctx context.Conte
 
 func (ec *executionContext) unmarshalN__DirectiveLocation2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
 	var vSlice []any
-	if v != nil {
-		vSlice = graphql.CoerceList(v)
-	}
+	vSlice = graphql.CoerceList(v)
 	var err error
 	res := make([]string, len(vSlice))
 	for i := range vSlice {
@@ -6370,19 +4798,11 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 	return res
 }
 
-func (ec *executionContext) marshalOBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBook(ctx context.Context, sel ast.SelectionSet, v *model.Book) graphql.Marshaler {
+func (ec *executionContext) marshalOBook2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐBook(ctx context.Context, sel ast.SelectionSet, v *model.Book) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Book(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalOBookFilter2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋbookServiceᚋgraphᚋmodelᚐBookFilter(ctx context.Context, v any) (*model.BookFilter, error) {
-	if v == nil {
-		return nil, nil
-	}
-	res, err := ec.unmarshalInputBookFilter(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v any) (bool, error) {

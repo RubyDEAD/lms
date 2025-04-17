@@ -21,11 +21,19 @@ type Book_copies {
   book_status:String!
 }
 
-
+type Bcopy{
+  id:Int!
+  book_id:String!
+  book_status:String!
+}
 input BookFilter {
   title: String
   author_name: String
   date_published: String
+}
+
+type Subscription {
+  bookAdded: Book! # Notifies when a new book is added
 }
 
 type Query {
@@ -40,7 +48,12 @@ type Query {
 
 type Mutation {
   addBook(title: String!, author_name: String!, datePublished: String!,description:String!): Book!
+  addBCopy(book_id:String!): Book_copies!
+  addAuthor(author_name:String!): Author!
   updateBook(id: ID!, title: String, author_name:String!, datePublished: String, description:String): Book!
   updateBookCopyStatus(id: ID!, book_status:String):Book_copies!
   deleteBook(id: ID!): Boolean!
+  deleteBCopy(id: ID!): Boolean!
+  deleteAuthor(id: ID!): Boolean!
 }
+
