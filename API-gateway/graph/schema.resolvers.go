@@ -12,166 +12,21 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/Cat6utpcableclarke/API-gateway/graph/model"
 	"github.com/coder/websocket"
+
+	"github.com/google/uuid"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const bookServiceURL = "http://localhost:8080/query" // Replace with your bookService URL
+const bookServiceURL = "http://localhost:8080/query"
+const patronServiceURL = "http://localhost:8069/query"
+const patronServiceQueue = "patron-service-queue"
 
-// AddBook is the resolver for the addBook field.
-func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName string, datePublished string, description string) (*model.Book, error) {
-	query := `
-        mutation AddBook($title: String!, $author_name: String!, $datePublished: String!, $description: String!) {
-            addBook(title: $title, author_name: $author_name, datePublished: $datePublished, description: $description) {
-                id
-                title
-                author_name
-                date_published
-                description
-            }
-        }
-    `
-
-	variables := map[string]interface{}{
-		"title":         title,
-		"author_name":   authorName,
-		"datePublished": datePublished,
-		"description":   description,
-	}
-
-	resp, err := forwardRequest(ctx, query, variables)
-	if err != nil {
-		return nil, err
-	}
-
-	var result struct {
-		Data struct {
-			AddBook *model.Book `json:"addBook"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
-	}
-
-	return result.Data.AddBook, nil
-}
-
-// GetBooks is the resolver for the getBooks field.
-func (r *queryResolver) GetBooks(ctx context.Context) ([]*model.Book, error) {
-	query := `
-        query {
-            getBooks {
-                id
-                title
-                author_name
-                date_published
-                description
-            }
-        }
-    `
-
-	resp, err := forwardRequest(ctx, query, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var result struct {
-		Data struct {
-			GetBooks []*model.Book `json:"getBooks"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
-	}
-
-	return result.Data.GetBooks, nil
-}
-
-// GetBookByID is the resolver for the getBookById field.
-func (r *queryResolver) GetBookByID(ctx context.Context, id string) (*model.Book, error) {
-	query := `
-        query GetBookById($id: String!) {
-            getBookById(id: $id) {
-                id
-                title
-                author_name
-                date_published
-                description
-            }
-        }
-    `
-
-	variables := map[string]interface{}{
-		"id": id,
-	}
-
-	resp, err := forwardRequest(ctx, query, variables)
-	if err != nil {
-		return nil, err
-	}
-
-	var result struct {
-		Data struct {
-			GetBookById *model.Book `json:"getBookById"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
-	}
-
-	return result.Data.GetBookById, nil
-}
-
-// GetBookCopiesByID is the resolver for the getBookCopiesById field.
-func (r *queryResolver) GetBookCopiesByID(ctx context.Context, id string) ([]*model.BookCopies, error) {
-	query := `
-        query GetBookCopiesById($id: String!) {
-            getBookCopiesById(id: $id) {
-                id
-                book_id
-                book_status
-            }
-        }
-    `
-
-	variables := map[string]interface{}{
-		"id": id,
-	}
-
-	resp, err := forwardRequest(ctx, query, variables)
-	if err != nil {
-		return nil, err
-	}
-
-	var result struct {
-		Data struct {
-			GetBookCopiesById []*model.BookCopies `json:"getBookCopiesById"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
-	}
-
-	return result.Data.GetBookCopiesById, nil
-}
-
-// BookAdded is the resolver for the bookAdded field.
-func (r *subscriptionResolver) BookAdded(ctx context.Context) (<-chan *model.Book, error) {
-	bookChan := make(chan *model.Book)
-	err := SubscribeToBookAdded(ctx, bookChan)
-	if err != nil {
-		return nil, err
-	}
-	return bookChan, nil
-}
-
-// Helper function to forward requests to the bookService
-func forwardRequest(ctx context.Context, query string, variables map[string]interface{}) ([]byte, error) {
+// HELPER FUNCTION - FORWARDS REQUESTS FROM THE GATEWAY TO THE INDIVIDUAL SERVICES (VERY IMPORTANT)
+func forwardRequest(ctx context.Context, query string, variables map[string]interface{}, serviceURL string) ([]byte, error) {
 	body := map[string]interface{}{
 		"query":     query,
 		"variables": variables,
@@ -182,7 +37,7 @@ func forwardRequest(ctx context.Context, query string, variables map[string]inte
 		return nil, fmt.Errorf("failed to marshal request body: %v", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", bookServiceURL, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", serviceURL, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
@@ -203,6 +58,7 @@ func forwardRequest(ctx context.Context, query string, variables map[string]inte
 	return io.ReadAll(resp.Body)
 }
 
+// HELPER FUNCTION
 func SubscribeToBookAdded(ctx context.Context, out chan<- *model.Book) error {
 	c, _, err := websocket.Dial(ctx, "ws://localhost:8080/query", nil)
 	if err != nil {
@@ -259,6 +115,398 @@ func SubscribeToBookAdded(ctx context.Context, out chan<- *model.Book) error {
 	return nil
 }
 
+func forwardRequestMQ(query string, queue string, variables map[string]interface{}, requestedResolver string) ([]byte, error) {
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+	}
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open channel: %w", err)
+	}
+	defer ch.Close()
+
+	// Declare the request and reply queues
+	_, err = ch.QueueDeclare(
+		queue,
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to declare queue (%s): %w", queue, err)
+	}
+
+	replyQueue, err := ch.QueueDeclare(
+		"api-gateway-queue",
+		false,
+		true,
+		true,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to declare reply queue: %w", err)
+	}
+
+	corrID := uuid.New().String()
+
+	body := map[string]interface{}{
+		"query":             query,
+		"variables":         variables,
+		"requestedResolver": requestedResolver,
+	}
+
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	// Publish request
+	err = ch.Publish(
+		"",
+		queue,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:   "application/json",
+			CorrelationId: corrID,
+			ReplyTo:       replyQueue.Name,
+			Body:          jsonBody,
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to publish message: %w", err)
+	}
+
+	// Consume from reply queue
+	msgs, err := ch.Consume(
+		replyQueue.Name,
+		"",
+		true,  // auto-ack
+		true,  // exclusive
+		false, // no-local
+		false, // no-wait
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to consume reply: %w", err)
+	}
+
+	// Wait for a response with the matching correlation ID
+	timeout := time.After(5 * time.Second)
+	for {
+		select {
+		case msg := <-msgs:
+			if msg.CorrelationId == corrID {
+				log.Printf("body: %s", msg.Body)
+				log.Printf("id: %s", msg.CorrelationId)
+				return msg.Body, nil
+			}
+		case <-timeout:
+			return nil, fmt.Errorf("timeout waiting for reply from service")
+		}
+	}
+}
+
+// AddBook is the resolver for the addBook field.
+func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName string, datePublished string, description string) (*model.Book, error) {
+	query := `
+        mutation AddBook($title: String!, $author_name: String!, $datePublished: String!, $description: String!) {
+            addBook(title: $title, author_name: $author_name, datePublished: $datePublished, description: $description) {
+                id
+                title
+                author_name
+                date_published
+                description
+            }
+        }
+    `
+
+	variables := map[string]interface{}{
+		"title":         title,
+		"author_name":   authorName,
+		"datePublished": datePublished,
+		"description":   description,
+	}
+
+	resp, err := forwardRequest(ctx, query, variables, bookServiceURL)
+	if err != nil {
+		return nil, err
+	}
+
+	var result struct {
+		Data struct {
+			AddBook *model.Book `json:"addBook"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+
+	return result.Data.AddBook, nil
+}
+
+// CreatePatron is the resolver for the createPatron field.
+func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string) (*model.Patron, error) {
+	query := `
+        mutation CreatePatron($firstName: String!, $lastName: String!, $phoneNumber: String!) {
+            createPatron(
+                first_name: $firstName
+                last_name: $lastName
+                phone_number: $phoneNumber
+            )  {
+				patron_id
+				first_name
+				last_name
+				phone_number
+				patron_created
+				membership{
+				membership_id
+				level
+				patron_id
+				}
+				status{
+				patron_id
+				unpaid_fees
+				patron_status
+				warning_count
+				}
+				violations{
+				violation_record_id
+				violation_status
+				violation_type
+				violation_info
+				violation_status
+				violation_created
+				}
+			}
+        }
+    `
+	variables := map[string]interface{}{
+		"firstName":   firstName,
+		"lastName":    lastName,
+		"phoneNumber": phoneNumber,
+	}
+
+	//resp, err := forwardRequest(ctx, query, variables, patronServiceURL)
+	resp, err := forwardRequestMQ(query, patronServiceQueue, variables, "createPatron")
+	if err != nil {
+		return nil, fmt.Errorf("failed to forward request: %v", err)
+	}
+
+	var result struct {
+		Data struct {
+			CreatePatron *model.Patron `json:"createPatron"`
+		} `json:"data"`
+	}
+	log.Printf("in createpatron: %s", resp)
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+
+	log.Printf("check unmarshal: %+v", result.Data.CreatePatron)
+
+	return result.Data.CreatePatron, nil
+}
+
+// UpdatePatron is the resolver for the updatePatron field.
+func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, firstName *string, lastName *string, phoneNumber *string) (*model.Patron, error) {
+	panic(fmt.Errorf("not implemented: UpdatePatron - updatePatron"))
+}
+
+// DeletePatronByID is the resolver for the deletePatronById field.
+func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string) (*model.Patron, error) {
+	panic(fmt.Errorf("not implemented: DeletePatronByID - deletePatronById"))
+}
+
+// UpdateMembershipByPatronID is the resolver for the updateMembershipByPatronId field.
+func (r *mutationResolver) UpdateMembershipByPatronID(ctx context.Context, patronID string, level model.MembershipLevel) (*model.Membership, error) {
+	panic(fmt.Errorf("not implemented: UpdateMembershipByPatronID - updateMembershipByPatronId"))
+}
+
+// UpdateMembershipByMembershipID is the resolver for the updateMembershipByMembershipId field.
+func (r *mutationResolver) UpdateMembershipByMembershipID(ctx context.Context, membershipID string, level model.MembershipLevel) (*model.Membership, error) {
+	panic(fmt.Errorf("not implemented: UpdateMembershipByMembershipID - updateMembershipByMembershipId"))
+}
+
+// UpdatePatronStatus is the resolver for the updatePatronStatus field.
+func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) (*model.PatronStatus, error) {
+	panic(fmt.Errorf("not implemented: UpdatePatronStatus - updatePatronStatus"))
+}
+
+// AddViolation is the resolver for the addViolation field.
+func (r *mutationResolver) AddViolation(ctx context.Context, patronID string, violationType model.ViolationType, violationInfo string) (*model.ViolationRecord, error) {
+	panic(fmt.Errorf("not implemented: AddViolation - addViolation"))
+}
+
+// UpdateViolationStatus is the resolver for the updateViolationStatus field.
+func (r *mutationResolver) UpdateViolationStatus(ctx context.Context, violationID string, violationStatus model.ViolationStatus) (*model.ViolationRecord, error) {
+	panic(fmt.Errorf("not implemented: UpdateViolationStatus - updateViolationStatus"))
+}
+
+// GetBooks is the resolver for the getBooks field.
+func (r *queryResolver) GetBooks(ctx context.Context) ([]*model.Book, error) {
+	query := `
+        query {
+            getBooks {
+                id
+                title
+                author_name
+                date_published
+                description
+            }
+        }
+    `
+
+	resp, err := forwardRequest(ctx, query, nil, bookServiceURL)
+	if err != nil {
+		return nil, err
+	}
+
+	var result struct {
+		Data struct {
+			GetBooks []*model.Book `json:"getBooks"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+
+	return result.Data.GetBooks, nil
+}
+
+// GetBookByID is the resolver for the getBookById field.
+func (r *queryResolver) GetBookByID(ctx context.Context, id string) (*model.Book, error) {
+	query := `
+        query GetBookById($id: String!) {
+            getBookById(id: $id) {
+                id
+                title
+                author_name
+                date_published
+                description
+            }
+        }
+    `
+
+	variables := map[string]interface{}{
+		"id": id,
+	}
+
+	resp, err := forwardRequest(ctx, query, variables, bookServiceURL)
+	if err != nil {
+		return nil, err
+	}
+
+	var result struct {
+		Data struct {
+			GetBookById *model.Book `json:"getBookById"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+
+	return result.Data.GetBookById, nil
+}
+
+// GetBookCopiesByID is the resolver for the getBookCopiesById field.
+func (r *queryResolver) GetBookCopiesByID(ctx context.Context, id string) ([]*model.BookCopies, error) {
+	query := `
+        query GetBookCopiesById($id: String!) {
+            getBookCopiesById(id: $id) {
+                id
+                book_id
+                book_status
+            }
+        }
+    `
+
+	variables := map[string]interface{}{
+		"id": id,
+	}
+
+	resp, err := forwardRequest(ctx, query, variables, bookServiceURL)
+	if err != nil {
+		return nil, err
+	}
+
+	var result struct {
+		Data struct {
+			GetBookCopiesById []*model.BookCopies `json:"getBookCopiesById"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+
+	return result.Data.GetBookCopiesById, nil
+}
+
+// GetPatronByID is the resolver for the getPatronById field.
+func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*model.Patron, error) {
+	panic(fmt.Errorf("not implemented: GetPatronByID - getPatronById"))
+}
+
+// GetAllPatrons is the resolver for the getAllPatrons field.
+func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, error) {
+	panic(fmt.Errorf("not implemented: GetAllPatrons - getAllPatrons"))
+}
+
+// GetMembershipByLevel is the resolver for the getMembershipByLevel field.
+func (r *queryResolver) GetMembershipByLevel(ctx context.Context, level model.MembershipLevel) ([]*model.Membership, error) {
+	panic(fmt.Errorf("not implemented: GetMembershipByLevel - getMembershipByLevel"))
+}
+
+// GetMembershipByPatronID is the resolver for the getMembershipByPatronId field.
+func (r *queryResolver) GetMembershipByPatronID(ctx context.Context, patronID string) (*model.Membership, error) {
+	panic(fmt.Errorf("not implemented: GetMembershipByPatronID - getMembershipByPatronId"))
+}
+
+// GetViolationByPatronID is the resolver for the getViolationByPatronId field.
+func (r *queryResolver) GetViolationByPatronID(ctx context.Context, patronID string) ([]*model.ViolationRecord, error) {
+	panic(fmt.Errorf("not implemented: GetViolationByPatronID - getViolationByPatronId"))
+}
+
+// GetViolationByType is the resolver for the getViolationByType field.
+func (r *queryResolver) GetViolationByType(ctx context.Context, violationType model.ViolationType) ([]*model.ViolationRecord, error) {
+	panic(fmt.Errorf("not implemented: GetViolationByType - getViolationByType"))
+}
+
+// GetPatronStatusByType is the resolver for the getPatronStatusByType field.
+func (r *queryResolver) GetPatronStatusByType(ctx context.Context, patronStatus model.Status) ([]*model.PatronStatus, error) {
+	panic(fmt.Errorf("not implemented: GetPatronStatusByType - getPatronStatusByType"))
+}
+
+// BookAdded is the resolver for the bookAdded field.
+func (r *subscriptionResolver) BookAdded(ctx context.Context) (<-chan *model.Book, error) {
+	bookChan := make(chan *model.Book)
+	err := SubscribeToBookAdded(ctx, bookChan)
+	if err != nil {
+		return nil, err
+	}
+	return bookChan, nil
+}
+
+// PatronCreated is the resolver for the patronCreated field.
+func (r *subscriptionResolver) PatronCreated(ctx context.Context) (<-chan *model.Patron, error) {
+	panic(fmt.Errorf("not implemented: PatronCreated - patronCreated"))
+}
+
+// OngoingViolations is the resolver for the ongoingViolations field.
+func (r *subscriptionResolver) OngoingViolations(ctx context.Context) (<-chan *model.ViolationRecord, error) {
+	panic(fmt.Errorf("not implemented: OngoingViolations - ongoingViolations"))
+}
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
@@ -272,4 +520,13 @@ type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
 
-// subscribeToBookAdded is a placeholder function for subscription logic.
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+
+
+ */

@@ -5,6 +5,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	// "os/signal"
@@ -19,13 +22,13 @@ import (
 	"github.com/GSalise/lms/patron-service/graph"
 	"github.com/GSalise/lms/patron-service/graph/model"
 
-	// "github.com/GSalise/lms/patron-service/patronmq"
+	"github.com/GSalise/lms/patron-service/patronmq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-const defaultPort = "8080"
+const defaultPort = "8420"
 
 func main() {
 	if err := godotenv.Load(); err != nil {
@@ -74,56 +77,56 @@ func main() {
 		Cache: lru.New[string](100),
 	})
 
-	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", srv)
+	// http.Handle("/", playground.Handler("GraphQL playground", "/query"))
+	// http.Handle("/query", srv)
 
-	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	// log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
+	// log.Fatal(http.ListenAndServe(":"+port, nil))
 
-	// // Use a WaitGroup to manage concurrency
-	// var wg sync.WaitGroup
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
+	// Use a WaitGroup to manage concurrency
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// // Start the GraphQL server in a goroutine
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
+	// Start the GraphQL server in a goroutine
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	// 	server := &http.Server{Addr: ":" + port}
+		server := &http.Server{Addr: ":" + port}
 
-	// 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	// 	http.Handle("/query", srv)
+		http.Handle("/", playground.Handler("GraphQL playground", "/query"))
+		http.Handle("/query", srv)
 
-	// 	go func() {
-	// 		log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
-	// 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-	// 			log.Fatalf("GraphQL server failed: %v", err)
-	// 		}
-	// 	}()
+		go func() {
+			log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
+			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("GraphQL server failed: %v", err)
+			}
+		}()
 
-	// 	// Wait for context cancellation to shut down the server
-	// 	<-ctx.Done()
-	// 	log.Println("Shutting down GraphQL server...")
-	// 	if err := server.Shutdown(context.Background()); err != nil {
-	// 		log.Printf("GraphQL server shutdown error: %v", err)
-	// 	}
-	// }()
+		// Wait for context cancellation to shut down the server
+		<-ctx.Done()
+		log.Println("Shutting down GraphQL server...")
+		if err := server.Shutdown(context.Background()); err != nil {
+			log.Printf("GraphQL server shutdown error: %v", err)
+		}
+	}()
 
-	// // Start the message queue in a goroutine
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
-	// 	patronmq.MessageQueue(ctx)
-	// }()
+	// Start the message queue in a goroutine
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		patronmq.StartRabbitMQConsumer(dbpool)
+	}()
 
-	// // Listen for OS signals (e.g., SIGINT, SIGTERM)
-	// sigChan := make(chan os.Signal, 1)
-	// signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	// <-sigChan // Blocks until a signal is received
-	// cancel()  // Notify goroutines to clean up
-	// log.Println("Shutting down...")
+	// Listen for OS signals (e.g., SIGINT, SIGTERM)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan // Blocks until a signal is received
+	cancel()  // Notify goroutines to clean up
+	log.Println("Shutting down...")
 
-	// wg.Wait() // Wait for all goroutines to finish
-	// log.Println("Server gracefully stopped.")
+	wg.Wait() // Wait for all goroutines to finish
+	log.Println("Server gracefully stopped.")
 }
