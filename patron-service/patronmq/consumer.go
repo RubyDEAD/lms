@@ -1,17 +1,26 @@
-package main
+package patronmq
 
 //sudo docker run -d --hostname rabbitlms --name rabbitlms -p 15672:15672 -p 5672:5672 rabbitmq:3-management
 import (
-	"fmt"
+	"context"
+	"encoding/json"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/GSalise/lms/patron-service/graph"
+	"github.com/jackc/pgx/v5/pgxpool"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func main() {
+type GraphQLMessage struct {
+	Query             string                 `json:"query"`
+	Variables         map[string]interface{} `json:"variables"`
+	RequestedResolver string                 `json:"requestedResolver"`
+}
+
+func StartRabbitMQConsumer(dbpool *pgxpool.Pool) {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
 		log.Fatal("Failed to connect to RabbitMQ:", err)
@@ -24,14 +33,28 @@ func main() {
 	}
 	defer ch.Close()
 
-	// Declare the request queue (same as client)
-	_, err = ch.QueueDeclare("testReq", false, false, false, false, nil)
+	_, err = ch.QueueDeclare(
+		"patron-service-queue",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+
 	if err != nil {
 		log.Fatal("Failed to declare queue:", err)
 	}
 
 	msgs, err := ch.Consume(
-		"testReq", "", true, false, false, false, nil)
+		"patron-service-queue",
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
 	if err != nil {
 		log.Fatal("Failed to register consumer:", err)
 	}
@@ -45,25 +68,66 @@ func main() {
 	for {
 		select {
 		case msg := <-msgs:
-			response := fmt.Sprintf("Processed: %s (Correlation ID: %s)",
-				msg.Body, msg.CorrelationId)
-
-			err := ch.Publish(
-				"", msg.ReplyTo, false, false,
-				amqp.Publishing{
-					Body:          []byte(response),
-					CorrelationId: msg.CorrelationId,
-				},
-			)
-			if err != nil {
-				log.Printf("Failed to send response: %v", err)
+			var data GraphQLMessage
+			if err := json.Unmarshal(msg.Body, &data); err != nil {
+				log.Printf("Error decoding JSON: %v", err)
+				continue // Skip malformed messages
 			}
 
-			fmt.Printf("Request received: %s\n", msg.Body)
+			resolver := &graph.Resolver{
+				DB: dbpool,
+			}
+			ctx := context.Background()
+
+			switch data.RequestedResolver {
+			case "createPatron":
+				firstName, _ := data.Variables["firstName"].(string)
+				lastName, _ := data.Variables["lastName"].(string)
+				phoneNumber, _ := data.Variables["phoneNumber"].(string)
+
+				patron, ResolverErr := resolver.Mutation().CreatePatron(ctx, firstName, lastName, phoneNumber)
+
+				if ResolverErr != nil {
+					log.Fatalf("err: %v", ResolverErr)
+				}
+
+				response := map[string]interface{}{
+					"data": map[string]interface{}{
+						"createPatron": patron,
+					},
+				}
+
+				result, err := json.Marshal(response)
+				if err != nil {
+					log.Fatalf("Error marshalling patron to JSON: %v", err)
+				}
+				log.Printf("reply to : %s", msg.ReplyTo)
+				log.Printf("reply to : %s", result)
+				log.Printf("reply to : %s", msg.CorrelationId)
+				err = ch.Publish(
+					"",
+					msg.ReplyTo,
+					false,
+					false,
+					amqp.Publishing{
+						ContentType:   "application/json",
+						CorrelationId: msg.CorrelationId,
+						Body:          result,
+					},
+				)
+
+				if err != nil {
+					log.Fatalf("failed to publish message: %v", err)
+				}
+
+			default:
+				log.Printf("Unknown resolver")
+			}
 
 		case <-sigChan:
 			log.Println("Shutting down server...")
 			return
 		}
 	}
+
 }
