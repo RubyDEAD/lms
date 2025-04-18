@@ -452,10 +452,10 @@ func (r *mutationResolver) UpdateMembershipByMembershipID(ctx context.Context, m
     `, membershipID).Scan(&exists)
 
 	if err != nil {
-		return nil, fmt.Errorf("database error checking patron existence: %v", err)
+		return nil, fmt.Errorf("database error checking membership existence: %v", err)
 	}
 	if !exists {
-		return nil, fmt.Errorf("patron does not exist")
+		return nil, fmt.Errorf("membership id does not exist")
 	}
 
 	membership.MembershipID = membershipID
