@@ -1,8 +1,8 @@
-
 type Query {
   getBooks: [Book!]!
   getBookById(id: String!): Book
   getBookCopiesById(id: String!): [Book_copies!]!
+  searchBooks(query:String!):[Book!]!
 
   getPatronById(patron_id: ID!): Patron
   getAllPatrons: [Patron]
@@ -18,6 +18,11 @@ type Query {
 
 type Mutation {
   addBook(title: String!, authorName: String!, datePublished: String!, description: String!): Book!
+  addBCopy(book_id:String!):Book_copies!
+  updateBook(id:ID!,title:String!, author_name:String, datePublished:String,description:String):Book!
+  updateBookCopyStatus(id:ID!, book_status:String):Book_copies!
+  deleteBCopy(id:ID!):Boolean!
+  deleteBook(id:ID!):Boolean!
 
   createPatron(first_name: String!, last_name: String!, phone_number: String!): Patron
   updatePatron(patron_id: ID!, first_name: String, last_name: String, phone_number: String): Patron

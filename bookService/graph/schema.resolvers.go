@@ -372,11 +372,17 @@ func (r *queryResolver) SearchBooks(ctx context.Context, query string) ([]*model
 	for rows.Next() {
 		var book model.Book
 		var authorName string
-		err := rows.Scan(&book.ID, &book.Title, &authorName, &book.DatePublished, &book.Description)
+		var datePublished time.Time // Store as time.Time to handle DATE type
+
+		// Scan the row into the Book model
+
+		err := rows.Scan(&book.ID, &book.Title, &authorName, &datePublished, &book.Description)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan book: %v", err)
 		}
 		book.AuthorName = authorName
+		book.DatePublished = datePublished.Format("2006-01-02") // Convert to string (ISO 8601 format)
+		// Append the book to the slice
 		books = append(books, &book)
 	}
 	return books, nil
