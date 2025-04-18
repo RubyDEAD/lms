@@ -44,7 +44,31 @@ func StartRabbitMQConsumer(dbpool *pgxpool.Pool) {
 	)
 
 	if err != nil {
-		log.Fatal("Failed to declare queue:", err)
+		log.Fatal("Failed to declare patron-service-queue:", err)
+	}
+
+	_, err = ch.QueueDeclare(
+		"patron-subscription-patronChan-queue",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Fatal("failed to declare queue: %w", err)
+	}
+
+	_, err = ch.QueueDeclare(
+		"patron-subscription-violationChan-queue",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Fatal("failed to declare queue: %w", err)
 	}
 
 	msgs, err := ch.Consume(
@@ -121,6 +145,22 @@ func StartRabbitMQConsumer(dbpool *pgxpool.Pool) {
 				if err != nil {
 					log.Fatalf("failed to publish message: %v", err)
 				}
+
+				SubErr := ch.Publish(
+					"",
+					"patron-subscription-patronChan-queue",
+					false,
+					false,
+					amqp.Publishing{
+						ContentType: "application/json",
+						Body:        result,
+					},
+				)
+
+				if SubErr != nil {
+					log.Fatalf("failed to publish message: %v", SubErr)
+				}
+
 			case "updatePatron":
 				patron_id, _ := data.Variables["patron_id"].(string)
 				firstName, _ := data.Variables["firstName"].(string)
@@ -365,6 +405,32 @@ func StartRabbitMQConsumer(dbpool *pgxpool.Pool) {
 					log.Fatalf("failed to publish message: %v", err)
 				}
 
+				subResponse := map[string]interface{}{
+					"data": map[string]interface{}{
+						"ongoingViolations": patron,
+					},
+				}
+
+				subResult, err := json.Marshal(subResponse)
+				if err != nil {
+					log.Fatalf("Error marshalling subscription output to JSON: %v", err)
+				}
+
+				err = ch.Publish(
+					"",
+					"patron-subscription-violationChan-queue",
+					false,
+					false,
+					amqp.Publishing{
+						ContentType: "application/json",
+						Body:        subResult,
+					},
+				)
+
+				if err != nil {
+					log.Fatalf("failed to publish subscription message: %v", err)
+				}
+
 			case "updateViolationStatus":
 				violation_id, _ := data.Variables["violation_id"].(string)
 				violation_status, _ := data.Variables["violation_type"].(string)
@@ -400,6 +466,32 @@ func StartRabbitMQConsumer(dbpool *pgxpool.Pool) {
 
 				if err != nil {
 					log.Fatalf("failed to publish message: %v", err)
+				}
+
+				subResponse := map[string]interface{}{
+					"data": map[string]interface{}{
+						"ongoingViolations": patron,
+					},
+				}
+
+				subResult, err := json.Marshal(subResponse)
+				if err != nil {
+					log.Fatalf("Error marshalling subscription output to JSON: %v", err)
+				}
+
+				err = ch.Publish(
+					"",
+					"patron-subscription-violationChan-queue",
+					false,
+					false,
+					amqp.Publishing{
+						ContentType: "application/json",
+						Body:        subResult,
+					},
+				)
+
+				if err != nil {
+					log.Fatalf("failed to publish subscription message: %v", err)
 				}
 
 			case "getPatronById":

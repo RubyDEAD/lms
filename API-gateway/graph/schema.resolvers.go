@@ -738,12 +738,146 @@ func (r *subscriptionResolver) BookAdded(ctx context.Context) (<-chan *model.Boo
 
 // PatronCreated is the resolver for the patronCreated field.
 func (r *subscriptionResolver) PatronCreated(ctx context.Context) (<-chan *model.Patron, error) {
-	panic(fmt.Errorf("not implemented: PatronCreated - patronCreated"))
+	patronChan := make(chan *model.Patron)
+
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+	}
+
+	ch, err := conn.Channel()
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to open channel: %w", err)
+	}
+
+	_, err = ch.QueueDeclare(
+		"patron-subscription-patronChan-queue",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		ch.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to declare queue: %w", err)
+	}
+
+	msgs, err := ch.Consume(
+		"patron-subscription-patronChan-queue",
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		ch.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to consume: %w", err)
+	}
+
+	go func() {
+		defer ch.Close()
+		defer conn.Close()
+
+		for {
+			select {
+			case <-ctx.Done():
+				close(patronChan)
+				return
+			case msg := <-msgs:
+				var response struct {
+					Data struct {
+						CreatePatron *model.Patron `json:"createPatron"`
+					} `json:"data"`
+				}
+
+				if err := json.Unmarshal(msg.Body, &response); err == nil {
+					patronChan <- response.Data.CreatePatron
+				}
+			}
+		}
+	}()
+
+	return patronChan, nil
 }
 
 // OngoingViolations is the resolver for the ongoingViolations field.
 func (r *subscriptionResolver) OngoingViolations(ctx context.Context) (<-chan *model.ViolationRecord, error) {
-	panic(fmt.Errorf("not implemented: OngoingViolations - ongoingViolations"))
+	violationsChan := make(chan *model.ViolationRecord)
+
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+	}
+
+	ch, err := conn.Channel()
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to open channel: %w", err)
+	}
+
+	_, err = ch.QueueDeclare(
+		"patron-subscription-violationChan-queue",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		ch.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to declare queue: %w", err)
+	}
+
+	msgs, err := ch.Consume(
+		"patron-subscription-violationChan-queue",
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		ch.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to consume: %w", err)
+	}
+
+	go func() {
+		defer ch.Close()
+		defer conn.Close()
+
+		for {
+			select {
+			case <-ctx.Done():
+				close(violationsChan)
+				return
+			case msg := <-msgs:
+				var response struct {
+					Data struct {
+						OngoingViolations *model.ViolationRecord `json:"ongoingViolations"`
+					} `json:"data"`
+				}
+
+				if err := json.Unmarshal(msg.Body, &response); err == nil {
+					violationsChan <- response.Data.OngoingViolations
+					log.Printf("inside: %v", response.Data.OngoingViolations)
+				}
+				if err != nil {
+					log.Fatalf("error: %v", err)
+				}
+			}
+		}
+	}()
+
+	return violationsChan, nil
 }
 
 // Mutation returns MutationResolver implementation.
