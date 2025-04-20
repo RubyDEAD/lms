@@ -3,7 +3,7 @@
 package graph
 
 import (
-	"borrowing-service/graph/model"
+	"github.com/RubyDEAD/lms/borrowing-service/graph/model"
 	"bytes"
 	"context"
 	"embed"
