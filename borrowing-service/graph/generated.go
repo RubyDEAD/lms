@@ -119,7 +119,7 @@ func (e *executableSchema) Schema() *ast.Schema {
 	return parsedSchema
 }
 
-func (e *executableSchema) Complexity(typeName, field string, childComplexity int, rawArgs map[string]any) (int, bool) {
+func (e *executableSchema) Complexity(ctx context.Context, typeName, field string, childComplexity int, rawArgs map[string]any) (int, bool) {
 	ec := executionContext{nil, e, 0, 0, nil}
 	_ = ec
 	switch typeName + "." + field {
@@ -192,7 +192,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Mutation_borrowBook_args(context.TODO(), rawArgs)
+		args, err := ec.field_Mutation_borrowBook_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -204,7 +204,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Mutation_cancelReservation_args(context.TODO(), rawArgs)
+		args, err := ec.field_Mutation_cancelReservation_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -216,7 +216,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Mutation_fulfillReservation_args(context.TODO(), rawArgs)
+		args, err := ec.field_Mutation_fulfillReservation_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -228,7 +228,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Mutation_renewLoan_args(context.TODO(), rawArgs)
+		args, err := ec.field_Mutation_renewLoan_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -240,7 +240,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Mutation_reserveBook_args(context.TODO(), rawArgs)
+		args, err := ec.field_Mutation_reserveBook_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -252,7 +252,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Mutation_returnBook_args(context.TODO(), rawArgs)
+		args, err := ec.field_Mutation_returnBook_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -264,7 +264,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_borrowRecords_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_borrowRecords_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -283,7 +283,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_patronBorrowHistory_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_patronBorrowHistory_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -295,7 +295,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_reservations_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_reservations_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
