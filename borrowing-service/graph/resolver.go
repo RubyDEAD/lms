@@ -5,11 +5,13 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	supa "github.com/nedpals/supabase-go"
 )
 
 // Resolver handles GraphQL queries and mutations
 type Resolver struct {
-	DB *pgx.Conn
+	DB       *pgx.Conn
+	Supabase *supa.Client
 }
 
 // NewResolver creates a new resolver instance

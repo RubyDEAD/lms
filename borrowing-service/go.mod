@@ -9,6 +9,8 @@ require (
 
 require (
 	github.com/felixge/httpsnoop v1.0.3 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/nedpals/supabase-go v0.5.0 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 )
 
