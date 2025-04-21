@@ -86,6 +86,8 @@ func (r *mutationResolver) AddBCopy(ctx context.Context, bookID string) (*model.
 
 	return result.Data.AddBCopy, nil
 }
+
+// UpdateBook is the resolver for the updateBook field.
 func (r *mutationResolver) UpdateBook(ctx context.Context, id string, title string, authorName *string, datePublished *string, description *string) (*model.Book, error) {
 	query := `
         mutation UpdateBook($id: String!, $title: String!, $author_name: String, $datePublished: String, $description: String) {
@@ -125,6 +127,7 @@ func (r *mutationResolver) UpdateBook(ctx context.Context, id string, title stri
 	return result.Data.UpdateBook, nil
 }
 
+// UpdateBookCopyStatus is the resolver for the updateBookCopyStatus field.
 func (r *mutationResolver) UpdateBookCopyStatus(ctx context.Context, id string, bookStatus *string) (*model.BookCopies, error) {
 	query := `
         mutation UpdateBookCopyStatus($id: ID!, $bookStatus: String) {
@@ -159,6 +162,7 @@ func (r *mutationResolver) UpdateBookCopyStatus(ctx context.Context, id string, 
 	return result.Data.UpdateBookCopyStatus, nil
 }
 
+// DeleteBCopy is the resolver for the deleteBCopy field.
 func (r *mutationResolver) DeleteBCopy(ctx context.Context, id string) (bool, error) {
 	query := `
         mutation DeleteBCopy($id: String!) {
@@ -188,6 +192,7 @@ func (r *mutationResolver) DeleteBCopy(ctx context.Context, id string) (bool, er
 	return result.Data.DeleteBCopy, nil
 }
 
+// DeleteBook is the resolver for the deleteBook field.
 func (r *mutationResolver) DeleteBook(ctx context.Context, id string) (bool, error) {
 	query := `
         mutation DeleteBook($id: String!) {
@@ -561,6 +566,46 @@ func (r *queryResolver) SearchBooks(ctx context.Context, query string) ([]*model
 	}
 
 	return result.Data.SearchBooks, nil
+}
+
+// GetAvailbleBookCopyByID is the resolver for the GetAvailbleBookCopyByID field.
+func (r *queryResolver) GetAvailbleBookCopyByID(ctx context.Context, id string) (*model.BookCopies, error) {
+	query := `
+        query GetAvailbleBookCopyByID($id: String!) {
+            getAvailbleBookCopyByID(id: $id) {
+                id
+                book_id
+                title
+                author_name
+                date_published
+                description
+                book_status
+            }
+        }
+    `
+
+	variables := map[string]interface{}{
+		"id": id,
+	}
+
+	// Forward the request to the Book Service
+	resp, err := forwardRequest(ctx, query, variables, bookServiceURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to forward request: %v", err)
+	}
+
+	// Parse the response
+	var result struct {
+		Data struct {
+			GetAvailbleBookCopyByID *model.BookCopies `json:"getAvailbleBookCopyByID"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+
+	return result.Data.GetAvailbleBookCopyByID, nil
 }
 
 // GetPatronByID is the resolver for the getPatronById field.

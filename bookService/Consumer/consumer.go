@@ -14,7 +14,7 @@ const (
 	bookCopiesQueue = "book-copies-queue"
 )
 
-func InitConsumer(resolver *graph.Resolver) {
+func UpdateConsumer(resolver *graph.Resolver) {
 	conn, err := amqp.Dial(rabbitMQURL)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -75,4 +75,109 @@ func failOnError(err error, msg string) {
 	if err != nil {
 		log.Panicf("%s: %s", msg, err)
 	}
+}
+
+func ListenAvailabiltyRequests(resolver *graph.Resolver) {
+	conn, err := amqp.Dial(rabbitMQURL)
+	failOnError(err, "Failed to connect to RabbitMQ")
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	failOnError(err, "Failed to open a channel")
+	defer ch.Close()
+
+	// Listen for availability requests
+	_, err = ch.QueueDeclare(
+		"bookCopyAvailRequests", // queue name
+		true,                    // durable
+		false,                   // delete when unused
+		false,                   // exclusive
+		false,                   // no-wait
+		nil,                     // arguments
+	)
+	failOnError(err, "Failed to declare a queue")
+
+	// Declare the reply queue
+	_, err = ch.QueueDeclare(
+		"bookServiceReplies", // reply queue name
+		true,                 // durable
+		false,                // delete when unused
+		false,                // exclusive
+		false,                // no-wait
+		nil,                  // arguments
+	)
+	failOnError(err, "Failed to declare the reply queue")
+
+	msgs, err := ch.Consume(
+		"bookCopyAvailRequests", // queue name
+		"",                      // consumer tag
+		true,                    // auto-ack
+		false,                   // exclusive
+		false,                   // no-local
+		false,                   // no-wait
+		nil,                     // arguments
+	)
+	failOnError(err, "Failed to register a consumer")
+
+	go func() {
+		for d := range msgs {
+			log.Printf("Received a message: %s", d.Body)
+
+			// Parse the incoming message
+			var payload struct {
+				BookID string `json:"book_id"`
+			}
+			if err := json.Unmarshal(d.Body, &payload); err != nil {
+				log.Printf("Failed to parse message: %v", err)
+				continue
+			}
+
+			// Call the GetAvailbleBookCopyByID resolver
+			ctx := context.Background()
+			bookCopy, err := resolver.Query().GetAvailbleBookCopyByID(ctx, payload.BookID)
+			if err != nil {
+				log.Printf("Failed to get available book copy: %v", err)
+				bookCopy.BookID = ""
+				bookCopy.BookStatus = "Not Available"
+				continue
+			}
+
+			// Prepare the reply payload
+			replyPayload := struct {
+				BookCopyID string `json:"book_copy_id"`
+				Status     string `json:"status"`
+			}{
+				BookCopyID: bookCopy.ID,
+				Status:     bookCopy.BookStatus,
+			}
+
+			// Marshal the reply payload to JSON
+			replyBody, err := json.Marshal(replyPayload)
+			if err != nil {
+				log.Printf("Failed to marshal reply payload: %v", err)
+				continue
+			}
+
+			// Publish the reply to the borrowing service
+			err = ch.Publish(
+				"",                   // exchange
+				"bookServiceReplies", // routing key
+				false,                // mandatory
+				false,                // immediate
+				amqp.Publishing{
+					ContentType: "application/json",
+					Body:        replyBody,
+				},
+			)
+			if err != nil {
+				log.Printf("Failed to publish reply: %v", err)
+				continue
+			}
+
+			log.Printf("Successfully sent reply: %s", replyBody)
+		}
+	}()
+
+	log.Println("Listening for availability requests. To exit press CTRL+C")
+	select {}
 }
