@@ -28,16 +28,20 @@ func (r *mutationResolver) BorrowBook(ctx context.Context, bookID string, patron
 	// if !book.Available {
 	// 	return nil, errors.New("book not available for borrowing")
 	// }
-	available, ch, bookCopyID, err := services.CheckAvailability(bookID)
+	available, conn, bookCopyID, err := services.CheckAvailability(bookID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check book availability: %v", err)
 	}
+	defer conn.Close()
 
 	// If the book is not available, return an error
 	if !available {
 		return nil, errors.New("no available book copies for borrowing")
-	} else {
-		services.SendUpdateRequest(ch, bookCopyID, "Borrowed")
+	}
+
+	err = services.SendUpdateRequest(conn, bookCopyID, "Borrowed")
+	if err != nil {
+		return nil, fmt.Errorf("failed to update book copy status: %v", err)
 	}
 
 	// Start transaction
