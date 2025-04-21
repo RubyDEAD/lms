@@ -3,19 +3,24 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func CheckAvailability(BookID string) (bool, *amqp.Channel, string, error) {
+func CheckAvailability(BookID string) (bool, *amqp.Connection, string, error) {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
+	if err != nil {
+		return false, nil, "", fmt.Errorf("failed to connect to RabbitMQ: %v", err)
+	}
 
 	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
+	if err != nil {
+		conn.Close()
+		return false, nil, "", fmt.Errorf("failed to open a channel: %v", err)
+	}
 	defer ch.Close()
 
 	// Declare the request queue
@@ -27,7 +32,10 @@ func CheckAvailability(BookID string) (bool, *amqp.Channel, string, error) {
 		false,                   // no-wait
 		nil,                     // arguments
 	)
-	failOnError(err, "Failed to declare the request queue")
+	if err != nil {
+		conn.Close()
+		return false, nil, "", fmt.Errorf("failed to declare the request queue: %v", err)
+	}
 
 	// Declare the reply queue
 	replyQueue, err := ch.QueueDeclare(
@@ -38,11 +46,17 @@ func CheckAvailability(BookID string) (bool, *amqp.Channel, string, error) {
 		false,                // no-wait
 		nil,                  // arguments
 	)
-	failOnError(err, "Failed to declare the reply queue")
+	if err != nil {
+		conn.Close()
+		return false, nil, "", fmt.Errorf("failed to declare the reply queue: %v", err)
+	}
 
 	// Send a borrow request
-	bookID := BookID // Example book ID
-	sendAvailabilityRequest(ch, bookID)
+	err = sendAvailabilityRequest(ch, BookID)
+	if err != nil {
+		conn.Close()
+		return false, nil, "", fmt.Errorf("failed to send availability request: %v", err)
+	}
 
 	// Consume the reply
 	msgs, err := ch.Consume(
@@ -54,7 +68,10 @@ func CheckAvailability(BookID string) (bool, *amqp.Channel, string, error) {
 		false,           // no-wait
 		nil,             // arguments
 	)
-	failOnError(err, "Failed to register a consumer for replies")
+	if err != nil {
+		conn.Close()
+		return false, nil, "", fmt.Errorf("failed to register a consumer for replies: %v", err)
+	}
 
 	// Listen for replies
 	for d := range msgs {
@@ -73,19 +90,20 @@ func CheckAvailability(BookID string) (bool, *amqp.Channel, string, error) {
 		// Check if the book copy is available
 		if reply.Status == "Available" {
 			log.Printf("Book copy is available. Returning BookCopyID: %s", reply.BookCopyID)
-			return true, ch, reply.BookCopyID, nil
+			return true, conn, reply.BookCopyID, nil
 		} else {
 			log.Printf("No available book copies. Status: %s", reply.Status)
-			return false, ch, "", nil
+			conn.Close()
+			return false, nil, "", nil
 		}
 	}
 
-	// Default return if no messages are processed
+	conn.Close()
 	return false, nil, "", nil
 }
 
 // sendAvailabilityRequest sends a borrow request to check for available book copies
-func sendAvailabilityRequest(ch *amqp.Channel, bookID string) {
+func sendAvailabilityRequest(ch *amqp.Channel, bookID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -110,10 +128,19 @@ func sendAvailabilityRequest(ch *amqp.Channel, bookID string) {
 		})
 	failOnError(err, "Failed to publish borrow request")
 	log.Printf(" [x] Sent borrow request: %s\n", requestBody)
+	return nil
 }
 
 // sendUpdateRequest sends a request to update the status of a book copy
-func SendUpdateRequest(ch *amqp.Channel, bookCopyID string, status string) {
+func SendUpdateRequest(conn *amqp.Connection, bookCopyID string, status string) error {
+	// Open a new channel
+	ch, err := conn.Channel()
+	if err != nil {
+		log.Printf("Failed to open a channel: %v", err)
+		return fmt.Errorf("failed to open a channel: %v", err)
+	}
+	defer ch.Close()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -127,8 +154,13 @@ func SendUpdateRequest(ch *amqp.Channel, bookCopyID string, status string) {
 	}
 
 	updateBody, err := json.Marshal(updatePayload)
-	failOnError(err, "Failed to marshal update payload")
+	if err != nil {
+		log.Printf("Failed to marshal update payload: %v", err)
+		return fmt.Errorf("failed to marshal update payload: %v", err)
+	}
 
+	// Publish the update request to RabbitMQ
+	log.Printf("Publishing update request for BookCopyID: %s with status: %s", bookCopyID, status)
 	err = ch.PublishWithContext(ctx,
 		"",                  // exchange
 		"book-copies-queue", // routing key
@@ -138,13 +170,18 @@ func SendUpdateRequest(ch *amqp.Channel, bookCopyID string, status string) {
 			ContentType: "application/json",
 			Body:        updateBody,
 		})
-	failOnError(err, "Failed to publish update request")
-	log.Printf(" [x] Sent update request: %s\n", updateBody)
+	if err != nil {
+		log.Printf("Failed to publish update request: %v", err)
+		return fmt.Errorf("failed to publish update request: %v", err)
+	}
+
+	log.Printf(" [x] Successfully sent update request: %s\n", updateBody)
+	return nil
 }
 
 func failOnError(err error, msg string) {
 	if err != nil {
-		log.Panicf("%s: %s", msg, err)
+		log.Printf("%s: %s", msg, err)
 	}
 }
 

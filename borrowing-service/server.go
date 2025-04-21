@@ -25,8 +25,8 @@ import (
 const defaultPort = "8082"
 
 func main() {
-	//dbURL := "postgresql://postgres:FGar.Uzebyg3ZZ9@db.ictfypsqogdoceosoqdj.supabase.co:5432/postgres"
-	dbURL := os.Getenv("DATABASE_URL")
+	dbURL := "postgresql://postgres.ictfypsqogdoceosoqdj:FGar.Uzebyg3ZZ9@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+	// dbURL := os.Getenv("DATABASE_URL")
 	// Create a database connection pool
 	db, err := pgx.Connect(context.Background(), dbURL)
 	if err != nil {
@@ -42,7 +42,8 @@ func main() {
 	}
 
 	supabaseURL := "https://db.ictfypsqogdoceosoqdj.supabase.co"
-	supabaseKey := os.Getenv("SUPABASE_KEY")
+	supabaseKey := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImljdGZ5cHNxb2dkb2Nlb3NvcWRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1NDY2NDQsImV4cCI6MjA1NjEyMjY0NH0.I9BHf8Ei52N2a9VlYxHV4ZkcK355JzDa_PSCTTGuEYo"
+
 	if supabaseKey == "" {
 		log.Fatal("SUPABASE_KEY environment variable is not set")
 	}
