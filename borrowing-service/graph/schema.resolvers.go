@@ -7,26 +7,37 @@ import (
 	"time"
 
 	"github.com/RubyDEAD/lms/borrowing-service/graph/model"
-
+	"github.com/RubyDEAD/lms/borrowing-service/services"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 // BorrowBook implements the borrowBook mutation
 func (r *mutationResolver) BorrowBook(ctx context.Context, bookID string, patronID string) (*model.BorrowRecord, error) {
-	// Check book availability in Supabase
-	var book struct {
-		Available bool `json:"available"`
-	}
-	err := r.Supabase.DB.From("books").Select("available").Eq("id", bookID).Execute(&book)
-	if err != nil {
-		return nil, errors.New("failed to fetch a single book record")
-	}
+	// // Check book availability in Supabase
+	// var book struct {
+	// 	Available bool `json:"available"`
+	// }
+	// err := r.Supabase.DB.From("books").Select("available").Eq("id", bookID).Execute(&book)
+	// if err != nil {
+	// 	return nil, errors.New("failed to fetch a single book record")
+	// }
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to check book availability: %v", err)
+	// }
+	// if !book.Available {
+	// 	return nil, errors.New("book not available for borrowing")
+	// }
+	available, ch, bookCopyID, err := services.CheckAvailability(bookID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check book availability: %v", err)
 	}
-	if !book.Available {
-		return nil, errors.New("book not available for borrowing")
+
+	// If the book is not available, return an error
+	if !available {
+		return nil, errors.New("no available book copies for borrowing")
+	} else {
+		services.SendUpdateRequest(ch, bookCopyID, "Borrowed")
 	}
 
 	// Start transaction
@@ -68,13 +79,13 @@ func (r *mutationResolver) BorrowBook(ctx context.Context, bookID string, patron
 	}
 
 	// Update book status in Supabase
-	err = r.Supabase.DB.From("books").
-		Update(map[string]interface{}{"available": false}).
-		Eq("id", bookID).
-		Execute(nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update book status: %v", err)
-	}
+	// err = r.Supabase.DB.From("books").
+	// 	Update(map[string]interface{}{"available": false}).
+	// 	Eq("id", bookID).
+	// 	Execute(nil)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to update book status: %v", err)
+	// }
 
 	// Commit transaction
 	if err := tx.Commit(ctx); err != nil {

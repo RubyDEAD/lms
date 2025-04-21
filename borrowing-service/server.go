@@ -22,11 +22,11 @@ import (
 	// Import the Supabase Go client library
 )
 
-const defaultPort = "8080"
+const defaultPort = "8082"
 
 func main() {
-	dbURL := "postgresql://postgres:FGar.Uzebyg3ZZ9@db.ictfypsqogdoceosoqdj.supabase.co:5432/postgres"
-
+	//dbURL := "postgresql://postgres:FGar.Uzebyg3ZZ9@db.ictfypsqogdoceosoqdj.supabase.co:5432/postgres"
+	dbURL := os.Getenv("DATABASE_URL")
 	// Create a database connection pool
 	db, err := pgx.Connect(context.Background(), dbURL)
 	if err != nil {
