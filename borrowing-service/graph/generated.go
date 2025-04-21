@@ -3,7 +3,6 @@
 package graph
 
 import (
-	"github.com/RubyDEAD/lms/borrowing-service/graph/model"
 	"bytes"
 	"context"
 	"embed"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
+	"github.com/RubyDEAD/lms/borrowing-service/graph/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -730,7 +730,7 @@ func (ec *executionContext) field_Query_borrowRecords_argsStatus(
 ) (*model.BorrowStatus, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
 	if tmp, ok := rawArgs["status"]; ok {
-		return ec.unmarshalOBorrowStatus2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx, tmp)
+		return ec.unmarshalOBorrowStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx, tmp)
 	}
 
 	var zeroVal *model.BorrowStatus
@@ -812,7 +812,7 @@ func (ec *executionContext) field_Query_reservations_argsStatus(
 ) (*model.ReservationStatus, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
 	if tmp, ok := rawArgs["status"]; ok {
-		return ec.unmarshalOReservationStatus2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx, tmp)
+		return ec.unmarshalOReservationStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx, tmp)
 	}
 
 	var zeroVal *model.ReservationStatus
@@ -1293,7 +1293,7 @@ func (ec *executionContext) _BorrowRecord_status(ctx context.Context, field grap
 	}
 	res := resTmp.(model.BorrowStatus)
 	fc.Result = res
-	return ec.marshalNBorrowStatus2borrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx, field.Selections, res)
+	return ec.marshalNBorrowStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_BorrowRecord_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1337,7 +1337,7 @@ func (ec *executionContext) _Mutation_borrowBook(ctx context.Context, field grap
 	}
 	res := resTmp.(*model.BorrowRecord)
 	fc.Result = res
-	return ec.marshalNBorrowRecord2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx, field.Selections, res)
+	return ec.marshalNBorrowRecord2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_borrowBook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1412,7 +1412,7 @@ func (ec *executionContext) _Mutation_returnBook(ctx context.Context, field grap
 	}
 	res := resTmp.(*model.BorrowRecord)
 	fc.Result = res
-	return ec.marshalNBorrowRecord2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx, field.Selections, res)
+	return ec.marshalNBorrowRecord2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_returnBook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1487,7 +1487,7 @@ func (ec *executionContext) _Mutation_renewLoan(ctx context.Context, field graph
 	}
 	res := resTmp.(model.RenewLoanResult)
 	fc.Result = res
-	return ec.marshalNRenewLoanResult2borrowingᚑserviceᚋgraphᚋmodelᚐRenewLoanResult(ctx, field.Selections, res)
+	return ec.marshalNRenewLoanResult2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐRenewLoanResult(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_renewLoan(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1542,7 +1542,7 @@ func (ec *executionContext) _Mutation_reserveBook(ctx context.Context, field gra
 	}
 	res := resTmp.(*model.Reservation)
 	fc.Result = res
-	return ec.marshalNReservation2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res)
+	return ec.marshalNReservation2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_reserveBook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1666,7 +1666,7 @@ func (ec *executionContext) _Mutation_fulfillReservation(ctx context.Context, fi
 	}
 	res := resTmp.(*model.Reservation)
 	fc.Result = res
-	return ec.marshalNReservation2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res)
+	return ec.marshalNReservation2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_fulfillReservation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1735,7 +1735,7 @@ func (ec *executionContext) _Query_borrowRecords(ctx context.Context, field grap
 	}
 	res := resTmp.([]*model.BorrowRecord)
 	fc.Result = res
-	return ec.marshalNBorrowRecord2ᚕᚖborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx, field.Selections, res)
+	return ec.marshalNBorrowRecord2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_borrowRecords(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1810,7 +1810,7 @@ func (ec *executionContext) _Query_reservations(ctx context.Context, field graph
 	}
 	res := resTmp.([]*model.Reservation)
 	fc.Result = res
-	return ec.marshalNReservation2ᚕᚖborrowingᚑserviceᚋgraphᚋmodelᚐReservationᚄ(ctx, field.Selections, res)
+	return ec.marshalNReservation2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_reservations(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1879,7 +1879,7 @@ func (ec *executionContext) _Query_overdueRecords(ctx context.Context, field gra
 	}
 	res := resTmp.([]*model.BorrowRecord)
 	fc.Result = res
-	return ec.marshalNBorrowRecord2ᚕᚖborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx, field.Selections, res)
+	return ec.marshalNBorrowRecord2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_overdueRecords(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1943,7 +1943,7 @@ func (ec *executionContext) _Query_patronBorrowHistory(ctx context.Context, fiel
 	}
 	res := resTmp.([]*model.BorrowRecord)
 	fc.Result = res
-	return ec.marshalNBorrowRecord2ᚕᚖborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx, field.Selections, res)
+	return ec.marshalNBorrowRecord2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_patronBorrowHistory(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2149,7 +2149,7 @@ func (ec *executionContext) _RenewalError_code(ctx context.Context, field graphq
 	}
 	res := resTmp.(model.RenewalErrorCode)
 	fc.Result = res
-	return ec.marshalNRenewalErrorCode2borrowingᚑserviceᚋgraphᚋmodelᚐRenewalErrorCode(ctx, field.Selections, res)
+	return ec.marshalNRenewalErrorCode2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐRenewalErrorCode(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_RenewalError_code(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2457,7 +2457,7 @@ func (ec *executionContext) _Reservation_status(ctx context.Context, field graph
 	}
 	res := resTmp.(model.ReservationStatus)
 	fc.Result = res
-	return ec.marshalNReservationStatus2borrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx, field.Selections, res)
+	return ec.marshalNReservationStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Reservation_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5208,11 +5208,11 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNBorrowRecord2borrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx context.Context, sel ast.SelectionSet, v model.BorrowRecord) graphql.Marshaler {
+func (ec *executionContext) marshalNBorrowRecord2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx context.Context, sel ast.SelectionSet, v model.BorrowRecord) graphql.Marshaler {
 	return ec._BorrowRecord(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNBorrowRecord2ᚕᚖborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BorrowRecord) graphql.Marshaler {
+func (ec *executionContext) marshalNBorrowRecord2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BorrowRecord) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -5236,7 +5236,7 @@ func (ec *executionContext) marshalNBorrowRecord2ᚕᚖborrowingᚑserviceᚋgra
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNBorrowRecord2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx, sel, v[i])
+			ret[i] = ec.marshalNBorrowRecord2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -5256,7 +5256,7 @@ func (ec *executionContext) marshalNBorrowRecord2ᚕᚖborrowingᚑserviceᚋgra
 	return ret
 }
 
-func (ec *executionContext) marshalNBorrowRecord2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx context.Context, sel ast.SelectionSet, v *model.BorrowRecord) graphql.Marshaler {
+func (ec *executionContext) marshalNBorrowRecord2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx context.Context, sel ast.SelectionSet, v *model.BorrowRecord) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -5266,13 +5266,13 @@ func (ec *executionContext) marshalNBorrowRecord2ᚖborrowingᚑserviceᚋgraph�
 	return ec._BorrowRecord(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNBorrowStatus2borrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, v any) (model.BorrowStatus, error) {
+func (ec *executionContext) unmarshalNBorrowStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, v any) (model.BorrowStatus, error) {
 	var res model.BorrowStatus
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNBorrowStatus2borrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, sel ast.SelectionSet, v model.BorrowStatus) graphql.Marshaler {
+func (ec *executionContext) marshalNBorrowStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, sel ast.SelectionSet, v model.BorrowStatus) graphql.Marshaler {
 	return v
 }
 
@@ -5306,7 +5306,7 @@ func (ec *executionContext) marshalNInt2int32(ctx context.Context, sel ast.Selec
 	return res
 }
 
-func (ec *executionContext) marshalNRenewLoanResult2borrowingᚑserviceᚋgraphᚋmodelᚐRenewLoanResult(ctx context.Context, sel ast.SelectionSet, v model.RenewLoanResult) graphql.Marshaler {
+func (ec *executionContext) marshalNRenewLoanResult2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐRenewLoanResult(ctx context.Context, sel ast.SelectionSet, v model.RenewLoanResult) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -5316,21 +5316,21 @@ func (ec *executionContext) marshalNRenewLoanResult2borrowingᚑserviceᚋgraph�
 	return ec._RenewLoanResult(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNRenewalErrorCode2borrowingᚑserviceᚋgraphᚋmodelᚐRenewalErrorCode(ctx context.Context, v any) (model.RenewalErrorCode, error) {
+func (ec *executionContext) unmarshalNRenewalErrorCode2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐRenewalErrorCode(ctx context.Context, v any) (model.RenewalErrorCode, error) {
 	var res model.RenewalErrorCode
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNRenewalErrorCode2borrowingᚑserviceᚋgraphᚋmodelᚐRenewalErrorCode(ctx context.Context, sel ast.SelectionSet, v model.RenewalErrorCode) graphql.Marshaler {
+func (ec *executionContext) marshalNRenewalErrorCode2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐRenewalErrorCode(ctx context.Context, sel ast.SelectionSet, v model.RenewalErrorCode) graphql.Marshaler {
 	return v
 }
 
-func (ec *executionContext) marshalNReservation2borrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx context.Context, sel ast.SelectionSet, v model.Reservation) graphql.Marshaler {
+func (ec *executionContext) marshalNReservation2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx context.Context, sel ast.SelectionSet, v model.Reservation) graphql.Marshaler {
 	return ec._Reservation(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNReservation2ᚕᚖborrowingᚑserviceᚋgraphᚋmodelᚐReservationᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Reservation) graphql.Marshaler {
+func (ec *executionContext) marshalNReservation2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Reservation) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -5354,7 +5354,7 @@ func (ec *executionContext) marshalNReservation2ᚕᚖborrowingᚑserviceᚋgrap
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNReservation2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, sel, v[i])
+			ret[i] = ec.marshalNReservation2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -5374,7 +5374,7 @@ func (ec *executionContext) marshalNReservation2ᚕᚖborrowingᚑserviceᚋgrap
 	return ret
 }
 
-func (ec *executionContext) marshalNReservation2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx context.Context, sel ast.SelectionSet, v *model.Reservation) graphql.Marshaler {
+func (ec *executionContext) marshalNReservation2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx context.Context, sel ast.SelectionSet, v *model.Reservation) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -5384,13 +5384,13 @@ func (ec *executionContext) marshalNReservation2ᚖborrowingᚑserviceᚋgraph�
 	return ec._Reservation(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNReservationStatus2borrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, v any) (model.ReservationStatus, error) {
+func (ec *executionContext) unmarshalNReservationStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, v any) (model.ReservationStatus, error) {
 	var res model.ReservationStatus
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNReservationStatus2borrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, sel ast.SelectionSet, v model.ReservationStatus) graphql.Marshaler {
+func (ec *executionContext) marshalNReservationStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, sel ast.SelectionSet, v model.ReservationStatus) graphql.Marshaler {
 	return v
 }
 
@@ -5686,7 +5686,7 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
-func (ec *executionContext) unmarshalOBorrowStatus2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, v any) (*model.BorrowStatus, error) {
+func (ec *executionContext) unmarshalOBorrowStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, v any) (*model.BorrowStatus, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -5695,7 +5695,7 @@ func (ec *executionContext) unmarshalOBorrowStatus2ᚖborrowingᚑserviceᚋgrap
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOBorrowStatus2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, sel ast.SelectionSet, v *model.BorrowStatus) graphql.Marshaler {
+func (ec *executionContext) marshalOBorrowStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, sel ast.SelectionSet, v *model.BorrowStatus) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -5718,7 +5718,7 @@ func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) unmarshalOReservationStatus2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, v any) (*model.ReservationStatus, error) {
+func (ec *executionContext) unmarshalOReservationStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, v any) (*model.ReservationStatus, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -5727,7 +5727,7 @@ func (ec *executionContext) unmarshalOReservationStatus2ᚖborrowingᚑservice�
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOReservationStatus2ᚖborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, sel ast.SelectionSet, v *model.ReservationStatus) graphql.Marshaler {
+func (ec *executionContext) marshalOReservationStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, sel ast.SelectionSet, v *model.ReservationStatus) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

@@ -16,8 +16,10 @@ import (
 	"github.com/RubyDEAD/lms/borrowing-service/graph"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
+	"github.com/nedpals/supabase-go"
 	"github.com/rs/cors"
 	"github.com/vektah/gqlparser/v2/ast"
+	// Import the Supabase Go client library
 )
 
 const defaultPort = "8080"
@@ -39,7 +41,16 @@ func main() {
 		port = defaultPort
 	}
 
-	resolver := graph.NewResolver(db)
+	supabaseURL := "https://db.ictfypsqogdoceosoqdj.supabase.co"
+	supabaseKey := os.Getenv("SUPABASE_KEY")
+	if supabaseKey == "" {
+		log.Fatal("SUPABASE_KEY environment variable is not set")
+	}
+
+	// Create Supabase client
+	supabaseClient := supabase.CreateClient(supabaseURL, supabaseKey)
+
+	resolver := graph.NewResolver(db, supabaseClient)
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 
 	srv.AddTransport(&transport.Websocket{
