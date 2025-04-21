@@ -42,8 +42,13 @@ func main() {
 
 	resolver := graph.NewResolver(db)
 	go func() {
-		log.Println("Starting RabbitMq Consumer")
-		consumer.InitConsumer(resolver)
+		log.Println("Listening for book copy updates")
+		consumer.UpdateConsumer(resolver)
+	}()
+
+	go func() {
+		log.Println("Listening for availability requests")
+		consumer.ListenAvailabiltyRequests(resolver)
 	}()
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 
