@@ -32,18 +32,21 @@ func (r *mutationResolver) BorrowBook(ctx context.Context, bookID string, patron
 	if err != nil {
 		return nil, fmt.Errorf("failed to check book availability: %v", err)
 	}
-	defer conn.Close()
+	// Ensure the RabbitMQ connection is closed only if it is not already closed
+	defer func() {
+		if conn != nil && !conn.IsClosed() {
+			conn.Close()
+		}
+	}()
 
 	// If the book is not available, return an error
-	if !available {
+	if !available || bookCopyID == "0" {
 		return nil, errors.New("no available book copies for borrowing")
 	}
-
 	err = services.SendUpdateRequest(conn, bookCopyID, "Borrowed")
 	if err != nil {
 		return nil, fmt.Errorf("failed to update book copy status: %v", err)
 	}
-
 	// Start transaction
 	tx, err := r.DB.Begin(ctx)
 	if err != nil {

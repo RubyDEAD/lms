@@ -135,20 +135,30 @@ func ListenAvailabiltyRequests(resolver *graph.Resolver) {
 			// Call the GetAvailbleBookCopyByID resolver
 			ctx := context.Background()
 			bookCopy, err := resolver.Query().GetAvailbleBookCopyByID(ctx, payload.BookID)
-			if err != nil {
-				log.Printf("Failed to get available book copy: %v", err)
-				bookCopy.BookID = ""
-				bookCopy.BookStatus = "Not Available"
-				continue
-			}
-
-			// Prepare the reply payload
-			replyPayload := struct {
+			var replyPayload struct {
 				BookCopyID string `json:"book_copy_id"`
 				Status     string `json:"status"`
-			}{
-				BookCopyID: bookCopy.ID,
-				Status:     bookCopy.BookStatus,
+			}
+
+			if bookCopy == nil || err != nil {
+				// Handle the case where the resolver returns nil
+				log.Printf("No available book copy found for BookID: %s", payload.BookID)
+				replyPayload = struct {
+					BookCopyID string `json:"book_copy_id"`
+					Status     string `json:"status"`
+				}{
+					BookCopyID: "0",
+					Status:     "Not Available",
+				}
+			} else {
+				// Prepare the reply payload for an available book copy
+				replyPayload = struct {
+					BookCopyID string `json:"book_copy_id"`
+					Status     string `json:"status"`
+				}{
+					BookCopyID: bookCopy.ID,
+					Status:     bookCopy.BookStatus,
+				}
 			}
 
 			// Marshal the reply payload to JSON
@@ -159,6 +169,7 @@ func ListenAvailabiltyRequests(resolver *graph.Resolver) {
 			}
 
 			// Publish the reply to the borrowing service
+			log.Printf("Publishing reply: %s", replyBody)
 			err = ch.Publish(
 				"",                   // exchange
 				"bookServiceReplies", // routing key
