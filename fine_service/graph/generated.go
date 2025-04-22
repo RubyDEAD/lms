@@ -7,6 +7,7 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"fine_service/graph/model"
 	"fmt"
 	"strconv"
 	"sync"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
-	"github.com/RubyDEAD/lms/borrowing-service/graph/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -47,62 +47,33 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
-	BorrowRecord struct {
-		BookID          func(childComplexity int) int
-		BorrowedAt      func(childComplexity int) int
-		DueDate         func(childComplexity int) int
-		ID              func(childComplexity int) int
-		PatronID        func(childComplexity int) int
-		PreviousDueDate func(childComplexity int) int
-		RenewalCount    func(childComplexity int) int
-		ReturnedAt      func(childComplexity int) int
-		Status          func(childComplexity int) int
+	Fine struct {
+		Amount     func(childComplexity int) int
+		DaysLate   func(childComplexity int) int
+		ID         func(childComplexity int) int
+		RatePerDay func(childComplexity int) int
 	}
 
 	Mutation struct {
-		BorrowBook         func(childComplexity int, bookID string, patronID string) int
-		CancelReservation  func(childComplexity int, id string) int
-		FulfillReservation func(childComplexity int, id string) int
-		RenewLoan          func(childComplexity int, recordID string) int
-		ReserveBook        func(childComplexity int, bookID string, patronID string) int
-		ReturnBook         func(childComplexity int, recordID string) int
+		CreateFine func(childComplexity int, daysLate int32, ratePerDay float64) int
+		DeleteFine func(childComplexity int, id string) int
+		UpdateFine func(childComplexity int, id string, daysLate int32, ratePerDay float64) int
 	}
 
 	Query struct {
-		BorrowRecords       func(childComplexity int, patronID *string, bookID *string, status *model.BorrowStatus) int
-		OverdueRecords      func(childComplexity int) int
-		PatronBorrowHistory func(childComplexity int, patronID string) int
-		Reservations        func(childComplexity int, patronID *string, bookID *string, status *model.ReservationStatus) int
-	}
-
-	RenewalError struct {
-		Code    func(childComplexity int) int
-		Message func(childComplexity int) int
-	}
-
-	Reservation struct {
-		BookID     func(childComplexity int) int
-		ExpiresAt  func(childComplexity int) int
-		ID         func(childComplexity int) int
-		PatronID   func(childComplexity int) int
-		ReservedAt func(childComplexity int) int
-		Status     func(childComplexity int) int
+		GetFine   func(childComplexity int, id string) int
+		ListFines func(childComplexity int) int
 	}
 }
 
 type MutationResolver interface {
-	BorrowBook(ctx context.Context, bookID string, patronID string) (*model.BorrowRecord, error)
-	ReturnBook(ctx context.Context, recordID string) (*model.BorrowRecord, error)
-	RenewLoan(ctx context.Context, recordID string) (model.RenewLoanResult, error)
-	ReserveBook(ctx context.Context, bookID string, patronID string) (*model.Reservation, error)
-	CancelReservation(ctx context.Context, id string) (bool, error)
-	FulfillReservation(ctx context.Context, id string) (*model.Reservation, error)
+	CreateFine(ctx context.Context, daysLate int32, ratePerDay float64) (*model.Fine, error)
+	UpdateFine(ctx context.Context, id string, daysLate int32, ratePerDay float64) (*model.Fine, error)
+	DeleteFine(ctx context.Context, id string) (bool, error)
 }
 type QueryResolver interface {
-	BorrowRecords(ctx context.Context, patronID *string, bookID *string, status *model.BorrowStatus) ([]*model.BorrowRecord, error)
-	Reservations(ctx context.Context, patronID *string, bookID *string, status *model.ReservationStatus) ([]*model.Reservation, error)
-	OverdueRecords(ctx context.Context) ([]*model.BorrowRecord, error)
-	PatronBorrowHistory(ctx context.Context, patronID string) ([]*model.BorrowRecord, error)
+	GetFine(ctx context.Context, id string) (*model.Fine, error)
+	ListFines(ctx context.Context) ([]*model.Fine, error)
 }
 
 type executableSchema struct {
@@ -124,239 +95,88 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	_ = ec
 	switch typeName + "." + field {
 
-	case "BorrowRecord.bookId":
-		if e.complexity.BorrowRecord.BookID == nil {
+	case "Fine.amount":
+		if e.complexity.Fine.Amount == nil {
 			break
 		}
 
-		return e.complexity.BorrowRecord.BookID(childComplexity), true
+		return e.complexity.Fine.Amount(childComplexity), true
 
-	case "BorrowRecord.borrowedAt":
-		if e.complexity.BorrowRecord.BorrowedAt == nil {
+	case "Fine.daysLate":
+		if e.complexity.Fine.DaysLate == nil {
 			break
 		}
 
-		return e.complexity.BorrowRecord.BorrowedAt(childComplexity), true
+		return e.complexity.Fine.DaysLate(childComplexity), true
 
-	case "BorrowRecord.dueDate":
-		if e.complexity.BorrowRecord.DueDate == nil {
+	case "Fine.id":
+		if e.complexity.Fine.ID == nil {
 			break
 		}
 
-		return e.complexity.BorrowRecord.DueDate(childComplexity), true
+		return e.complexity.Fine.ID(childComplexity), true
 
-	case "BorrowRecord.id":
-		if e.complexity.BorrowRecord.ID == nil {
+	case "Fine.ratePerDay":
+		if e.complexity.Fine.RatePerDay == nil {
 			break
 		}
 
-		return e.complexity.BorrowRecord.ID(childComplexity), true
+		return e.complexity.Fine.RatePerDay(childComplexity), true
 
-	case "BorrowRecord.patronId":
-		if e.complexity.BorrowRecord.PatronID == nil {
+	case "Mutation.createFine":
+		if e.complexity.Mutation.CreateFine == nil {
 			break
 		}
 
-		return e.complexity.BorrowRecord.PatronID(childComplexity), true
-
-	case "BorrowRecord.previousDueDate":
-		if e.complexity.BorrowRecord.PreviousDueDate == nil {
-			break
-		}
-
-		return e.complexity.BorrowRecord.PreviousDueDate(childComplexity), true
-
-	case "BorrowRecord.renewalCount":
-		if e.complexity.BorrowRecord.RenewalCount == nil {
-			break
-		}
-
-		return e.complexity.BorrowRecord.RenewalCount(childComplexity), true
-
-	case "BorrowRecord.returnedAt":
-		if e.complexity.BorrowRecord.ReturnedAt == nil {
-			break
-		}
-
-		return e.complexity.BorrowRecord.ReturnedAt(childComplexity), true
-
-	case "BorrowRecord.status":
-		if e.complexity.BorrowRecord.Status == nil {
-			break
-		}
-
-		return e.complexity.BorrowRecord.Status(childComplexity), true
-
-	case "Mutation.borrowBook":
-		if e.complexity.Mutation.BorrowBook == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_borrowBook_args(ctx, rawArgs)
+		args, err := ec.field_Mutation_createFine_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Mutation.BorrowBook(childComplexity, args["bookId"].(string), args["patronId"].(string)), true
+		return e.complexity.Mutation.CreateFine(childComplexity, args["daysLate"].(int32), args["ratePerDay"].(float64)), true
 
-	case "Mutation.cancelReservation":
-		if e.complexity.Mutation.CancelReservation == nil {
+	case "Mutation.deleteFine":
+		if e.complexity.Mutation.DeleteFine == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_cancelReservation_args(ctx, rawArgs)
+		args, err := ec.field_Mutation_deleteFine_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CancelReservation(childComplexity, args["id"].(string)), true
+		return e.complexity.Mutation.DeleteFine(childComplexity, args["id"].(string)), true
 
-	case "Mutation.fulfillReservation":
-		if e.complexity.Mutation.FulfillReservation == nil {
+	case "Mutation.updateFine":
+		if e.complexity.Mutation.UpdateFine == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_fulfillReservation_args(ctx, rawArgs)
+		args, err := ec.field_Mutation_updateFine_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Mutation.FulfillReservation(childComplexity, args["id"].(string)), true
+		return e.complexity.Mutation.UpdateFine(childComplexity, args["id"].(string), args["daysLate"].(int32), args["ratePerDay"].(float64)), true
 
-	case "Mutation.renewLoan":
-		if e.complexity.Mutation.RenewLoan == nil {
+	case "Query.getFine":
+		if e.complexity.Query.GetFine == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_renewLoan_args(ctx, rawArgs)
+		args, err := ec.field_Query_getFine_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Mutation.RenewLoan(childComplexity, args["recordId"].(string)), true
+		return e.complexity.Query.GetFine(childComplexity, args["id"].(string)), true
 
-	case "Mutation.reserveBook":
-		if e.complexity.Mutation.ReserveBook == nil {
+	case "Query.listFines":
+		if e.complexity.Query.ListFines == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_reserveBook_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.ReserveBook(childComplexity, args["bookId"].(string), args["patronId"].(string)), true
-
-	case "Mutation.returnBook":
-		if e.complexity.Mutation.ReturnBook == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_returnBook_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.ReturnBook(childComplexity, args["recordId"].(string)), true
-
-	case "Query.borrowRecords":
-		if e.complexity.Query.BorrowRecords == nil {
-			break
-		}
-
-		args, err := ec.field_Query_borrowRecords_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.BorrowRecords(childComplexity, args["patronId"].(*string), args["bookId"].(*string), args["status"].(*model.BorrowStatus)), true
-
-	case "Query.overdueRecords":
-		if e.complexity.Query.OverdueRecords == nil {
-			break
-		}
-
-		return e.complexity.Query.OverdueRecords(childComplexity), true
-
-	case "Query.patronBorrowHistory":
-		if e.complexity.Query.PatronBorrowHistory == nil {
-			break
-		}
-
-		args, err := ec.field_Query_patronBorrowHistory_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.PatronBorrowHistory(childComplexity, args["patronId"].(string)), true
-
-	case "Query.reservations":
-		if e.complexity.Query.Reservations == nil {
-			break
-		}
-
-		args, err := ec.field_Query_reservations_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.Reservations(childComplexity, args["patronId"].(*string), args["bookId"].(*string), args["status"].(*model.ReservationStatus)), true
-
-	case "RenewalError.code":
-		if e.complexity.RenewalError.Code == nil {
-			break
-		}
-
-		return e.complexity.RenewalError.Code(childComplexity), true
-
-	case "RenewalError.message":
-		if e.complexity.RenewalError.Message == nil {
-			break
-		}
-
-		return e.complexity.RenewalError.Message(childComplexity), true
-
-	case "Reservation.bookId":
-		if e.complexity.Reservation.BookID == nil {
-			break
-		}
-
-		return e.complexity.Reservation.BookID(childComplexity), true
-
-	case "Reservation.expiresAt":
-		if e.complexity.Reservation.ExpiresAt == nil {
-			break
-		}
-
-		return e.complexity.Reservation.ExpiresAt(childComplexity), true
-
-	case "Reservation.id":
-		if e.complexity.Reservation.ID == nil {
-			break
-		}
-
-		return e.complexity.Reservation.ID(childComplexity), true
-
-	case "Reservation.patronId":
-		if e.complexity.Reservation.PatronID == nil {
-			break
-		}
-
-		return e.complexity.Reservation.PatronID(childComplexity), true
-
-	case "Reservation.reservedAt":
-		if e.complexity.Reservation.ReservedAt == nil {
-			break
-		}
-
-		return e.complexity.Reservation.ReservedAt(childComplexity), true
-
-	case "Reservation.status":
-		if e.complexity.Reservation.Status == nil {
-			break
-		}
-
-		return e.complexity.Reservation.Status(childComplexity), true
+		return e.complexity.Query.ListFines(childComplexity), true
 
 	}
 	return 0, false
@@ -481,58 +301,58 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
-func (ec *executionContext) field_Mutation_borrowBook_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_createFine_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Mutation_borrowBook_argsBookID(ctx, rawArgs)
+	arg0, err := ec.field_Mutation_createFine_argsDaysLate(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["bookId"] = arg0
-	arg1, err := ec.field_Mutation_borrowBook_argsPatronID(ctx, rawArgs)
+	args["daysLate"] = arg0
+	arg1, err := ec.field_Mutation_createFine_argsRatePerDay(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["patronId"] = arg1
+	args["ratePerDay"] = arg1
 	return args, nil
 }
-func (ec *executionContext) field_Mutation_borrowBook_argsBookID(
+func (ec *executionContext) field_Mutation_createFine_argsDaysLate(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("bookId"))
-	if tmp, ok := rawArgs["bookId"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
+) (int32, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("daysLate"))
+	if tmp, ok := rawArgs["daysLate"]; ok {
+		return ec.unmarshalNInt2int32(ctx, tmp)
 	}
 
-	var zeroVal string
+	var zeroVal int32
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_borrowBook_argsPatronID(
+func (ec *executionContext) field_Mutation_createFine_argsRatePerDay(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patronId"))
-	if tmp, ok := rawArgs["patronId"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
+) (float64, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("ratePerDay"))
+	if tmp, ok := rawArgs["ratePerDay"]; ok {
+		return ec.unmarshalNFloat2float64(ctx, tmp)
 	}
 
-	var zeroVal string
+	var zeroVal float64
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_cancelReservation_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_deleteFine_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Mutation_cancelReservation_argsID(ctx, rawArgs)
+	arg0, err := ec.field_Mutation_deleteFine_argsID(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
 	args["id"] = arg0
 	return args, nil
 }
-func (ec *executionContext) field_Mutation_cancelReservation_argsID(
+func (ec *executionContext) field_Mutation_deleteFine_argsID(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (string, error) {
@@ -545,17 +365,27 @@ func (ec *executionContext) field_Mutation_cancelReservation_argsID(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_fulfillReservation_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_updateFine_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Mutation_fulfillReservation_argsID(ctx, rawArgs)
+	arg0, err := ec.field_Mutation_updateFine_argsID(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
 	args["id"] = arg0
+	arg1, err := ec.field_Mutation_updateFine_argsDaysLate(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["daysLate"] = arg1
+	arg2, err := ec.field_Mutation_updateFine_argsRatePerDay(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["ratePerDay"] = arg2
 	return args, nil
 }
-func (ec *executionContext) field_Mutation_fulfillReservation_argsID(
+func (ec *executionContext) field_Mutation_updateFine_argsID(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (string, error) {
@@ -568,90 +398,29 @@ func (ec *executionContext) field_Mutation_fulfillReservation_argsID(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_renewLoan_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_renewLoan_argsRecordID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["recordId"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_renewLoan_argsRecordID(
+func (ec *executionContext) field_Mutation_updateFine_argsDaysLate(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("recordId"))
-	if tmp, ok := rawArgs["recordId"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
+) (int32, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("daysLate"))
+	if tmp, ok := rawArgs["daysLate"]; ok {
+		return ec.unmarshalNInt2int32(ctx, tmp)
 	}
 
-	var zeroVal string
+	var zeroVal int32
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_reserveBook_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_reserveBook_argsBookID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["bookId"] = arg0
-	arg1, err := ec.field_Mutation_reserveBook_argsPatronID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patronId"] = arg1
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_reserveBook_argsBookID(
+func (ec *executionContext) field_Mutation_updateFine_argsRatePerDay(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("bookId"))
-	if tmp, ok := rawArgs["bookId"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
+) (float64, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("ratePerDay"))
+	if tmp, ok := rawArgs["ratePerDay"]; ok {
+		return ec.unmarshalNFloat2float64(ctx, tmp)
 	}
 
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_reserveBook_argsPatronID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patronId"))
-	if tmp, ok := rawArgs["patronId"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_returnBook_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_returnBook_argsRecordID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["recordId"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_returnBook_argsRecordID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("recordId"))
-	if tmp, ok := rawArgs["recordId"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
+	var zeroVal float64
 	return zeroVal, nil
 }
 
@@ -678,144 +447,26 @@ func (ec *executionContext) field_Query___type_argsName(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_borrowRecords_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Query_getFine_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Query_borrowRecords_argsPatronID(ctx, rawArgs)
+	arg0, err := ec.field_Query_getFine_argsID(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["patronId"] = arg0
-	arg1, err := ec.field_Query_borrowRecords_argsBookID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["bookId"] = arg1
-	arg2, err := ec.field_Query_borrowRecords_argsStatus(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["status"] = arg2
+	args["id"] = arg0
 	return args, nil
 }
-func (ec *executionContext) field_Query_borrowRecords_argsPatronID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patronId"))
-	if tmp, ok := rawArgs["patronId"]; ok {
-		return ec.unmarshalOID2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_borrowRecords_argsBookID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("bookId"))
-	if tmp, ok := rawArgs["bookId"]; ok {
-		return ec.unmarshalOID2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_borrowRecords_argsStatus(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*model.BorrowStatus, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
-	if tmp, ok := rawArgs["status"]; ok {
-		return ec.unmarshalOBorrowStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx, tmp)
-	}
-
-	var zeroVal *model.BorrowStatus
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_patronBorrowHistory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_patronBorrowHistory_argsPatronID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patronId"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Query_patronBorrowHistory_argsPatronID(
+func (ec *executionContext) field_Query_getFine_argsID(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patronId"))
-	if tmp, ok := rawArgs["patronId"]; ok {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+	if tmp, ok := rawArgs["id"]; ok {
 		return ec.unmarshalNID2string(ctx, tmp)
 	}
 
 	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_reservations_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_reservations_argsPatronID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patronId"] = arg0
-	arg1, err := ec.field_Query_reservations_argsBookID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["bookId"] = arg1
-	arg2, err := ec.field_Query_reservations_argsStatus(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["status"] = arg2
-	return args, nil
-}
-func (ec *executionContext) field_Query_reservations_argsPatronID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patronId"))
-	if tmp, ok := rawArgs["patronId"]; ok {
-		return ec.unmarshalOID2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_reservations_argsBookID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("bookId"))
-	if tmp, ok := rawArgs["bookId"]; ok {
-		return ec.unmarshalOID2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_reservations_argsStatus(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*model.ReservationStatus, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
-	if tmp, ok := rawArgs["status"]; ok {
-		return ec.unmarshalOReservationStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx, tmp)
-	}
-
-	var zeroVal *model.ReservationStatus
 	return zeroVal, nil
 }
 
@@ -919,8 +570,8 @@ func (ec *executionContext) field___Type_fields_argsIncludeDeprecated(
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _BorrowRecord_id(ctx context.Context, field graphql.CollectedField, obj *model.BorrowRecord) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowRecord_id(ctx, field)
+func (ec *executionContext) _Fine_id(ctx context.Context, field graphql.CollectedField, obj *model.Fine) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Fine_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -950,9 +601,9 @@ func (ec *executionContext) _BorrowRecord_id(ctx context.Context, field graphql.
 	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_BorrowRecord_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Fine_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "BorrowRecord",
+		Object:     "Fine",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -963,8 +614,8 @@ func (ec *executionContext) fieldContext_BorrowRecord_id(_ context.Context, fiel
 	return fc, nil
 }
 
-func (ec *executionContext) _BorrowRecord_bookId(ctx context.Context, field graphql.CollectedField, obj *model.BorrowRecord) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowRecord_bookId(ctx, field)
+func (ec *executionContext) _Fine_daysLate(ctx context.Context, field graphql.CollectedField, obj *model.Fine) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Fine_daysLate(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -977,224 +628,7 @@ func (ec *executionContext) _BorrowRecord_bookId(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.BookID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_BorrowRecord_bookId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BorrowRecord",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BorrowRecord_patronId(ctx context.Context, field graphql.CollectedField, obj *model.BorrowRecord) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowRecord_patronId(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PatronID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_BorrowRecord_patronId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BorrowRecord",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BorrowRecord_borrowedAt(ctx context.Context, field graphql.CollectedField, obj *model.BorrowRecord) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowRecord_borrowedAt(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BorrowedAt, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_BorrowRecord_borrowedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BorrowRecord",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BorrowRecord_dueDate(ctx context.Context, field graphql.CollectedField, obj *model.BorrowRecord) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowRecord_dueDate(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.DueDate, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_BorrowRecord_dueDate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BorrowRecord",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BorrowRecord_returnedAt(ctx context.Context, field graphql.CollectedField, obj *model.BorrowRecord) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowRecord_returnedAt(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ReturnedAt, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*string)
-	fc.Result = res
-	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_BorrowRecord_returnedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BorrowRecord",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BorrowRecord_renewalCount(ctx context.Context, field graphql.CollectedField, obj *model.BorrowRecord) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowRecord_renewalCount(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.RenewalCount, nil
+		return obj.DaysLate, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1211,9 +645,9 @@ func (ec *executionContext) _BorrowRecord_renewalCount(ctx context.Context, fiel
 	return ec.marshalNInt2int32(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_BorrowRecord_renewalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Fine_daysLate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "BorrowRecord",
+		Object:     "Fine",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -1224,8 +658,8 @@ func (ec *executionContext) fieldContext_BorrowRecord_renewalCount(_ context.Con
 	return fc, nil
 }
 
-func (ec *executionContext) _BorrowRecord_previousDueDate(ctx context.Context, field graphql.CollectedField, obj *model.BorrowRecord) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowRecord_previousDueDate(ctx, field)
+func (ec *executionContext) _Fine_ratePerDay(ctx context.Context, field graphql.CollectedField, obj *model.Fine) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Fine_ratePerDay(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1238,35 +672,38 @@ func (ec *executionContext) _BorrowRecord_previousDueDate(ctx context.Context, f
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.PreviousDueDate, nil
+		return obj.RatePerDay, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
 	}
 	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
 		return graphql.Null
 	}
-	res := resTmp.(*string)
+	res := resTmp.(float64)
 	fc.Result = res
-	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+	return ec.marshalNFloat2float64(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_BorrowRecord_previousDueDate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Fine_ratePerDay(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "BorrowRecord",
+		Object:     "Fine",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
+			return nil, errors.New("field of type Float does not have child fields")
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _BorrowRecord_status(ctx context.Context, field graphql.CollectedField, obj *model.BorrowRecord) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_BorrowRecord_status(ctx, field)
+func (ec *executionContext) _Fine_amount(ctx context.Context, field graphql.CollectedField, obj *model.Fine) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Fine_amount(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1279,7 +716,7 @@ func (ec *executionContext) _BorrowRecord_status(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Status, nil
+		return obj.Amount, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1291,26 +728,26 @@ func (ec *executionContext) _BorrowRecord_status(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.(model.BorrowStatus)
+	res := resTmp.(float64)
 	fc.Result = res
-	return ec.marshalNBorrowStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx, field.Selections, res)
+	return ec.marshalNFloat2float64(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_BorrowRecord_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Fine_amount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "BorrowRecord",
+		Object:     "Fine",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type BorrowStatus does not have child fields")
+			return nil, errors.New("field of type Float does not have child fields")
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_borrowBook(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_borrowBook(ctx, field)
+func (ec *executionContext) _Mutation_createFine(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_createFine(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1323,7 +760,7 @@ func (ec *executionContext) _Mutation_borrowBook(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().BorrowBook(rctx, fc.Args["bookId"].(string), fc.Args["patronId"].(string))
+		return ec.resolvers.Mutation().CreateFine(rctx, fc.Args["daysLate"].(int32), fc.Args["ratePerDay"].(float64))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1335,12 +772,12 @@ func (ec *executionContext) _Mutation_borrowBook(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.BorrowRecord)
+	res := resTmp.(*model.Fine)
 	fc.Result = res
-	return ec.marshalNBorrowRecord2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx, field.Selections, res)
+	return ec.marshalNFine2ᚖfine_serviceᚋgraphᚋmodelᚐFine(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Mutation_borrowBook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_createFine(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -1349,25 +786,15 @@ func (ec *executionContext) fieldContext_Mutation_borrowBook(ctx context.Context
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_BorrowRecord_id(ctx, field)
-			case "bookId":
-				return ec.fieldContext_BorrowRecord_bookId(ctx, field)
-			case "patronId":
-				return ec.fieldContext_BorrowRecord_patronId(ctx, field)
-			case "borrowedAt":
-				return ec.fieldContext_BorrowRecord_borrowedAt(ctx, field)
-			case "dueDate":
-				return ec.fieldContext_BorrowRecord_dueDate(ctx, field)
-			case "returnedAt":
-				return ec.fieldContext_BorrowRecord_returnedAt(ctx, field)
-			case "renewalCount":
-				return ec.fieldContext_BorrowRecord_renewalCount(ctx, field)
-			case "previousDueDate":
-				return ec.fieldContext_BorrowRecord_previousDueDate(ctx, field)
-			case "status":
-				return ec.fieldContext_BorrowRecord_status(ctx, field)
+				return ec.fieldContext_Fine_id(ctx, field)
+			case "daysLate":
+				return ec.fieldContext_Fine_daysLate(ctx, field)
+			case "ratePerDay":
+				return ec.fieldContext_Fine_ratePerDay(ctx, field)
+			case "amount":
+				return ec.fieldContext_Fine_amount(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type BorrowRecord", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
 	}
 	defer func() {
@@ -1377,15 +804,15 @@ func (ec *executionContext) fieldContext_Mutation_borrowBook(ctx context.Context
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_borrowBook_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_createFine_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_returnBook(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_returnBook(ctx, field)
+func (ec *executionContext) _Mutation_updateFine(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_updateFine(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1398,7 +825,7 @@ func (ec *executionContext) _Mutation_returnBook(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().ReturnBook(rctx, fc.Args["recordId"].(string))
+		return ec.resolvers.Mutation().UpdateFine(rctx, fc.Args["id"].(string), fc.Args["daysLate"].(int32), fc.Args["ratePerDay"].(float64))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1410,12 +837,12 @@ func (ec *executionContext) _Mutation_returnBook(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.BorrowRecord)
+	res := resTmp.(*model.Fine)
 	fc.Result = res
-	return ec.marshalNBorrowRecord2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx, field.Selections, res)
+	return ec.marshalNFine2ᚖfine_serviceᚋgraphᚋmodelᚐFine(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Mutation_returnBook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_updateFine(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -1424,25 +851,15 @@ func (ec *executionContext) fieldContext_Mutation_returnBook(ctx context.Context
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_BorrowRecord_id(ctx, field)
-			case "bookId":
-				return ec.fieldContext_BorrowRecord_bookId(ctx, field)
-			case "patronId":
-				return ec.fieldContext_BorrowRecord_patronId(ctx, field)
-			case "borrowedAt":
-				return ec.fieldContext_BorrowRecord_borrowedAt(ctx, field)
-			case "dueDate":
-				return ec.fieldContext_BorrowRecord_dueDate(ctx, field)
-			case "returnedAt":
-				return ec.fieldContext_BorrowRecord_returnedAt(ctx, field)
-			case "renewalCount":
-				return ec.fieldContext_BorrowRecord_renewalCount(ctx, field)
-			case "previousDueDate":
-				return ec.fieldContext_BorrowRecord_previousDueDate(ctx, field)
-			case "status":
-				return ec.fieldContext_BorrowRecord_status(ctx, field)
+				return ec.fieldContext_Fine_id(ctx, field)
+			case "daysLate":
+				return ec.fieldContext_Fine_daysLate(ctx, field)
+			case "ratePerDay":
+				return ec.fieldContext_Fine_ratePerDay(ctx, field)
+			case "amount":
+				return ec.fieldContext_Fine_amount(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type BorrowRecord", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
 	}
 	defer func() {
@@ -1452,15 +869,15 @@ func (ec *executionContext) fieldContext_Mutation_returnBook(ctx context.Context
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_returnBook_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_updateFine_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_renewLoan(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_renewLoan(ctx, field)
+func (ec *executionContext) _Mutation_deleteFine(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_deleteFine(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1473,131 +890,7 @@ func (ec *executionContext) _Mutation_renewLoan(ctx context.Context, field graph
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().RenewLoan(rctx, fc.Args["recordId"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(model.RenewLoanResult)
-	fc.Result = res
-	return ec.marshalNRenewLoanResult2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐRenewLoanResult(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_renewLoan(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type RenewLoanResult does not have child fields")
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_renewLoan_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_reserveBook(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_reserveBook(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().ReserveBook(rctx, fc.Args["bookId"].(string), fc.Args["patronId"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.Reservation)
-	fc.Result = res
-	return ec.marshalNReservation2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_reserveBook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Reservation_id(ctx, field)
-			case "bookId":
-				return ec.fieldContext_Reservation_bookId(ctx, field)
-			case "patronId":
-				return ec.fieldContext_Reservation_patronId(ctx, field)
-			case "reservedAt":
-				return ec.fieldContext_Reservation_reservedAt(ctx, field)
-			case "expiresAt":
-				return ec.fieldContext_Reservation_expiresAt(ctx, field)
-			case "status":
-				return ec.fieldContext_Reservation_status(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Reservation", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_reserveBook_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_cancelReservation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_cancelReservation(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CancelReservation(rctx, fc.Args["id"].(string))
+		return ec.resolvers.Mutation().DeleteFine(rctx, fc.Args["id"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1614,7 +907,7 @@ func (ec *executionContext) _Mutation_cancelReservation(ctx context.Context, fie
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Mutation_cancelReservation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_deleteFine(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -1631,15 +924,15 @@ func (ec *executionContext) fieldContext_Mutation_cancelReservation(ctx context.
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_cancelReservation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_deleteFine_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_fulfillReservation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_fulfillReservation(ctx, field)
+func (ec *executionContext) _Query_getFine(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getFine(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1652,45 +945,38 @@ func (ec *executionContext) _Mutation_fulfillReservation(ctx context.Context, fi
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().FulfillReservation(rctx, fc.Args["id"].(string))
+		return ec.resolvers.Query().GetFine(rctx, fc.Args["id"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Reservation)
+	res := resTmp.(*model.Fine)
 	fc.Result = res
-	return ec.marshalNReservation2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res)
+	return ec.marshalOFine2ᚖfine_serviceᚋgraphᚋmodelᚐFine(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Mutation_fulfillReservation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_getFine(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "Mutation",
+		Object:     "Query",
 		Field:      field,
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_Reservation_id(ctx, field)
-			case "bookId":
-				return ec.fieldContext_Reservation_bookId(ctx, field)
-			case "patronId":
-				return ec.fieldContext_Reservation_patronId(ctx, field)
-			case "reservedAt":
-				return ec.fieldContext_Reservation_reservedAt(ctx, field)
-			case "expiresAt":
-				return ec.fieldContext_Reservation_expiresAt(ctx, field)
-			case "status":
-				return ec.fieldContext_Reservation_status(ctx, field)
+				return ec.fieldContext_Fine_id(ctx, field)
+			case "daysLate":
+				return ec.fieldContext_Fine_daysLate(ctx, field)
+			case "ratePerDay":
+				return ec.fieldContext_Fine_ratePerDay(ctx, field)
+			case "amount":
+				return ec.fieldContext_Fine_amount(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Reservation", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
 	}
 	defer func() {
@@ -1700,15 +986,15 @@ func (ec *executionContext) fieldContext_Mutation_fulfillReservation(ctx context
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_fulfillReservation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_getFine_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_borrowRecords(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_borrowRecords(ctx, field)
+func (ec *executionContext) _Query_listFines(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_listFines(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1721,7 +1007,7 @@ func (ec *executionContext) _Query_borrowRecords(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().BorrowRecords(rctx, fc.Args["patronId"].(*string), fc.Args["bookId"].(*string), fc.Args["status"].(*model.BorrowStatus))
+		return ec.resolvers.Query().ListFines(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1733,12 +1019,12 @@ func (ec *executionContext) _Query_borrowRecords(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*model.BorrowRecord)
+	res := resTmp.([]*model.Fine)
 	fc.Result = res
-	return ec.marshalNBorrowRecord2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx, field.Selections, res)
+	return ec.marshalNFine2ᚕᚖfine_serviceᚋgraphᚋmodelᚐFineᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_borrowRecords(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_listFines(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -1747,245 +1033,16 @@ func (ec *executionContext) fieldContext_Query_borrowRecords(ctx context.Context
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_BorrowRecord_id(ctx, field)
-			case "bookId":
-				return ec.fieldContext_BorrowRecord_bookId(ctx, field)
-			case "patronId":
-				return ec.fieldContext_BorrowRecord_patronId(ctx, field)
-			case "borrowedAt":
-				return ec.fieldContext_BorrowRecord_borrowedAt(ctx, field)
-			case "dueDate":
-				return ec.fieldContext_BorrowRecord_dueDate(ctx, field)
-			case "returnedAt":
-				return ec.fieldContext_BorrowRecord_returnedAt(ctx, field)
-			case "renewalCount":
-				return ec.fieldContext_BorrowRecord_renewalCount(ctx, field)
-			case "previousDueDate":
-				return ec.fieldContext_BorrowRecord_previousDueDate(ctx, field)
-			case "status":
-				return ec.fieldContext_BorrowRecord_status(ctx, field)
+				return ec.fieldContext_Fine_id(ctx, field)
+			case "daysLate":
+				return ec.fieldContext_Fine_daysLate(ctx, field)
+			case "ratePerDay":
+				return ec.fieldContext_Fine_ratePerDay(ctx, field)
+			case "amount":
+				return ec.fieldContext_Fine_amount(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type BorrowRecord", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_borrowRecords_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_reservations(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_reservations(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Reservations(rctx, fc.Args["patronId"].(*string), fc.Args["bookId"].(*string), fc.Args["status"].(*model.ReservationStatus))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]*model.Reservation)
-	fc.Result = res
-	return ec.marshalNReservation2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_reservations(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Reservation_id(ctx, field)
-			case "bookId":
-				return ec.fieldContext_Reservation_bookId(ctx, field)
-			case "patronId":
-				return ec.fieldContext_Reservation_patronId(ctx, field)
-			case "reservedAt":
-				return ec.fieldContext_Reservation_reservedAt(ctx, field)
-			case "expiresAt":
-				return ec.fieldContext_Reservation_expiresAt(ctx, field)
-			case "status":
-				return ec.fieldContext_Reservation_status(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Reservation", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_reservations_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_overdueRecords(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_overdueRecords(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().OverdueRecords(rctx)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]*model.BorrowRecord)
-	fc.Result = res
-	return ec.marshalNBorrowRecord2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_overdueRecords(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_BorrowRecord_id(ctx, field)
-			case "bookId":
-				return ec.fieldContext_BorrowRecord_bookId(ctx, field)
-			case "patronId":
-				return ec.fieldContext_BorrowRecord_patronId(ctx, field)
-			case "borrowedAt":
-				return ec.fieldContext_BorrowRecord_borrowedAt(ctx, field)
-			case "dueDate":
-				return ec.fieldContext_BorrowRecord_dueDate(ctx, field)
-			case "returnedAt":
-				return ec.fieldContext_BorrowRecord_returnedAt(ctx, field)
-			case "renewalCount":
-				return ec.fieldContext_BorrowRecord_renewalCount(ctx, field)
-			case "previousDueDate":
-				return ec.fieldContext_BorrowRecord_previousDueDate(ctx, field)
-			case "status":
-				return ec.fieldContext_BorrowRecord_status(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type BorrowRecord", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_patronBorrowHistory(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_patronBorrowHistory(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().PatronBorrowHistory(rctx, fc.Args["patronId"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]*model.BorrowRecord)
-	fc.Result = res
-	return ec.marshalNBorrowRecord2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_patronBorrowHistory(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_BorrowRecord_id(ctx, field)
-			case "bookId":
-				return ec.fieldContext_BorrowRecord_bookId(ctx, field)
-			case "patronId":
-				return ec.fieldContext_BorrowRecord_patronId(ctx, field)
-			case "borrowedAt":
-				return ec.fieldContext_BorrowRecord_borrowedAt(ctx, field)
-			case "dueDate":
-				return ec.fieldContext_BorrowRecord_dueDate(ctx, field)
-			case "returnedAt":
-				return ec.fieldContext_BorrowRecord_returnedAt(ctx, field)
-			case "renewalCount":
-				return ec.fieldContext_BorrowRecord_renewalCount(ctx, field)
-			case "previousDueDate":
-				return ec.fieldContext_BorrowRecord_previousDueDate(ctx, field)
-			case "status":
-				return ec.fieldContext_BorrowRecord_status(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type BorrowRecord", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_patronBorrowHistory_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
 	}
 	return fc, nil
 }
@@ -2116,358 +1173,6 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 				return ec.fieldContext___Schema_directives(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Schema", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _RenewalError_code(ctx context.Context, field graphql.CollectedField, obj *model.RenewalError) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RenewalError_code(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Code, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(model.RenewalErrorCode)
-	fc.Result = res
-	return ec.marshalNRenewalErrorCode2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐRenewalErrorCode(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_RenewalError_code(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RenewalError",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type RenewalErrorCode does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _RenewalError_message(ctx context.Context, field graphql.CollectedField, obj *model.RenewalError) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RenewalError_message(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Message, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_RenewalError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RenewalError",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Reservation_id(ctx context.Context, field graphql.CollectedField, obj *model.Reservation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Reservation_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Reservation_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Reservation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Reservation_bookId(ctx context.Context, field graphql.CollectedField, obj *model.Reservation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Reservation_bookId(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BookID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Reservation_bookId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Reservation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Reservation_patronId(ctx context.Context, field graphql.CollectedField, obj *model.Reservation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Reservation_patronId(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PatronID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Reservation_patronId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Reservation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Reservation_reservedAt(ctx context.Context, field graphql.CollectedField, obj *model.Reservation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Reservation_reservedAt(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ReservedAt, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Reservation_reservedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Reservation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Reservation_expiresAt(ctx context.Context, field graphql.CollectedField, obj *model.Reservation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Reservation_expiresAt(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ExpiresAt, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Reservation_expiresAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Reservation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Reservation_status(ctx context.Context, field graphql.CollectedField, obj *model.Reservation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Reservation_status(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Status, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(model.ReservationStatus)
-	fc.Result = res
-	return ec.marshalNReservationStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Reservation_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Reservation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ReservationStatus does not have child fields")
 		},
 	}
 	return fc, nil
@@ -4428,80 +3133,38 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    ************************** interface.gotpl ***************************
 
-func (ec *executionContext) _RenewLoanResult(ctx context.Context, sel ast.SelectionSet, obj model.RenewLoanResult) graphql.Marshaler {
-	switch obj := (obj).(type) {
-	case nil:
-		return graphql.Null
-	case model.RenewalError:
-		return ec._RenewalError(ctx, sel, &obj)
-	case *model.RenewalError:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._RenewalError(ctx, sel, obj)
-	case model.BorrowRecord:
-		return ec._BorrowRecord(ctx, sel, &obj)
-	case *model.BorrowRecord:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._BorrowRecord(ctx, sel, obj)
-	default:
-		panic(fmt.Errorf("unexpected type %T", obj))
-	}
-}
-
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
 
-var borrowRecordImplementors = []string{"BorrowRecord", "RenewLoanResult"}
+var fineImplementors = []string{"Fine"}
 
-func (ec *executionContext) _BorrowRecord(ctx context.Context, sel ast.SelectionSet, obj *model.BorrowRecord) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, borrowRecordImplementors)
+func (ec *executionContext) _Fine(ctx context.Context, sel ast.SelectionSet, obj *model.Fine) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fineImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferred := make(map[string]*graphql.FieldSet)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("BorrowRecord")
+			out.Values[i] = graphql.MarshalString("Fine")
 		case "id":
-			out.Values[i] = ec._BorrowRecord_id(ctx, field, obj)
+			out.Values[i] = ec._Fine_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "bookId":
-			out.Values[i] = ec._BorrowRecord_bookId(ctx, field, obj)
+		case "daysLate":
+			out.Values[i] = ec._Fine_daysLate(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "patronId":
-			out.Values[i] = ec._BorrowRecord_patronId(ctx, field, obj)
+		case "ratePerDay":
+			out.Values[i] = ec._Fine_ratePerDay(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "borrowedAt":
-			out.Values[i] = ec._BorrowRecord_borrowedAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "dueDate":
-			out.Values[i] = ec._BorrowRecord_dueDate(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "returnedAt":
-			out.Values[i] = ec._BorrowRecord_returnedAt(ctx, field, obj)
-		case "renewalCount":
-			out.Values[i] = ec._BorrowRecord_renewalCount(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "previousDueDate":
-			out.Values[i] = ec._BorrowRecord_previousDueDate(ctx, field, obj)
-		case "status":
-			out.Values[i] = ec._BorrowRecord_status(ctx, field, obj)
+		case "amount":
+			out.Values[i] = ec._Fine_amount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4547,44 +3210,23 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
-		case "borrowBook":
+		case "createFine":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_borrowBook(ctx, field)
+				return ec._Mutation_createFine(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "returnBook":
+		case "updateFine":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_returnBook(ctx, field)
+				return ec._Mutation_updateFine(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "renewLoan":
+		case "deleteFine":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_renewLoan(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "reserveBook":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_reserveBook(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "cancelReservation":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_cancelReservation(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "fulfillReservation":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_fulfillReservation(ctx, field)
+				return ec._Mutation_deleteFine(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -4631,19 +3273,16 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Query")
-		case "borrowRecords":
+		case "getFine":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_borrowRecords(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
+				res = ec._Query_getFine(ctx, field)
 				return res
 			}
 
@@ -4653,7 +3292,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "reservations":
+		case "listFines":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -4662,51 +3301,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_reservations(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "overdueRecords":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_overdueRecords(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "patronBorrowHistory":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_patronBorrowHistory(ctx, field)
+				res = ec._Query_listFines(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -4727,114 +3322,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var renewalErrorImplementors = []string{"RenewalError", "RenewLoanResult"}
-
-func (ec *executionContext) _RenewalError(ctx context.Context, sel ast.SelectionSet, obj *model.RenewalError) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, renewalErrorImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("RenewalError")
-		case "code":
-			out.Values[i] = ec._RenewalError_code(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "message":
-			out.Values[i] = ec._RenewalError_message(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var reservationImplementors = []string{"Reservation"}
-
-func (ec *executionContext) _Reservation(ctx context.Context, sel ast.SelectionSet, obj *model.Reservation) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, reservationImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("Reservation")
-		case "id":
-			out.Values[i] = ec._Reservation_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "bookId":
-			out.Values[i] = ec._Reservation_bookId(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "patronId":
-			out.Values[i] = ec._Reservation_patronId(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "reservedAt":
-			out.Values[i] = ec._Reservation_reservedAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "expiresAt":
-			out.Values[i] = ec._Reservation_expiresAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "status":
-			out.Values[i] = ec._Reservation_status(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5208,11 +3695,11 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNBorrowRecord2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx context.Context, sel ast.SelectionSet, v model.BorrowRecord) graphql.Marshaler {
-	return ec._BorrowRecord(ctx, sel, &v)
+func (ec *executionContext) marshalNFine2fine_serviceᚋgraphᚋmodelᚐFine(ctx context.Context, sel ast.SelectionSet, v model.Fine) graphql.Marshaler {
+	return ec._Fine(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNBorrowRecord2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecordᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BorrowRecord) graphql.Marshaler {
+func (ec *executionContext) marshalNFine2ᚕᚖfine_serviceᚋgraphᚋmodelᚐFineᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Fine) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -5236,7 +3723,7 @@ func (ec *executionContext) marshalNBorrowRecord2ᚕᚖgithubᚗcomᚋRubyDEAD�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNBorrowRecord2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx, sel, v[i])
+			ret[i] = ec.marshalNFine2ᚖfine_serviceᚋgraphᚋmodelᚐFine(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -5256,24 +3743,29 @@ func (ec *executionContext) marshalNBorrowRecord2ᚕᚖgithubᚗcomᚋRubyDEAD�
 	return ret
 }
 
-func (ec *executionContext) marshalNBorrowRecord2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowRecord(ctx context.Context, sel ast.SelectionSet, v *model.BorrowRecord) graphql.Marshaler {
+func (ec *executionContext) marshalNFine2ᚖfine_serviceᚋgraphᚋmodelᚐFine(ctx context.Context, sel ast.SelectionSet, v *model.Fine) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._BorrowRecord(ctx, sel, v)
+	return ec._Fine(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNBorrowStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, v any) (model.BorrowStatus, error) {
-	var res model.BorrowStatus
-	err := res.UnmarshalGQL(v)
+func (ec *executionContext) unmarshalNFloat2float64(ctx context.Context, v any) (float64, error) {
+	res, err := graphql.UnmarshalFloatContext(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNBorrowStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, sel ast.SelectionSet, v model.BorrowStatus) graphql.Marshaler {
-	return v
+func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.SelectionSet, v float64) graphql.Marshaler {
+	res := graphql.MarshalFloatContext(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return graphql.WrapContextMarshaler(ctx, res)
 }
 
 func (ec *executionContext) unmarshalNID2string(ctx context.Context, v any) (string, error) {
@@ -5304,94 +3796,6 @@ func (ec *executionContext) marshalNInt2int32(ctx context.Context, sel ast.Selec
 		}
 	}
 	return res
-}
-
-func (ec *executionContext) marshalNRenewLoanResult2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐRenewLoanResult(ctx context.Context, sel ast.SelectionSet, v model.RenewLoanResult) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._RenewLoanResult(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNRenewalErrorCode2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐRenewalErrorCode(ctx context.Context, v any) (model.RenewalErrorCode, error) {
-	var res model.RenewalErrorCode
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNRenewalErrorCode2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐRenewalErrorCode(ctx context.Context, sel ast.SelectionSet, v model.RenewalErrorCode) graphql.Marshaler {
-	return v
-}
-
-func (ec *executionContext) marshalNReservation2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx context.Context, sel ast.SelectionSet, v model.Reservation) graphql.Marshaler {
-	return ec._Reservation(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNReservation2ᚕᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Reservation) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNReservation2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNReservation2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx context.Context, sel ast.SelectionSet, v *model.Reservation) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._Reservation(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNReservationStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, v any) (model.ReservationStatus, error) {
-	var res model.ReservationStatus
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNReservationStatus2githubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, sel ast.SelectionSet, v model.ReservationStatus) graphql.Marshaler {
-	return v
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
@@ -5686,52 +4090,11 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
-func (ec *executionContext) unmarshalOBorrowStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, v any) (*model.BorrowStatus, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var res = new(model.BorrowStatus)
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOBorrowStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐBorrowStatus(ctx context.Context, sel ast.SelectionSet, v *model.BorrowStatus) graphql.Marshaler {
+func (ec *executionContext) marshalOFine2ᚖfine_serviceᚋgraphᚋmodelᚐFine(ctx context.Context, sel ast.SelectionSet, v *model.Fine) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	return v
-}
-
-func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v any) (*string, error) {
-	if v == nil {
-		return nil, nil
-	}
-	res, err := graphql.UnmarshalID(v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	res := graphql.MarshalID(*v)
-	return res
-}
-
-func (ec *executionContext) unmarshalOReservationStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, v any) (*model.ReservationStatus, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var res = new(model.ReservationStatus)
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOReservationStatus2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, sel ast.SelectionSet, v *model.ReservationStatus) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return v
+	return ec._Fine(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {

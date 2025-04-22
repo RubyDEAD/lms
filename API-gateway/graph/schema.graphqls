@@ -3,6 +3,7 @@ type Query {
   getBookById(id: String!): Book
   getBookCopiesById(id: String!): [Book_copies!]!
   searchBooks(query:String!):[Book!]!
+  getAvailbleBookCopyByID(id:String!):Book_copies!
 
   getPatronById(patron_id: ID!): Patron
   getAllPatrons: [Patron]

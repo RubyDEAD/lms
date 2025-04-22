@@ -13,6 +13,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
+	consumer "github.com/Cat6utpcableclarke/bookService/Consumer"
 	"github.com/Cat6utpcableclarke/bookService/graph"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
@@ -40,6 +41,15 @@ func main() {
 	}
 
 	resolver := graph.NewResolver(db)
+	go func() {
+		log.Println("Listening for book copy updates")
+		consumer.UpdateConsumer(resolver)
+	}()
+
+	go func() {
+		log.Println("Listening for availability requests")
+		consumer.ListenAvailabiltyRequests(resolver)
+	}()
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 
 	srv.AddTransport(&transport.Websocket{

@@ -1,187 +1,650 @@
 package graph
 
 import (
-	"borrowing-service/graph/model"
 	"context"
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/RubyDEAD/lms/borrowing-service/graph/model"
+	"github.com/RubyDEAD/lms/borrowing-service/services"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
-// Database interface (mock this for testing)
-type DB interface {
-	GetBookAvailability(ctx context.Context, bookID string) (bool, error)
-	GetPatronStatus(ctx context.Context, patronID string) (string, error)
-	CreateBorrowRecord(ctx context.Context, input model.BorrowRecord) (*model.BorrowRecord, error)
-	UpdateBorrowRecord(ctx context.Context, recordID string, updates map[string]interface{}) (*model.BorrowRecord, error)
-	GetBorrowRecord(ctx context.Context, recordID string) (*model.BorrowRecord, error)
-	CreateReservation(ctx context.Context, input model.Reservation) (*model.Reservation, error)
-	CancelReservation(ctx context.Context, id string) error
-	// Add other required DB methods...
-}
-
-type Resolver struct {
-	DB DB
-	
-	// Add other dependencies like bookServiceClient, patronServiceClient
-}
-
-// BorrowBook implements the borrow operation
+// BorrowBook implements the borrowBook mutation
 func (r *mutationResolver) BorrowBook(ctx context.Context, bookID string, patronID string) (*model.BorrowRecord, error) {
-	// 1. Check book availability
-	available, err := r.DB.GetBookAvailability(ctx, bookID)
+	// // Check book availability in Supabase
+	// var book struct {
+	// 	Available bool `json:"available"`
+	// }
+	// err := r.Supabase.DB.From("books").Select("available").Eq("id", bookID).Execute(&book)
+	// if err != nil {
+	// 	return nil, errors.New("failed to fetch a single book record")
+	// }
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to check book availability: %v", err)
+	// }
+	// if !book.Available {
+	// 	return nil, errors.New("book not available for borrowing")
+	// }
+	available, conn, bookCopyID, err := services.CheckAvailability(bookID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check book availability: %w", err)
+		return nil, fmt.Errorf("failed to check book availability: %v", err)
 	}
-	if !available {
-		return nil, errors.New("book is not available for borrowing")
-	}
+	// Ensure the RabbitMQ connection is closed only if it is not already closed
+	defer func() {
+		if conn != nil && !conn.IsClosed() {
+			conn.Close()
+		}
+	}()
 
-	// 2. Check patron status
-	status, err := r.DB.GetPatronStatus(ctx, patronID)
+	// If the book is not available, return an error
+	if !available || bookCopyID == "0" {
+		return nil, errors.New("no available book copies for borrowing")
+	}
+	err = services.SendUpdateRequest(conn, bookCopyID, "Borrowed")
 	if err != nil {
-		return nil, fmt.Errorf("failed to check patron status: %w", err)
+		return nil, fmt.Errorf("failed to update book copy status: %v", err)
 	}
-	if status != "ACTIVE" {
-		return nil, fmt.Errorf("patron status is %s - cannot borrow", status)
+	// Start transaction
+	tx, err := r.DB.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", err)
 	}
+	defer tx.Rollback(ctx)
 
-	// 3. Create borrow record
-	now := time.Now().Format(time.RFC3339)
-	dueDate := time.Now().AddDate(0, 0, 21).Format(time.RFC3339) // 3 weeks loan period
-
-	record := model.BorrowRecord{
-		BookID:      bookID,
-		PatronID:    patronID,
-		BorrowedAt:  now,
-		DueDate:     dueDate,
-		Status:      model.BorrowStatusActive,
+	// Create record
+	now := time.Now()
+	record := &model.BorrowRecord{
+		ID:           uuid.New().String(),
+		BookID:       bookID,
+		PatronID:     patronID,
+		BorrowedAt:   now.Format(time.RFC3339),
+		DueDate:      now.AddDate(0, 0, 14).Format(time.RFC3339),
 		RenewalCount: 0,
+		Status:       model.BorrowStatusActive,
 	}
 
-	return r.DB.CreateBorrowRecord(ctx, record)
+	// Insert into PostgreSQL
+	const insertQuery = `
+		INSERT INTO borrow_records 
+		(id, book_id, patron_id, borrowed_at, due_date, renewal_count, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
+	_, err = tx.Exec(ctx, insertQuery,
+		record.ID,
+		record.BookID,
+		record.PatronID,
+		record.BorrowedAt,
+		record.DueDate,
+		record.RenewalCount,
+		record.Status,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create borrow record: %v", err)
+	}
+
+	// Update book status in Supabase
+	// err = r.Supabase.DB.From("books").
+	// 	Update(map[string]interface{}{"available": false}).
+	// 	Eq("id", bookID).
+	// 	Execute(nil)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to update book status: %v", err)
+	// }
+
+	// Commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return record, nil
 }
 
-// ReturnBook implements the return operation
+// ReturnBook implements the returnBook mutation
 func (r *mutationResolver) ReturnBook(ctx context.Context, recordID string) (*model.BorrowRecord, error) {
-	// 1. Get the current record
-	record, err := r.DB.GetBorrowRecord(ctx, recordID)
+	// Start transaction
+	tx, err := r.DB.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find borrow record: %w", err)
+		return nil, fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Get the borrow record
+	var record model.BorrowRecord
+	const getQuery = `
+		SELECT id, book_id, patron_id, borrowed_at, due_date, returned_at, renewal_count, status 
+		FROM borrow_records 
+		WHERE id = $1
+		FOR UPDATE
+	`
+	err = tx.QueryRow(ctx, getQuery, recordID).Scan(
+		&record.ID,
+		&record.BookID,
+		&record.PatronID,
+		&record.BorrowedAt,
+		&record.DueDate,
+		&record.ReturnedAt,
+		&record.RenewalCount,
+		&record.Status,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("borrow record not found")
+		}
+		return nil, fmt.Errorf("failed to get borrow record: %v", err)
 	}
 
-	// 2. Check if already returned
-	if record.ReturnedAt != "" {
+	if record.Status == model.BorrowStatusReturned {
 		return nil, errors.New("book already returned")
 	}
 
-	// 3. Update record
-	updates := map[string]interface{}{
-		"returnedAt": time.Now().Format(time.RFC3339),
-		"status":     model.BorrowStatusReturned,
+	// Update the record
+	returnedAt := time.Now().Format(time.RFC3339)
+	const updateQuery = `
+		UPDATE borrow_records 
+		SET returned_at = $1, status = $2
+		WHERE id = $3
+		RETURNING id, book_id, patron_id, borrowed_at, due_date, returned_at, renewal_count, status
+	`
+	err = tx.QueryRow(ctx, updateQuery, returnedAt, model.BorrowStatusReturned, recordID).Scan(
+		&record.ID,
+		&record.BookID,
+		&record.PatronID,
+		&record.BorrowedAt,
+		&record.DueDate,
+		&record.ReturnedAt,
+		&record.RenewalCount,
+		&record.Status,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update borrow record: %v", err)
 	}
 
-	return r.DB.UpdateBorrowRecord(ctx, recordID, updates)
+	// Update book availability in Supabase
+	err = r.Supabase.DB.From("books").
+		Update(map[string]interface{}{"available": true}).
+		Eq("id", record.BookID).
+		Execute(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update book status: %v", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return &record, nil
 }
 
-// RenewLoan implements the renewal operation
+// RenewLoan implements the renewLoan mutation
 func (r *mutationResolver) RenewLoan(ctx context.Context, recordID string) (model.RenewLoanResult, error) {
-	// 1. Get current record
-	record, err := r.DB.GetBorrowRecord(ctx, recordID)
+	// Start transaction
+	tx, err := r.DB.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find borrow record: %w", err)
+		return nil, fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Get current record
+	var record model.BorrowRecord
+	const getQuery = `
+		SELECT id, book_id, patron_id, borrowed_at, due_date, returned_at, renewal_count, status 
+		FROM borrow_records 
+		WHERE id = $1
+		FOR UPDATE
+	`
+	err = tx.QueryRow(ctx, getQuery, recordID).Scan(
+		&record.ID,
+		&record.BookID,
+		&record.PatronID,
+		&record.BorrowedAt,
+		&record.DueDate,
+		&record.ReturnedAt,
+		&record.RenewalCount,
+		&record.Status,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("borrow record not found")
+		}
+		return nil, fmt.Errorf("failed to get borrow record: %v", err)
 	}
 
-	// 2. Validate renewal conditions
-	if record.ReturnedAt != "" {
-		return model.RenewalError{
+	// Validate
+	if record.Status == model.BorrowStatusReturned {
+		return &model.RenewalError{
 			Code:    model.RenewalErrorCodeLoanAlreadyReturned,
-			Message: "Cannot renew returned items",
+			Message: "cannot renew already returned loan",
 		}, nil
 	}
 
-	if record.RenewalCount >= 2 { // Max 2 renewals
-		return model.RenewalError{
+	if record.RenewalCount >= 2 {
+		return &model.RenewalError{
 			Code:    model.RenewalErrorCodeMaxRenewalsReached,
-			Message: "Maximum renewals reached",
+			Message: "maximum renewals reached",
 		}, nil
 	}
 
-	// 3. Check if book has reservations
-	// (Implement this check based on your DB)
-	hasReservations, err := r.DB.BookHasReservations(ctx, record.BookID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check reservations: %w", err)
-	}
-	if hasReservations {
-		return model.RenewalError{
+	// Check for reservations in Supabase
+	var resCount int
+	err = r.Supabase.DB.From("reservations").
+		Select("count").
+		Eq("book_id", record.BookID).
+		Eq("status", string(model.ReservationStatusPending)).
+		Execute(&resCount)
+	if err == nil && resCount > 0 {
+		return &model.RenewalError{
 			Code:    model.RenewalErrorCodeItemReserved,
-			Message: "Cannot renew - item has reservations",
+			Message: "book is reserved by another patron",
 		}, nil
 	}
 
-	// 4. Process renewal
-	newDueDate := time.Now().AddDate(0, 0, 21).Format(time.RFC3339) // Another 3 weeks
-	updates := map[string]interface{}{
-		"dueDate":        newDueDate,
-		"previousDueDate": record.DueDate,
-		"renewalCount":    record.RenewalCount + 1,
-		"status":         model.BorrowStatusRenewed,
-	}
-
-	updated, err := r.DB.UpdateBorrowRecord(ctx, recordID, updates)
+	// Update record
+	newDueDate := time.Now().AddDate(0, 0, 14).Format(time.RFC3339)
+	previousDueDate := record.DueDate
+	const updateQuery = `
+		UPDATE borrow_records 
+		SET previous_due_date = $1, due_date = $2, renewal_count = $3, status = $4
+		WHERE id = $5
+		RETURNING id, book_id, patron_id, borrowed_at, due_date, returned_at, renewal_count, status
+	`
+	err = tx.QueryRow(ctx, updateQuery,
+		previousDueDate,
+		newDueDate,
+		record.RenewalCount+1,
+		model.BorrowStatusRenewed,
+		recordID,
+	).Scan(
+		&record.ID,
+		&record.BookID,
+		&record.PatronID,
+		&record.BorrowedAt,
+		&record.DueDate,
+		&record.ReturnedAt,
+		&record.RenewalCount,
+		&record.Status,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to renew loan: %w", err)
+		return nil, fmt.Errorf("failed to update borrow record: %v", err)
 	}
 
-	return updated, nil
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return &record, nil
 }
 
-// ReserveBook implements the reservation operation
+// ReserveBook implements the reserveBook mutation
 func (r *mutationResolver) ReserveBook(ctx context.Context, bookID string, patronID string) (*model.Reservation, error) {
-	// 1. Check patron eligibility
-	status, err := r.DB.GetPatronStatus(ctx, patronID)
+	// Check book availability in Supabase
+	var book struct {
+		Available bool `json:"available"`
+	}
+	err := r.Supabase.DB.From("books").Select("available").Eq("id", bookID).Execute(&book)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check patron status: %w", err)
+		return nil, fmt.Errorf("failed to check book availability: %v", err)
 	}
-	if status != "ACTIVE" {
-		return nil, fmt.Errorf("patron status is %s - cannot reserve", status)
+	if book.Available {
+		return nil, errors.New("book is currently available, cannot reserve")
 	}
 
-	// 2. Create reservation
-	now := time.Now().Format(time.RFC3339)
-	expiresAt := time.Now().AddDate(0, 0, 7).Format(time.RFC3339) // 1 week reservation
+	// Start transaction
+	tx, err := r.DB.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
 
-	reservation := model.Reservation{
+	// Create reservation
+	now := time.Now()
+	reservation := &model.Reservation{
+		ID:         uuid.New().String(),
 		BookID:     bookID,
 		PatronID:   patronID,
-		ReservedAt: now,
-		ExpiresAt:  expiresAt,
+		ReservedAt: now.Format(time.RFC3339),
+		ExpiresAt:  now.AddDate(0, 0, 3).Format(time.RFC3339),
 		Status:     model.ReservationStatusPending,
 	}
 
-	return r.DB.CreateReservation(ctx, reservation)
+	// Insert into PostgreSQL
+	const insertQuery = `
+		INSERT INTO reservations 
+		(id, book_id, patron_id, reserved_at, expires_at, status)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`
+	_, err = tx.Exec(ctx, insertQuery,
+		reservation.ID,
+		reservation.BookID,
+		reservation.PatronID,
+		reservation.ReservedAt,
+		reservation.ExpiresAt,
+		reservation.Status,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create reservation: %v", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return reservation, nil
+}
+
+// CancelReservation implements the cancelReservation mutation
+func (r *mutationResolver) CancelReservation(ctx context.Context, id string) (bool, error) {
+	// Start transaction
+	tx, err := r.DB.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Get the reservation
+	var reservation model.Reservation
+	const getQuery = `
+		SELECT id, book_id, patron_id, reserved_at, expires_at, status 
+		FROM reservations 
+		WHERE id = $1
+		FOR UPDATE
+	`
+	err = tx.QueryRow(ctx, getQuery, id).Scan(
+		&reservation.ID,
+		&reservation.BookID,
+		&reservation.PatronID,
+		&reservation.ReservedAt,
+		&reservation.ExpiresAt,
+		&reservation.Status,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, errors.New("reservation not found")
+		}
+		return false, fmt.Errorf("failed to get reservation: %v", err)
+	}
+
+	if reservation.Status != model.ReservationStatusPending {
+		return false, errors.New("only pending reservations can be cancelled")
+	}
+
+	// Update reservation
+	const updateQuery = `
+		UPDATE reservations 
+		SET status = $1
+		WHERE id = $2
+	`
+	_, err = tx.Exec(ctx, updateQuery, model.ReservationStatusCancelled, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to cancel reservation: %v", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return true, nil
+}
+
+// FulfillReservation implements the fulfillReservation mutation
+func (r *mutationResolver) FulfillReservation(ctx context.Context, id string) (*model.Reservation, error) {
+	// Start transaction
+	tx, err := r.DB.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Get the reservation
+	var reservation model.Reservation
+	const getQuery = `
+		SELECT id, book_id, patron_id, reserved_at, expires_at, status 
+		FROM reservations 
+		WHERE id = $1
+		FOR UPDATE
+	`
+	err = tx.QueryRow(ctx, getQuery, id).Scan(
+		&reservation.ID,
+		&reservation.BookID,
+		&reservation.PatronID,
+		&reservation.ReservedAt,
+		&reservation.ExpiresAt,
+		&reservation.Status,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("reservation not found")
+		}
+		return nil, fmt.Errorf("failed to get reservation: %v", err)
+	}
+
+	if reservation.Status != model.ReservationStatusPending {
+		return nil, errors.New("only pending reservations can be fulfilled")
+	}
+
+	// Check expiration
+	expiresAt, err := time.Parse(time.RFC3339, reservation.ExpiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("invalid expiration date: %v", err)
+	}
+	if time.Now().After(expiresAt) {
+		// Update reservation status to expired
+		_, err = tx.Exec(ctx, `
+			UPDATE reservations 
+			SET status = $1
+			WHERE id = $2
+		`, model.ReservationStatusExpired, id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to mark reservation as expired: %v", err)
+		}
+		return nil, errors.New("reservation has expired")
+	}
+
+	// Create borrow record
+	_, err = r.BorrowBook(ctx, reservation.BookID, reservation.PatronID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create borrow record: %v", err)
+	}
+
+	// Update reservation status
+	const updateQuery = `
+		UPDATE reservations 
+		SET status = $1
+		WHERE id = $2
+		RETURNING id, book_id, patron_id, reserved_at, expires_at, status
+	`
+	err = tx.QueryRow(ctx, updateQuery, model.ReservationStatusFulfilled, id).Scan(
+		&reservation.ID,
+		&reservation.BookID,
+		&reservation.PatronID,
+		&reservation.ReservedAt,
+		&reservation.ExpiresAt,
+		&reservation.Status,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update reservation: %v", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return &reservation, nil
 }
 
 // Query resolvers...
 
 func (r *queryResolver) BorrowRecords(ctx context.Context, patronID *string, bookID *string, status *model.BorrowStatus) ([]*model.BorrowRecord, error) {
-	filters := make(map[string]interface{})
+	query := `SELECT id, book_id, patron_id, borrowed_at, due_date, returned_at, renewal_count, status FROM borrow_records WHERE 1=1`
+	args := []interface{}{}
+
 	if patronID != nil {
-		filters["patron_id"] = *patronID
+		query += " AND patron_id = $1"
+		args = append(args, *patronID)
 	}
 	if bookID != nil {
-		filters["book_id"] = *bookID
+		if len(args) == 0 {
+			query += " AND book_id = $1"
+		} else {
+			query += " AND book_id = $2"
+		}
+		args = append(args, *bookID)
 	}
 	if status != nil {
-		filters["status"] = *status
+		pos := len(args) + 1
+		query += fmt.Sprintf(" AND status = $%d", pos)
+		args = append(args, string(*status))
 	}
-	
-	// Implement actual DB query
-	return r.DB.GetBorrowRecords(ctx, filters)
+
+	rows, err := r.DB.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query borrow records: %v", err)
+	}
+	defer rows.Close()
+
+	var records []*model.BorrowRecord
+	for rows.Next() {
+		var record model.BorrowRecord
+		err := rows.Scan(
+			&record.ID,
+			&record.BookID,
+			&record.PatronID,
+			&record.BorrowedAt,
+			&record.DueDate,
+			&record.ReturnedAt,
+			&record.RenewalCount,
+			&record.Status,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan borrow record: %v", err)
+		}
+		records = append(records, &record)
+	}
+
+	return records, nil
 }
 
-// ... implement other query resolvers similarly
+func (r *queryResolver) Reservations(ctx context.Context, patronID *string, bookID *string, status *model.ReservationStatus) ([]*model.Reservation, error) {
+	query := `SELECT id, book_id, patron_id, reserved_at, expires_at, status FROM reservations WHERE 1=1`
+	args := []interface{}{}
+
+	if patronID != nil {
+		query += " AND patron_id = $1"
+		args = append(args, *patronID)
+	}
+	if bookID != nil {
+		if len(args) == 0 {
+			query += " AND book_id = $1"
+		} else {
+			query += " AND book_id = $2"
+		}
+		args = append(args, *bookID)
+	}
+	if status != nil {
+		pos := len(args) + 1
+		query += fmt.Sprintf(" AND status = $%d", pos)
+		args = append(args, string(*status))
+	}
+
+	rows, err := r.DB.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query reservations: %v", err)
+	}
+	defer rows.Close()
+
+	var reservations []*model.Reservation
+	for rows.Next() {
+		var res model.Reservation
+		err := rows.Scan(
+			&res.ID,
+			&res.BookID,
+			&res.PatronID,
+			&res.ReservedAt,
+			&res.ExpiresAt,
+			&res.Status,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan reservation: %v", err)
+		}
+		reservations = append(reservations, &res)
+	}
+
+	return reservations, nil
+}
+
+func (r *queryResolver) OverdueRecords(ctx context.Context) ([]*model.BorrowRecord, error) {
+	now := time.Now().Format(time.RFC3339)
+	query := `
+		SELECT id, book_id, patron_id, borrowed_at, due_date, returned_at, renewal_count, status 
+		FROM borrow_records 
+		WHERE status = $1 AND due_date < $2
+	`
+
+	rows, err := r.DB.Query(ctx, query, model.BorrowStatusActive, now)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query overdue records: %v", err)
+	}
+	defer rows.Close()
+
+	var records []*model.BorrowRecord
+	for rows.Next() {
+		var record model.BorrowRecord
+		err := rows.Scan(
+			&record.ID,
+			&record.BookID,
+			&record.PatronID,
+			&record.BorrowedAt,
+			&record.DueDate,
+			&record.ReturnedAt,
+			&record.RenewalCount,
+			&record.Status,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan borrow record: %v", err)
+		}
+		records = append(records, &record)
+	}
+
+	return records, nil
+}
+
+func (r *queryResolver) PatronBorrowHistory(ctx context.Context, patronID string) ([]*model.BorrowRecord, error) {
+	query := `
+		SELECT id, book_id, patron_id, borrowed_at, due_date, returned_at, renewal_count, status 
+		FROM borrow_records 
+		WHERE patron_id = $1
+		ORDER BY borrowed_at DESC
+	`
+
+	rows, err := r.DB.Query(ctx, query, patronID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query patron borrow history: %v", err)
+	}
+	defer rows.Close()
+
+	var records []*model.BorrowRecord
+	for rows.Next() {
+		var record model.BorrowRecord
+		err := rows.Scan(
+			&record.ID,
+			&record.BookID,
+			&record.PatronID,
+			&record.BorrowedAt,
+			&record.DueDate,
+			&record.ReturnedAt,
+			&record.RenewalCount,
+			&record.Status,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan borrow record: %v", err)
+		}
+		records = append(records, &record)
+	}
+
+	return records, nil
+}
 
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
@@ -191,3 +654,4 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }
