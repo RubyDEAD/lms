@@ -21,6 +21,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/GSalise/lms/patron-service/graph"
 	"github.com/GSalise/lms/patron-service/graph/model"
+	"github.com/rs/cors"
 
 	"github.com/GSalise/lms/patron-service/patronmq"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -77,6 +78,13 @@ func main() {
 		Cache: lru.New[string](100),
 	})
 
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:8069"},
+		AllowCredentials: true,
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+	}).Handler(srv)
+
 	// http.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	// http.Handle("/query", srv)
 
@@ -96,7 +104,7 @@ func main() {
 		server := &http.Server{Addr: ":" + port}
 
 		http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-		http.Handle("/query", srv)
+		http.Handle("/query", corsHandler)
 
 		go func() {
 			log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
