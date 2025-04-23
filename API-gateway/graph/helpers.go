@@ -68,7 +68,7 @@ func forwardRequestMQ(queue string, variables map[string]interface{}, requestedR
 
 	_, err = ch.QueueDeclare(
 		queue,
-		false,
+		true,
 		false,
 		false,
 		false,

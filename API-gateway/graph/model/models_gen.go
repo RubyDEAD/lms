@@ -45,6 +45,7 @@ type Patron struct {
 	FirstName     string             `json:"first_name"`
 	LastName      string             `json:"last_name"`
 	PhoneNumber   string             `json:"phone_number"`
+	Email         string             `json:"email"`
 	PatronCreated string             `json:"patron_created"`
 	Membership    *Membership        `json:"membership,omitempty"`
 	Status        *PatronStatus      `json:"status,omitempty"`
