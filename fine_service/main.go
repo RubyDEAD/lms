@@ -21,7 +21,7 @@ func main() {
 	}
 
 	// Setup DB connection
-	db, err := sql.Open("postgres", "postgresql://username:password@localhost:5432/finedb?sslmode=disable")
+	db, err := sql.Open("postgres", "postgresql://postgres.tltusctrslkkwukzfoib:NXH3QMNg3IGSpBAZ@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres")
 	if err != nil {
 		log.Fatalf("failed to connect to db: %v", err)
 	}
