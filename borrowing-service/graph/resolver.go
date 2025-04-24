@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
+
 	supa "github.com/nedpals/supabase-go"
 )
 
@@ -27,11 +27,12 @@ type BorrowRecord struct {
 	ID           string             `json:"id"`
 	BookID       string             `json:"book_id"`
 	PatronID     string             `json:"patron_id"`
-	BorrowedAt   time.Time          `json:"borrowed_at"`
-	DueDate      time.Time          `json:"due_date"`
-	ReturnedAt   pgtype.Timestamptz `json:"returned_at"`
+	BorrowedAt   time.Time         	`json:"borrowed_at"`
+	DueDate      time.Time         	`json:"due_date"`
+	ReturnedAt   *time.Time   		`json:"returned_at"`
 	RenewalCount int                `json:"renewal_count"`
 	Status       string             `json:"status"`
+	BookCopyID   int    		    `json:"book_copy_id"`
 }
 
 type BorrowRecordFilter struct {

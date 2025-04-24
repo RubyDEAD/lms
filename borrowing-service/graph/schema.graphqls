@@ -10,6 +10,7 @@ type BorrowRecord {
   renewalCount: Int!
   previousDueDate: String
   status: BorrowStatus! # NEW: Helps track loan state
+  bookCopyId: Int!
 }
 
 type Reservation {
