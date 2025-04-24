@@ -223,11 +223,13 @@ func (r *mutationResolver) DeleteBook(ctx context.Context, id string) (bool, err
 }
 
 // CreatePatron is the resolver for the createPatron field.
-func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string) (*model.Patron, error) {
+func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string, email string, password string) (*model.Patron, error) {
 	variables := map[string]interface{}{
 		"firstName":   firstName,
 		"lastName":    lastName,
 		"phoneNumber": phoneNumber,
+		"email":       email,
+		"password":    password,
 	}
 
 	//resp, err := forwardRequest(ctx, query, variables, patronServiceURL)
@@ -268,6 +270,32 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 	var result struct {
 		Data struct {
 			UpdatePatron *model.Patron `json:"updatePatron"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+
+	return result.Data.UpdatePatron, nil
+}
+
+// UpdatePassword is the resolver for the updatePassword field.
+func (r *mutationResolver) UpdatePassword(ctx context.Context, patronID string, oldPassword string, newPassword string) (*bool, error) {
+	variables := map[string]interface{}{
+		"patron_id":   patronID,
+		"oldPassword": oldPassword,
+		"newPassword": newPassword,
+	}
+
+	resp, err := forwardRequestMQ(patronServiceQueue, variables, "updatePassword")
+	if err != nil {
+		return nil, fmt.Errorf("failed to forward request: %v", err)
+	}
+
+	var result struct {
+		Data struct {
+			UpdatePatron *bool `json:"updatePatron"`
 		} `json:"data"`
 	}
 
