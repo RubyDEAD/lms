@@ -9,157 +9,23 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/RubyDEAD/lms/borrowing-service/graph/model"
 	"github.com/RubyDEAD/lms/borrowing-service/services"
 	"github.com/google/uuid"
 	pgx "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // BorrowBook implements the borrowBook mutation
-	func (r *mutationResolver) BorrowBook(ctx context.Context, bookID string, patronID string) (*model.BorrowRecord, error) {
-		// // Check book availability in Supabase
-		// var book struct {
-		// 	Available bool `json:"available"`
-		// }
-		// err := r.Supabase.DB.From("books").Select("available").Eq("id", bookID).Execute(&book)
-		// if err != nil {
-		// 	return nil, errors.New("failed to fetch a single book record")
-		// }
-		// if err != nil {
-		// 	return nil, fmt.Errorf("failed to check book availability: %v", err)
-		// }
-		// if !book.Available {
-		// 	return nil, errors.New("book not available for borrowing")
-		// }
-		available, conn, bookCopyID, err := services.CheckAvailability(bookID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check book availability: %v", err)
-		}
-		// Ensure the RabbitMQ connection is closed only if it is not already closed
-		defer func() {
-			if conn != nil && !conn.IsClosed() {
-				conn.Close()
-			}
-		}()
-
-		// If the book is not available, return an error
-		if !available || bookCopyID == "0" {
-			return nil, errors.New("no available book copies for borrowing")
-		}
-		err = services.SendUpdateRequest(conn, bookCopyID, "Borrowed")
-		if err != nil {
-			return nil, fmt.Errorf("failed to update book copy status: %v", err)
-		}
-		// Start transaction
-		tx, err := r.DB.Begin(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to begin transaction: %v", err)
-		}
-		defer tx.Rollback(ctx)
-
-		// Create record
-		now := time.Now()
-		record := &model.BorrowRecord{
-			ID:           uuid.New().String(),
-			BookID:       bookID,
-			PatronID:     patronID,
-			BorrowedAt:   now.Format(time.RFC3339),
-			DueDate:      now.AddDate(0, 0, 14).Format(time.RFC3339),
-			RenewalCount: 0,
-			Status:       model.BorrowStatusActive,
-		}
-
-		// Insert into PostgreSQL
-		const insertQuery = `
-			INSERT INTO borrow_records 
-			(id, book_id, patron_id, borrowed_at, due_date, renewal_count, status)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-		`
-		_, err = tx.Exec(ctx, insertQuery,
-			record.ID,
-			record.BookID,
-			record.PatronID,
-			record.BorrowedAt,
-			record.DueDate,
-			record.RenewalCount,
-			record.Status,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create borrow record: %v", err)
-		}
-
-		// Update book status in Supabase
-		// err = r.Supabase.DB.From("books").
-		// 	Update(map[string]interface{}{"available": false}).
-		// 	Eq("id", bookID).
-		// 	Execute(nil)
-		// if err != nil {
-		// 	return nil, fmt.Errorf("failed to update book status: %v", err)
-		// }
-
-		// Commit transaction
-		if err := tx.Commit(ctx); err != nil {
-			return nil, fmt.Errorf("failed to commit transaction: %v", err)
-		}
-
-		return record, nil
-	}
-
-// ReturnBook implements the returnBook mutation
-func (r *mutationResolver) ReturnBook(ctx context.Context, recordID string) (*model.BorrowRecord, error) {
-	// Begin transaction
-	tx, err := r.DB.Begin(ctx)
+// BorrowBook implements the borrowBook mutation
+func (r *mutationResolver) BorrowBook(ctx context.Context, bookID string, patronID string) (*model.BorrowRecord, error) {
+	// Get book availability and connection
+	available, conn, bookCopyIDStr, err := services.CheckAvailability(bookID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %v", err)
-	}
-	defer tx.Rollback(ctx)
-
-	// Temporary variables for scanning
-	var (
-		id, bookID, patronID, status string
-		borrowedAt, dueDate          time.Time
-		returnedAt                   *time.Time
-		renewalCount                 int
-	)
-
-	const getQuery = `SELECT id, book_id, patron_id, borrowed_at, due_date, 
-                     returned_at, renewal_count, status FROM borrow_records 
-                     WHERE id = $1 FOR UPDATE`
-
-	err = tx.QueryRow(ctx, getQuery, recordID).Scan(
-		&id,
-		&bookID,
-		&patronID,
-		&borrowedAt,
-		&dueDate,
-		&returnedAt,
-		&renewalCount,
-		&status,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("borrow record not found")
-		}
-		return nil, fmt.Errorf("failed to get borrow record: %v", err)
-	}
-
-	if status == string(model.BorrowStatusReturned) {
-		returnedStr := returnedAt.Format(time.RFC3339)
-		return &model.BorrowRecord{
-			ID:         id,
-			BookID:     bookID,
-			PatronID:   patronID,
-			ReturnedAt: &returnedStr,
-			Status:     model.BorrowStatusReturned,
-		}, nil
-	}
-
-	// --- Check availability and bookCopyID like in BorrowBook ---
-	available, conn, bookCopyID, err := services.CheckAvailability(bookID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check book copy availability: %v", err)
+		return nil, fmt.Errorf("failed to check book availability: %v", err)
 	}
 	defer func() {
 		if conn != nil && !conn.IsClosed() {
@@ -167,52 +33,169 @@ func (r *mutationResolver) ReturnBook(ctx context.Context, recordID string) (*mo
 		}
 	}()
 
-	if available && bookCopyID != "0" {
-		return nil, errors.New("book is already marked as available — cannot return")
-	}
-	if !available && bookCopyID == "0" {
-		return nil, errors.New("book is not present — cannot return")
+	// Validate availability
+	if !available || bookCopyIDStr == "" {
+		return nil, errors.New("no available book copies for borrowing")
 	}
 
-	// ✅ At this point: !available && bookCopyID != "0" — valid for return
-
-	// Update return info
-	now := time.Now()
-	const updateQuery = `UPDATE borrow_records SET returned_at = $1, status = $2 
-                         WHERE id = $3 RETURNING returned_at`
-
-	var newReturnedAt time.Time
-	err = tx.QueryRow(ctx, updateQuery, now, model.BorrowStatusReturned, recordID).Scan(&newReturnedAt)
+	// Convert string bookCopyID to int
+	bookCopyID, err := strconv.Atoi(bookCopyIDStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update borrow record: %v", err)
+		return nil, fmt.Errorf("invalid book copy ID format: %v", err)
 	}
 
-	// Commit transaction before RabbitMQ
-	if err = tx.Commit(ctx); err != nil {
+	// Start transaction
+	tx, err := r.DB.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Create record
+	now := time.Now()
+	record := &model.BorrowRecord{
+		ID:           uuid.New().String(),
+		BookID:       bookID,
+		PatronID:     patronID,
+		BorrowedAt:   now.Format(time.RFC3339),
+		DueDate:      now.AddDate(0, 0, 14).Format(time.RFC3339),
+		RenewalCount: 0,
+		Status:       model.BorrowStatusActive,
+		BookCopyID:   int32(bookCopyID), // Now using the converted int value
+	}
+
+	// Insert into database
+	const insertQuery = `
+        INSERT INTO borrow_records 
+        (id, book_id, patron_id, borrowed_at, due_date, renewal_count, status, book_copy_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+
+	_, err = tx.Exec(ctx, insertQuery,
+		record.ID,
+		record.BookID,
+		record.PatronID,
+		record.BorrowedAt,
+		record.DueDate,
+		record.RenewalCount,
+		record.Status,
+		record.BookCopyID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create borrow record: %v", err)
+	}
+
+	// Update book copy status in inventory service
+	if err := services.SendUpdateRequest(conn, bookCopyIDStr, "Borrowed"); err != nil {
+		return nil, fmt.Errorf("failed to update book copy status: %v", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %v", err)
 	}
 
-	// Send status update to RabbitMQ
-	err = services.SendUpdateRequest(conn, bookCopyID, "Available")
-	if err != nil {
-		log.Printf("Failed to update book copy status to Available: %v", err)
-	}
-
-	// Prepare response
-	returnedStr := newReturnedAt.Format(time.RFC3339)
-	return &model.BorrowRecord{
-		ID:           id,
-		BookID:       bookID,
-		PatronID:     patronID,
-		BorrowedAt:   borrowedAt.Format(time.RFC3339),
-		DueDate:      dueDate.Format(time.RFC3339),
-		ReturnedAt:   &returnedStr,
-		Status:       model.BorrowStatusReturned,
-		RenewalCount: int32(renewalCount),
-	}, nil
+	return record, nil
 }
 
+// ReturnBook implements the returnBook mutation
+func (r *mutationResolver) ReturnBook(ctx context.Context, recordID string) (*model.BorrowRecord, error) {
+	// 1. Begin database transaction
+	tx, err := r.DB.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
 
+	// 2. Query the borrow record with book copy information
+	var record model.BorrowRecord
+	var borrowedAt, dueDate time.Time
+	var returnedAt pgtype.Timestamptz
+	var bookCopyID string
+
+	const getQuery = `
+	SELECT id, book_id, patron_id, borrowed_at, due_date, 
+	       returned_at, renewal_count, status, book_copy_id
+	FROM borrow_records
+	WHERE id = $1 FOR UPDATE`
+
+	err = tx.QueryRow(ctx, getQuery, recordID).Scan(
+		&record.ID,
+		&record.BookID,
+		&record.PatronID,
+		&borrowedAt,
+		&dueDate,
+		&returnedAt,
+		&record.RenewalCount,
+		&record.Status,
+		&bookCopyID,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("borrow record not found or no borrowed book copy available")
+		}
+		return nil, fmt.Errorf("failed to get borrow record: %w", err)
+	}
+
+	// Convert timestamps to strings for the model
+	record.BorrowedAt = borrowedAt.Format(time.RFC3339)
+	record.DueDate = dueDate.Format(time.RFC3339)
+
+	if returnedAt.Valid {
+		returnedStr := returnedAt.Time.Format(time.RFC3339)
+		record.ReturnedAt = &returnedStr
+	} else {
+		record.ReturnedAt = nil
+	}
+
+	// 3. Check if already returned
+	if record.Status == model.BorrowStatusReturned {
+		return &record, nil
+	}
+
+	// 4. Get RabbitMQ connection for inventory update
+	conn, err := services.GetRabbitMQConnection()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get RabbitMQ connection: %w", err)
+	}
+	defer func() {
+		if conn != nil && !conn.IsClosed() {
+			conn.Close()
+		}
+	}()
+
+	// 5. Update the borrow record
+	now := time.Now()
+	const updateQuery = `
+		UPDATE borrow_records 
+		SET returned_at = $1, status = $2 
+		WHERE id = $3 
+		RETURNING returned_at`
+
+	var updatedReturnedAt time.Time
+	err = tx.QueryRow(ctx, updateQuery, now, model.BorrowStatusReturned, recordID).Scan(&updatedReturnedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update borrow record: %w", err)
+	}
+
+	updatedReturnedStr := updatedReturnedAt.Format(time.RFC3339)
+	record.ReturnedAt = &updatedReturnedStr
+
+	// 6. Commit transaction
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// 7. Update book copy status in inventory service
+	if err := services.SendUpdateRequest(conn, bookCopyID, "Available"); err != nil {
+		log.Printf("Warning: Book return completed but inventory update failed. BookCopyID: %s, Error: %v",
+			bookCopyID, err)
+		// Consider adding retry logic or dead letter queue here
+	}
+
+	// 8. Return the updated record
+	record.Status = model.BorrowStatusReturned
+	return &record, nil
+}
 
 // RenewLoan implements the renewLoan mutation
 func (r *mutationResolver) RenewLoan(ctx context.Context, recordID string) (model.RenewLoanResult, error) {

@@ -23,6 +23,7 @@ type BorrowRecord struct {
 	RenewalCount    int32        `json:"renewalCount"`
 	PreviousDueDate *string      `json:"previousDueDate,omitempty"`
 	Status          BorrowStatus `json:"status"`
+	BookCopyID      int32        `json:"bookCopyId"`
 }
 
 func (BorrowRecord) IsRenewLoanResult() {}
