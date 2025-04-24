@@ -1,0 +1,19 @@
+# schema.graphql
+
+type Fine {
+  id: ID!
+  daysLate: Int!
+  ratePerDay: Float!
+  amount: Float!
+}
+
+type Query {
+  getFine(id: ID!): Fine
+  listFines: [Fine!]!
+}
+
+type Mutation {
+  createFine(daysLate: Int!, ratePerDay: Float!): Fine!
+  updateFine(id: ID!, daysLate: Int!, ratePerDay: Float!): Fine!
+  deleteFine(id: ID!): Boolean!
+}
