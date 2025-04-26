@@ -16,9 +16,9 @@ func (r *mutationResolver) CreateFine(ctx context.Context, daysLate int32, rateP
 	amount := float64(daysLate) * ratePerDay
 
 	query := `
-		INSERT INTO fines (days_late, rate_per_day, amount)
+		INSERT INTO fines (daysLate, ratePerDay, amount)
 		VALUES ($1, $2, $3)
-		RETURNING id, days_late, rate_per_day, amount
+		RETURNING id, daysLate, ratePerDay, amount
 	`
 	row := r.DB.QueryRowContext(ctx, query, daysLate, ratePerDay, amount)
 
@@ -37,11 +37,11 @@ func (r *mutationResolver) UpdateFine(ctx context.Context, id string, daysLate i
 
 	query := `
 		UPDATE fines
-		SET days_late = $2,
-		    rate_per_day = $3,
+		SET daysLate = $2,
+		    ratePerDay = $3,
 		    amount = $4
 		WHERE id = $1
-		RETURNING id, days_late, rate_per_day, amount
+		RETURNING id, daysLate, ratePerDay, amount
 	`
 
 	row := r.DB.QueryRowContext(ctx, query, id, daysLate, ratePerDay, amount)
@@ -68,7 +68,7 @@ func (r *mutationResolver) DeleteFine(ctx context.Context, id string) (bool, err
 
 // GetFine is the resolver for the getFine field.
 func (r *queryResolver) GetFine(ctx context.Context, id string) (*model.Fine, error) {
-	query := `SELECT id, days_late, rate_per_day, amount FROM fines WHERE id = $1`
+	query := `SELECT id, daysLate, ratePerDay, amount FROM fines WHERE id = $1`
 	row := r.DB.QueryRowContext(ctx, query, id)
 
 	var fine model.Fine
@@ -85,7 +85,7 @@ func (r *queryResolver) GetFine(ctx context.Context, id string) (*model.Fine, er
 
 // ListFines is the resolver for the listFines field.
 func (r *queryResolver) ListFines(ctx context.Context) ([]*model.Fine, error) {
-	rows, err := r.DB.QueryContext(ctx, `SELECT id, days_late, rate_per_day, amount FROM fines`)
+	rows, err := r.DB.QueryContext(ctx, `SELECT id, daysLate, ratePerDay, amount FROM fines`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query fines: %w", err)
 	}

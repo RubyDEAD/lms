@@ -14,9 +14,6 @@
 
 ### Patron Service
 #### Port Number used: 8069
-To do:
-1. Usernames and emails (if need be)
-
 <br>
 Notes for Front-End:
 Inig himo sa patron-creation page, applyi og regex ang phone number na field <br>
