@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -14,9 +12,9 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	consumer "github.com/Cat6utpcableclarke/bookService/Consumer"
+	db "github.com/Cat6utpcableclarke/bookService/Db"
 	"github.com/Cat6utpcableclarke/bookService/graph"
 	"github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v5"
 	"github.com/rs/cors"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -24,16 +22,12 @@ import (
 const defaultPort = "8080"
 
 func main() {
-	dbURL := "postgresql://postgres.hwkuzfsecehszlftxqpn:cat6utpcable@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
 
 	// Create a database connection pool
-	db, err := pgx.Connect(context.Background(), dbURL)
+	db, err := db.Connect()
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v", err)
 	}
-	defer db.Close(context.Background())
-
-	fmt.Println("Successfully connected to Supabase using pgx!")
 
 	port := os.Getenv("PORT")
 	if port == "" {
