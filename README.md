@@ -10,7 +10,7 @@
 #### Port Number used: 
 
 ### Borrowing Service
-#### Port Number used: 
+#### Port Number used: 8082
 
 ### Patron Service
 #### Port Number used: 8069
