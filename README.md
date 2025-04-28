@@ -6,6 +6,8 @@
 ### Book Service
 #### Port Number used: 8080
 
+##### query notes:
+
 ### Fine Service
 #### Port Number used: 
 
