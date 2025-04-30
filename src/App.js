@@ -1,35 +1,44 @@
 import React from 'react';
 import './App.css';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'; // Use Routes instead of Switch
+import { Route, Routes, useLocation } from 'react-router-dom';
 import Dashboard from './components/dashboard';
 import Sidebar from './components/sidebar';
 import Books from './components/book';
-import BorrowedBooks from './components/BorrowedBooks';  // Import missing components
-import AddBook from './components/AddBook';  // Import missing components
-import Profile from './components/profile';  // Import missing components
+import BorrowedBooks from './components/BorrowedBooks';
+import AddBook from './components/AddBook';
+import Profile from './components/profile';
 import Topbar from './components/topbar';
+import SignInPage from './pages/sign_in_page';
 
 function App() {
-  return (
-    <Router>
-      <div className="App">
-        <Topbar /> {/* Add Topbar here to make it visible across all routes */}
-        
-        <div style={{ display: 'flex' }}>
-          <Sidebar /> {/* Sidebar stays fixed on the left */}
+  const location = useLocation();
+  const noDesignRoutes = ['/sign-in'];
 
+  return (
+    <div className="App">
+      {!noDesignRoutes.includes(location.pathname) && <Topbar />}
+
+      <div style={{ display: 'flex' }}>
+        {!noDesignRoutes.includes(location.pathname) && <Sidebar />}
+
+        {!noDesignRoutes.includes(location.pathname) ? (
           <div style={{ marginLeft: '250px', padding: '20px', flex: 1 }}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/sign-in" element={<SignInPage />} />
               <Route path="/books" element={<Books />} />
               <Route path="/borrowed-books" element={<BorrowedBooks />} />
               <Route path="/add-book" element={<AddBook />} />
               <Route path="/profile" element={<Profile />} />
             </Routes>
           </div>
-        </div>
+        ) : (
+          <Routes>
+            <Route path="/sign-in" element={<SignInPage />} />
+          </Routes>
+        )}
       </div>
-    </Router>
+    </div>
   );
 }
 
