@@ -16,8 +16,14 @@ import (
 
 // AddBook adds a new book along with the author (if the author does not exist).
 func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName string, datePublished string, description string) (*model.Book, error) {
+	conn, err := r.DB.Acquire(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire a database connection: %v", err)
+	}
+	defer conn.Release()
+
 	// Begin a transaction
-	tx, err := r.DB.Begin(ctx)
+	tx, err := conn.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %v", err)
 	}
@@ -81,8 +87,14 @@ func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName
 
 // AddBCopy is the resolver for the addBCopy field.
 func (r *mutationResolver) AddBCopy(ctx context.Context, bookID string) (*model.BookCopies, error) {
+	conn, err := r.DB.Acquire(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire a database connection: %v", err)
+	}
+	defer conn.Release()
+
 	// Begin a transaction
-	tx, err := r.DB.Begin(ctx)
+	tx, err := conn.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %v", err)
 	}
@@ -149,6 +161,12 @@ func (r *mutationResolver) AddAuthor(ctx context.Context, authorName string) (*m
 // UpdateBook updates an existing book's details.
 func (r *mutationResolver) UpdateBook(ctx context.Context, id string, title *string, authorName string, datePublished *string, description *string) (*model.Book, error) {
 	// Begin a transaction
+	conn, err := r.DB.Acquire(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire a database connection: %v", err)
+	}
+	defer conn.Release()
+
 	tx, err := r.DB.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %v", err)
@@ -256,6 +274,12 @@ func (r *mutationResolver) DeleteAuthor(ctx context.Context, id string) (bool, e
 
 // GetBooks is the resolver for the getBooks field.
 func (r *queryResolver) GetBooks(ctx context.Context) ([]*model.Book, error) {
+	conn, err := r.DB.Acquire(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire a database connection: %v", err)
+	}
+	defer conn.Release()
+
 	var books []*model.Book
 	rows, err := r.DB.Query(ctx, "SELECT b.id, b.title, a.author_name, b.date_published, b.description FROM books b JOIN authors a ON b.author_id = a.id")
 	if err != nil {

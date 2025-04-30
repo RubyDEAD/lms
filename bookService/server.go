@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -12,7 +13,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	consumer "github.com/Cat6utpcableclarke/bookService/Consumer"
-	db "github.com/Cat6utpcableclarke/bookService/Db"
+	db "github.com/Cat6utpcableclarke/bookService/db"
 	"github.com/Cat6utpcableclarke/bookService/graph"
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
@@ -24,7 +25,7 @@ const defaultPort = "8080"
 func main() {
 
 	// Create a database connection pool
-	db, err := db.Connect()
+	db, err := db.ConnectPool()
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v", err)
 	}
@@ -33,6 +34,12 @@ func main() {
 	if port == "" {
 		port = defaultPort
 	}
+
+	conn, err := db.Acquire(context.Background())
+	if err != nil {
+		log.Fatalf("Unable to acquire a database connection: %v", err)
+	}
+	defer conn.Release()
 
 	resolver := graph.NewResolver(db)
 	go func() {
