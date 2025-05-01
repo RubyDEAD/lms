@@ -3,7 +3,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useState } from 'react';
 import axios from "axios";
 
-function SignInPage() {
+function SignUpPage() {
   const API_URL = "http://localhost:8081/query";
 
   const [inputs, setInputs] = useState({
@@ -142,4 +142,4 @@ function SignInPage() {
 }
 
 
-export default SignInPage;
+export default SignUpPage;

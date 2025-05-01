@@ -70,8 +70,6 @@ type Mutation {
 
 
 union RenewLoanResult = BorrowRecord | RenewalError
-union FulfillReservationResult = Reservation | FulfillmentError
-
 
 type RenewalError {
   code: RenewalErrorCode!

@@ -494,356 +494,390 @@ func (r *mutationResolver) CancelReservation(ctx context.Context, id string) (bo
 // FulfillReservation implements the fulfillReservation mutation
 
 func (r *mutationResolver) FulfillReservation(ctx context.Context, id string) (*model.Reservation, error) {
-	tx, err := r.DB.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %v", err)
-	}
-	defer tx.Rollback(ctx)
+    tx, err := r.DB.Begin(ctx)
+    if err != nil {
+        return nil, fmt.Errorf("failed to begin transaction: %v", err)
+    }
+    defer tx.Rollback(ctx)
 
-	// 1. Get and lock the reservation``
-	var reservation model.Reservation
-	var reservedAt, expiresAt time.Time
-	var status string
+    // 1. Get and lock the reservation
+    var reservation model.Reservation
+    var reservedAt, expiresAt time.Time
+    var status string
 
-	err = tx.QueryRow(ctx, `
+    err = tx.QueryRow(ctx, `
         SELECT id, book_id, patron_id, book_copy_id, reserved_at, expires_at, status 
         FROM reservations 
         WHERE id = $1
         FOR UPDATE`, id).Scan(
-		&reservation.ID,
-		&reservation.BookID,
-		&reservation.PatronID,
-		&reservation.BookCopyID,
-		&reservedAt,
-		&expiresAt,
-		&status,
-	)
+        &reservation.ID,
+        &reservation.BookID,
+        &reservation.PatronID,
+        &reservation.BookCopyID,
+        &reservedAt,
+        &expiresAt,
+        &status,
+    )
 
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, &FulfillmentError{Code: "NOT_FOUND", Message: "reservation not found"}
-		}
-		return nil, fmt.Errorf("failed to get reservation: %v", err)
-	}
+    if err != nil {
+        if errors.Is(err, pgx.ErrNoRows) {
+            return nil, &FulfillmentError{Code: "NOT_FOUND", Message: "reservation not found"}
+        }
+        return nil, fmt.Errorf("failed to get reservation: %v", err)
+    }
 
-	reservation.Status = model.ReservationStatus(status)
-	reservation.ReservedAt = reservedAt.Format(time.RFC3339)
-	reservation.ExpiresAt = expiresAt.Format(time.RFC3339)
+    reservation.Status = model.ReservationStatus(status)
+    reservation.ReservedAt = reservedAt.Format(time.RFC3339)
+    reservation.ExpiresAt = expiresAt.Format(time.RFC3339)
 
-	// 2. Validate status
-	if model.ReservationStatus(status) != model.ReservationStatusPending {
-		return nil, &FulfillmentError{
-			Code:    "INVALID_STATUS",
-			Message: fmt.Sprintf("cannot fulfill reservation with status: %s", status),
-		}
-	}
+    // 2. Validate status
+    if model.ReservationStatus(status) != model.ReservationStatusPending {
+        return nil, &FulfillmentError{
+            Code:    "INVALID_STATUS",
+            Message: fmt.Sprintf("cannot fulfill reservation with status: %s", status),
+        }
+    }
 
-	// 3. Check expiration
-	if time.Now().After(expiresAt) {
-		if _, err = tx.Exec(ctx, `
+    // 3. Check expiration
+    if time.Now().After(expiresAt) {
+        if _, err = tx.Exec(ctx, `
             UPDATE reservations SET status = $1 WHERE id = $2`,
-			model.ReservationStatusExpired, id,
-		); err != nil {
-			return nil, fmt.Errorf("failed to mark reservation as expired: %v", err)
-		}
-		return nil, &FulfillmentError{
-			Code:    "EXPIRED",
-			Message: "reservation has expired",
-		}
-	}
+            model.ReservationStatusExpired, id,
+        ); err != nil {
+            return nil, fmt.Errorf("failed to mark reservation as expired: %v", err)
+        }
+        return nil, &FulfillmentError{
+            Code:    "EXPIRED",
+            Message: "reservation has expired",
+        }
+    }
 
-	// 4. Update reservation status
-	var updatedReservedAt, updatedExpiresAt time.Time
-	err = tx.QueryRow(ctx, `
+    // 4. Update reservation status
+    var updatedReservedAt, updatedExpiresAt time.Time
+    err = tx.QueryRow(ctx, `
         UPDATE reservations 
         SET status = $1
         WHERE id = $2
         RETURNING reserved_at, expires_at`,
-		model.ReservationStatusFulfilled, id,
-	).Scan(&updatedReservedAt, &updatedExpiresAt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update reservation: %v", err)
-	}
+        model.ReservationStatusFulfilled, id,
+    ).Scan(&updatedReservedAt, &updatedExpiresAt)
+    if err != nil {
+        return nil, fmt.Errorf("failed to update reservation: %v", err)
+    }
 
-	// 5. Create borrow record
-	borrowRecordID := uuid.New().String()
-	dueDate := time.Now().AddDate(0, 0, 14) // 14 days from now
-	if _, err = tx.Exec(ctx, `
+    // 5. Get RabbitMQ connection for inventory update
+    _, conn, _, err := services.CheckAvailability(reservation.BookID)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get inventory connection: %v", err)
+    }
+    defer func() {
+        if conn != nil && !conn.IsClosed() {
+            conn.Close()
+        }
+    }()
+
+    // 6. Update book copy status in inventory
+    bookCopyIDStr := strconv.Itoa(int(reservation.BookCopyID))
+    if err := services.SendUpdateRequest(conn, bookCopyIDStr, "Borrowed"); err != nil {
+        return nil, fmt.Errorf("failed to update book copy status: %v", err)
+    }
+
+    // 7. Create borrow record
+    now := time.Now()
+    borrowRecordID := uuid.New().String()
+    if _, err = tx.Exec(ctx, `
         INSERT INTO borrow_records (
             id, book_id, patron_id, book_copy_id, 
-            borrowed_at, due_date, status
-        ) VALUES ($1, $2, $3, $4, NOW(), $5, 'ACTIVE')`,
-		borrowRecordID,
-		reservation.BookID,
-		reservation.PatronID,
-		reservation.BookCopyID,
-		dueDate,
-	); err != nil {
-		return nil, fmt.Errorf("failed to create borrow record: %v", err)
-	}
+            borrowed_at, due_date, status, renewal_count
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        borrowRecordID,
+        reservation.BookID,
+        reservation.PatronID,
+        reservation.BookCopyID,
+        now,
+        now.AddDate(0, 0, 14),
+        model.BorrowStatusActive,
+        0,
+    ); err != nil {
+        return nil, fmt.Errorf("failed to create borrow record: %v", err)
+    }
 
-	// 6. Update book copy status
-	if _, err = tx.Exec(ctx, `
-        UPDATE book_copies SET status = 'BORROWED' WHERE id = $1`,
-		reservation.BookCopyID,
-	); err != nil {
-		return nil, fmt.Errorf("failed to update book copy status: %v", err)
-	}
+    if err := tx.Commit(ctx); err != nil {
+        return nil, fmt.Errorf("failed to commit transaction: %v", err)
+    }
 
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %v", err)
-	}
+    // Prepare final response
+    reservation.Status = model.ReservationStatusFulfilled
+    reservation.ReservedAt = updatedReservedAt.Format(time.RFC3339)
+    reservation.ExpiresAt = updatedExpiresAt.Format(time.RFC3339)
 
-	// Prepare final response
-	reservation.Status = model.ReservationStatusFulfilled
-	reservation.ReservedAt = updatedReservedAt.Format(time.RFC3339)
-	reservation.ExpiresAt = updatedExpiresAt.Format(time.RFC3339)
-
-	return &reservation, nil
+    return &reservation, nil
 }
 
 // BorrowRecords is the resolver for the borrowRecords field.
 // BorrowRecords is the resolver for the borrowRecords field.
+// BorrowRecords is the resolver for the borrowRecords field.
 func (r *queryResolver) BorrowRecords(ctx context.Context, patronID *string, bookID *string, status *model.BorrowStatus) ([]*model.BorrowRecord, error) {
-	query := `SELECT id, book_id, patron_id, borrowed_at, due_date, returned_at, renewal_count, status FROM borrow_records WHERE 1=1`
-	args := []interface{}{}
-	paramIndex := 1
+    // Build the query dynamically
+    query := `
+        SELECT 
+            id, book_id, patron_id, book_copy_id,
+            borrowed_at, due_date, returned_at,
+            renewal_count, status, previous_due_date
+        FROM borrow_records 
+        WHERE 1=1`
+    
+    args := []interface{}{}
+    argPos := 1
 
-	if patronID != nil {
-		query += fmt.Sprintf(" AND patron_id = $%d", paramIndex)
-		args = append(args, *patronID)
-		paramIndex++
-	}
-	if bookID != nil {
-		query += fmt.Sprintf(" AND book_id = $%d", paramIndex)
-		args = append(args, *bookID)
-		paramIndex++
-	}
-	if status != nil {
-		query += fmt.Sprintf(" AND status = $%d", paramIndex)
-		args = append(args, string(*status))
-		paramIndex++
-	}
+    if patronID != nil {
+        query += fmt.Sprintf(" AND patron_id = $%d", argPos)
+        args = append(args, *patronID)
+        argPos++
+    }
+    if bookID != nil {
+        query += fmt.Sprintf(" AND book_id = $%d", argPos)
+        args = append(args, *bookID)
+        argPos++
+    }
+    if status != nil {
+        query += fmt.Sprintf(" AND status = $%d", argPos)
+        args = append(args, string(*status))
+        argPos++
+    }
 
-	rows, err := r.DB.Query(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query borrow records: %v", err)
-	}
-	defer rows.Close()
+    query += " ORDER BY borrowed_at DESC"
 
-	var records []*model.BorrowRecord
-	for rows.Next() {
-		var (
-			id, bookID, patronID, status string
-			borrowedAt, dueDate          time.Time
-			returnedAt                   *time.Time
-			renewalCount                 int
-		)
+    rows, err := r.DB.Query(ctx, query, args...)
+    if err != nil {
+        return nil, fmt.Errorf("failed to query borrow records: %w", err)
+    }
+    defer rows.Close()
 
-		err := rows.Scan(
-			&id,
-			&bookID,
-			&patronID,
-			&borrowedAt,
-			&dueDate,
-			&returnedAt,
-			&renewalCount,
-			&status,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan borrow record: %v", err)
-		}
+    var records []*model.BorrowRecord
+    for rows.Next() {
+        var (
+            record model.BorrowRecord
+            borrowedAt, dueDate time.Time
+            returnedAt, prevDueDate pgtype.Timestamptz
+        )
 
-		// Convert time values to RFC3339 strings
-		record := &model.BorrowRecord{
-			ID:           id,
-			BookID:       bookID,
-			PatronID:     patronID,
-			BorrowedAt:   borrowedAt.Format(time.RFC3339),
-			DueDate:      dueDate.Format(time.RFC3339),
-			RenewalCount: int32(renewalCount),
-			Status:       model.BorrowStatus(status),
-		}
+        err := rows.Scan(
+            &record.ID,
+            &record.BookID,
+            &record.PatronID,
+            &record.BookCopyID,
+            &borrowedAt,
+            &dueDate,
+            &returnedAt,
+            &record.RenewalCount,
+            &record.Status,
+            &prevDueDate,
+        )
+        if err != nil {
+            return nil, fmt.Errorf("failed to scan record: %w", err)
+        }
 
-		// Handle nullable returned_at
-		if returnedAt != nil {
-			returnedAtStr := returnedAt.Format(time.RFC3339)
-			record.ReturnedAt = &returnedAtStr
-		}
+        // Convert timestamps
+        record.BorrowedAt = borrowedAt.Format(time.RFC3339)
+        record.DueDate = dueDate.Format(time.RFC3339)
+        
+        if returnedAt.Valid {
+            returnedStr := returnedAt.Time.Format(time.RFC3339)
+            record.ReturnedAt = &returnedStr
+        }
+        if prevDueDate.Valid {
+            prevDueStr := prevDueDate.Time.Format(time.RFC3339)
+            record.PreviousDueDate = &prevDueStr
+        }
 
-		records = append(records, record)
-	}
+        records = append(records, &record)
+    }
 
-	return records, nil
+    return records, nil
 }
 
 // Reservations is the resolver for the reservations field.
 func (r *queryResolver) Reservations(ctx context.Context, patronID *string, bookID *string, status *model.ReservationStatus) ([]*model.Reservation, error) {
-	query := `SELECT id, book_id, patron_id, book_copy_id, reserved_at, expires_at, status FROM reservations WHERE 1=1`
-	args := []interface{}{}
+    query := `
+        SELECT 
+            id, book_id, patron_id, book_copy_id,
+            reserved_at, expires_at, status
+        FROM reservations 
+        WHERE 1=1`
+    
+    args := []interface{}{}
+    argPos := 1
 
-	if patronID != nil {
-		query += " AND patron_id = $1"
-		args = append(args, *patronID)
-	}
-	if bookID != nil {
-		if len(args) == 0 {
-			query += " AND book_id = $1"
-		} else {
-			query += " AND book_id = $2"
-		}
-		args = append(args, *bookID)
-	}
-	if status != nil {
-		pos := len(args) + 1
-		query += fmt.Sprintf(" AND status = $%d", pos)
-		args = append(args, string(*status))
-	}
+    if patronID != nil {
+        query += fmt.Sprintf(" AND patron_id = $%d", argPos)
+        args = append(args, *patronID)
+        argPos++
+    }
+    if bookID != nil {
+        query += fmt.Sprintf(" AND book_id = $%d", argPos)
+        args = append(args, *bookID)
+        argPos++
+    }
+    if status != nil {
+        query += fmt.Sprintf(" AND status = $%d", argPos)
+        args = append(args, string(*status))
+        argPos++
+    }
 
-	rows, err := r.DB.Query(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query reservations: %v", err)
-	}
-	defer rows.Close()
+    query += " ORDER BY reserved_at DESC"
 
-	var reservations []*model.Reservation
-	for rows.Next() {
-		var res model.Reservation
-		err := rows.Scan(
-			&res.ID,
-			&res.BookID,
-			&res.PatronID,
-			&res.BookCopyID,
-			&res.ReservedAt,
-			&res.ExpiresAt,
-			&res.Status,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan reservation: %v", err)
-		}
-		reservations = append(reservations, &res)
-	}
+    rows, err := r.DB.Query(ctx, query, args...)
+    if err != nil {
+        return nil, fmt.Errorf("failed to query reservations: %w", err)
+    }
+    defer rows.Close()
 
-	return reservations, nil
+    var reservations []*model.Reservation
+    for rows.Next() {
+        var res model.Reservation
+        var reservedAt, expiresAt time.Time
+
+        err := rows.Scan(
+            &res.ID,
+            &res.BookID,
+            &res.PatronID,
+            &res.BookCopyID,
+            &reservedAt,
+            &expiresAt,
+            &res.Status,
+        )
+        if err != nil {
+            return nil, fmt.Errorf("failed to scan reservation: %w", err)
+        }
+
+        res.ReservedAt = reservedAt.Format(time.RFC3339)
+        res.ExpiresAt = expiresAt.Format(time.RFC3339)
+        reservations = append(reservations, &res)
+    }
+
+    return reservations, nil
 }
 
 // OverdueRecords is the resolver for the overdueRecords field.
 func (r *queryResolver) OverdueRecords(ctx context.Context) ([]*model.BorrowRecord, error) {
-	now := time.Now()
-	query := `
-        SELECT id, book_id, patron_id, borrowed_at, due_date, returned_at, renewal_count, status 
+    query := `
+        SELECT 
+            id, book_id, patron_id, book_copy_id,
+            borrowed_at, due_date, returned_at,
+            renewal_count, status, previous_due_date
         FROM borrow_records 
-        WHERE status = $1 AND due_date < $2
-    `
+        WHERE status = $1 
+        AND due_date < NOW()
+        ORDER BY due_date ASC`
 
-	rows, err := r.DB.Query(ctx, query, string(model.BorrowStatusActive), now)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query overdue records: %v", err)
-	}
-	defer rows.Close()
+    rows, err := r.DB.Query(ctx, query, string(model.BorrowStatusActive))
+    if err != nil {
+        return nil, fmt.Errorf("failed to query overdue records: %w", err)
+    }
+    defer rows.Close()
 
-	var records []*model.BorrowRecord
-	for rows.Next() {
-		var (
-			id, bookID, patronID, status string
-			borrowedAt, dueDate          time.Time
-			returnedAt                   *time.Time
-			renewalCount                 int
-		)
+    var records []*model.BorrowRecord
+    for rows.Next() {
+        var (
+            record model.BorrowRecord
+            borrowedAt, dueDate time.Time
+            returnedAt, prevDueDate pgtype.Timestamptz
+        )
 
-		err := rows.Scan(
-			&id,
-			&bookID,
-			&patronID,
-			&borrowedAt,
-			&dueDate,
-			&returnedAt,
-			&renewalCount,
-			&status,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan borrow record: %v", err)
-		}
+        err := rows.Scan(
+            &record.ID,
+            &record.BookID,
+            &record.PatronID,
+            &record.BookCopyID,
+            &borrowedAt,
+            &dueDate,
+            &returnedAt,
+            &record.RenewalCount,
+            &record.Status,
+            &prevDueDate,
+        )
+        if err != nil {
+            return nil, fmt.Errorf("failed to scan record: %w", err)
+        }
 
-		record := &model.BorrowRecord{
-			ID:           id,
-			BookID:       bookID,
-			PatronID:     patronID,
-			BorrowedAt:   borrowedAt.Format(time.RFC3339),
-			DueDate:      dueDate.Format(time.RFC3339),
-			RenewalCount: int32(renewalCount),
-			Status:       model.BorrowStatus(status),
-		}
+        record.BorrowedAt = borrowedAt.Format(time.RFC3339)
+        record.DueDate = dueDate.Format(time.RFC3339)
+        
+        if returnedAt.Valid {
+            returnedStr := returnedAt.Time.Format(time.RFC3339)
+            record.ReturnedAt = &returnedStr
+        }
+        if prevDueDate.Valid {
+            prevDueStr := prevDueDate.Time.Format(time.RFC3339)
+            record.PreviousDueDate = &prevDueStr
+        }
 
-		if returnedAt != nil {
-			returnedAtStr := returnedAt.Format(time.RFC3339)
-			record.ReturnedAt = &returnedAtStr
-		}
+        records = append(records, &record)
+    }
 
-		records = append(records, record)
-	}
-
-	return records, nil
+    return records, nil
 }
 
 // PatronBorrowHistory is the resolver for the patronBorrowHistory field.
 func (r *queryResolver) PatronBorrowHistory(ctx context.Context, patronID string) ([]*model.BorrowRecord, error) {
-	query := `
-        SELECT id, book_id, patron_id, borrowed_at, due_date, returned_at, renewal_count, status 
+    query := `
+        SELECT 
+            id, book_id, patron_id, book_copy_id,
+            borrowed_at, due_date, returned_at,
+            renewal_count, status, previous_due_date
         FROM borrow_records 
         WHERE patron_id = $1
-        ORDER BY borrowed_at DESC
-    `
+        ORDER BY borrowed_at DESC`
 
-	rows, err := r.DB.Query(ctx, query, patronID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query patron borrow history: %v", err)
-	}
-	defer rows.Close()
+    rows, err := r.DB.Query(ctx, query, patronID)
+    if err != nil {
+        return nil, fmt.Errorf("failed to query patron history: %w", err)
+    }
+    defer rows.Close()
 
-	var records []*model.BorrowRecord
-	for rows.Next() {
-		var (
-			id, bookID, patronID, status string
-			borrowedAt, dueDate          time.Time
-			returnedAt                   *time.Time
-			renewalCount                 int
-		)
+    var records []*model.BorrowRecord
+    for rows.Next() {
+        var (
+            record model.BorrowRecord
+            borrowedAt, dueDate time.Time
+            returnedAt, prevDueDate pgtype.Timestamptz
+        )
 
-		err := rows.Scan(
-			&id,
-			&bookID,
-			&patronID,
-			&borrowedAt,
-			&dueDate,
-			&returnedAt,
-			&renewalCount,
-			&status,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan borrow record: %v", err)
-		}
+        err := rows.Scan(
+            &record.ID,
+            &record.BookID,
+            &record.PatronID,
+            &record.BookCopyID,
+            &borrowedAt,
+            &dueDate,
+            &returnedAt,
+            &record.RenewalCount,
+            &record.Status,
+            &prevDueDate,
+        )
+        if err != nil {
+            return nil, fmt.Errorf("failed to scan record: %w", err)
+        }
 
-		record := &model.BorrowRecord{
-			ID:           id,
-			BookID:       bookID,
-			PatronID:     patronID,
-			BorrowedAt:   borrowedAt.Format(time.RFC3339),
-			DueDate:      dueDate.Format(time.RFC3339),
-			RenewalCount: int32(renewalCount),
-			Status:       model.BorrowStatus(status),
-		}
+        record.BorrowedAt = borrowedAt.Format(time.RFC3339)
+        record.DueDate = dueDate.Format(time.RFC3339)
+        
+        if returnedAt.Valid {
+            returnedStr := returnedAt.Time.Format(time.RFC3339)
+            record.ReturnedAt = &returnedStr
+        }
+        if prevDueDate.Valid {
+            prevDueStr := prevDueDate.Time.Format(time.RFC3339)
+            record.PreviousDueDate = &prevDueStr
+        }
 
-		if returnedAt != nil {
-			returnedAtStr := returnedAt.Format(time.RFC3339)
-			record.ReturnedAt = &returnedAtStr
-		}
+        records = append(records, &record)
+    }
 
-		records = append(records, record)
-	}
-
-	return records, nil
+    return records, nil
 }
+
 
 // ReservationCreated implements SubscriptionResolver.
 func (r *subscriptionResolver) ReservationCreated(ctx context.Context, bookID string) (<-chan *model.Reservation, error) {

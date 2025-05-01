@@ -8,7 +8,7 @@ import BorrowedBooks from './components/BorrowedBooks';
 import AddBook from './components/AddBook';
 import Profile from './components/profile';
 import Topbar from './components/topbar';
-import SignInPage from './pages/sign_in_page';
+import SignUpPage from './pages/signup_page';
 
 function App() {
   const location = useLocation();
@@ -24,8 +24,8 @@ function App() {
         {!noDesignRoutes.includes(location.pathname) ? (
           <div style={{ marginLeft: '250px', padding: '20px', flex: 1 }}>
             <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/sign-in" element={<SignInPage />} />
+              <Route path="/" element={<SignUpPage />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/books" element={<Books />} />
               <Route path="/borrowed-books" element={<BorrowedBooks />} />
               <Route path="/add-book" element={<AddBook />} />
@@ -34,7 +34,7 @@ function App() {
           </div>
         ) : (
           <Routes>
-            <Route path="/sign-in" element={<SignInPage />} />
+              <Route path="/" element={<SignUpPage />} />
           </Routes>
         )}
       </div>
