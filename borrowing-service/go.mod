@@ -3,7 +3,7 @@ module github.com/RubyDEAD/lms/borrowing-service
 go 1.24.0
 
 require (
-	github.com/99designs/gqlgen v0.17.72
+	github.com/99designs/gqlgen v0.17.70
 	github.com/nedpals/supabase-go v0.5.0
 	github.com/rs/cors v1.11.1
 	github.com/vektah/gqlparser/v2 v2.5.25

@@ -19,6 +19,7 @@ type Reservation {
   patronId: ID!
   reservedAt: String!
   expiresAt: String!
+  bookCopyId: Int!
   status: ReservationStatus! # NEW: Tracks reservation lifecycle
 }
 
@@ -66,7 +67,11 @@ type Mutation {
 }
 
 # NEW: Better return type for renewals
+
+
 union RenewLoanResult = BorrowRecord | RenewalError
+union FulfillReservationResult = Reservation | FulfillmentError
+
 
 type RenewalError {
   code: RenewalErrorCode!
@@ -79,4 +84,10 @@ enum RenewalErrorCode {
   PATRON_BLOCKED
   LOAN_NOT_FOUND
   LOAN_ALREADY_RETURNED
+}
+
+
+type Subscription {
+  reservationCreated(bookId: ID!): Reservation!
+  borrowRecordUpdated(patronId: ID!): BorrowRecord!
 }

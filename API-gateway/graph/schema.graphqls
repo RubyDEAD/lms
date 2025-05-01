@@ -1,3 +1,5 @@
+union RenewLoanResult = BorrowRecord | RenewalError
+
 type Query {
   getBooks: [Book!]!
   getBookById(id: String!): Book
@@ -15,6 +17,34 @@ type Query {
   getViolationByType(violation_type: ViolationType!): [ViolationRecord]
 
   getPatronStatusByType(patron_status: Status!): [PatronStatus]
+
+  borrowRecords(
+    patronId: ID # NEW: Filter by patron
+    bookId: ID   # NEW: Filter by book
+    status: BorrowStatus # NEW: Filter by status
+  ): [BorrowRecord!]!
+  
+  reservations(
+    patronId: ID
+    bookId: ID
+    status: ReservationStatus
+  ): [Reservation!]!
+  
+  overdueRecords: [BorrowRecord!]!
+  patronBorrowHistory(patronId: ID!): [BorrowRecord!]! # NEW
+
+  # Borrowing operations
+  borrowBook(bookId: ID!, patronId: ID!): BorrowRecord!
+  returnBook(recordId: ID!): BorrowRecord!
+  renewLoan(recordId: ID!): RenewLoanResult! # CHANGED: Better return type
+  
+  # Reservation operations
+  reserveBook(bookId: ID!, patronId: ID!): Reservation!
+  cancelReservation(id: ID!): Boolean!
+  fulfillReservation(id: ID!): Reservation! # NEW: When reservation becomes a loan
+
+
+
 }
 
 type Mutation {
@@ -36,12 +66,26 @@ type Mutation {
 
   addViolation(patron_id: ID!, violation_type: ViolationType!, violation_info: String!): ViolationRecord
   updateViolationStatus(violation_id: ID! violation_status: ViolationStatus!): ViolationRecord
+  
+  
+  #
+  borrowBook(bookId: ID!, patronId: ID!): BorrowRecord!
+  returnBook(recordId: ID!): BorrowRecord!
+  renewLoan(recordId: ID!): RenewLoanResult! # CHANGED: Better return type
+  
+  reserveBook(bookId: ID!, patronId: ID!): Reservation!
+  cancelReservation(id: ID!): Boolean!
+  fulfillReservation(id: ID!): Reservation! # NEW: When reservation becomes a loan
+  #
+
 }
 
 type Subscription {
   bookAdded: Book!
   patronCreated: Patron
   ongoingViolations: ViolationRecord
+  reservationCreated: Reservation!
+  borrowRecordUpdated: BorrowRecord!
 }
 
 type Book {
@@ -124,3 +168,63 @@ enum ViolationType {
   Unpaid_Fees
   Damaged_Book
 }
+
+
+
+type BorrowRecord {
+  id: ID!
+  bookId: ID!
+  patronId: ID!
+  borrowedAt: String!
+  dueDate: String!
+  returnedAt: String
+  renewalCount: Int!
+  previousDueDate: String
+  status: BorrowStatus! # NEW: Helps track loan state
+  bookCopyId: Int!
+}
+
+type Reservation {
+  id: ID!
+  bookId: ID!
+  patronId: ID!
+  reservedAt: String!
+  expiresAt: String!
+  status: ReservationStatus! # NEW: Tracks reservation lifecycle
+}
+
+enum BorrowStatus {
+  ACTIVE
+  RETURNED
+  OVERDUE
+  RENEWED
+}
+
+enum ReservationStatus {
+  PENDING
+  FULFILLED
+  CANCELLED
+  EXPIRED
+}
+
+
+type RenewalError {
+  code: RenewalErrorCode!
+  message: String!
+}
+
+enum RenewalErrorCode {
+  MAX_RENEWALS_REACHED
+  ITEM_RESERVED
+  PATRON_BLOCKED
+  LOAN_NOT_FOUND
+  LOAN_ALREADY_RETURNED
+}
+
+
+
+
+
+
+
+
