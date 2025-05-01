@@ -671,39 +671,50 @@ func (r *mutationResolver) CancelReservation(ctx context.Context, id string) (bo
 }
 
 // FulfillReservation is the resolver for the fulfillReservation field.
+// FulfillReservation is the resolver for the fulfillReservation field.
 func (r *mutationResolver) FulfillReservation(ctx context.Context, id string) (*model.Reservation, error) {
-	query := `
-    mutation FulfillReservation($id: ID!) {
-        fulfillReservation(id: $id) {
-            id
-            bookId
-            patronId
-            status
-            # Removed fulfillmentDate and borrowRecord as they don't exist
-            # Add any other fields that actually exist in your schema
-        }
-    }`
+    query := `
+        mutation FulfillReservation($id: ID!) {
+            fulfillReservation(id: $id) {
+                id
+                bookId
+                patronId
+                bookCopyId
+                reservedAt
+                expiresAt
+                status
+            }
+        }`
 
-	variables := map[string]interface{}{
-		"id": id,
-	}
+    variables := map[string]interface{}{
+        "id": id,
+    }
 
-	resp, err := forwardRequest(ctx, query, variables, borrowingServiceURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fulfill reservation: %v", err)
-	}
+    resp, err := forwardRequest(ctx, query, variables, borrowingServiceURL)
+    if err != nil {
+        return nil, fmt.Errorf("failed to fulfill reservation: %v", err)
+    }
 
-	var result struct {
-		Data struct {
-			FulfillReservation *model.Reservation `json:"fulfillReservation"`
-		} `json:"data"`
-	}
+    // Parse the response
+    var result struct {
+        Data struct {
+            FulfillReservation *model.Reservation `json:"fulfillReservation"`
+        } `json:"data"`
+        Errors []struct {
+            Message string `json:"message"`
+        } `json:"errors"`
+    }
 
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse fulfillment response: %v", err)
-	}
+    if err := json.Unmarshal(resp, &result); err != nil {
+        return nil, fmt.Errorf("failed to parse fulfillment response: %v", err)
+    }
 
-	return result.Data.FulfillReservation, nil
+    // Handle GraphQL errors
+    if len(result.Errors) > 0 {
+        return nil, fmt.Errorf("service error: %s", result.Errors[0].Message)
+    }
+
+    return result.Data.FulfillReservation, nil
 }
 
 // GetBooks is the resolver for the getBooks field.
@@ -1050,25 +1061,190 @@ func (r *queryResolver) GetPatronStatusByType(ctx context.Context, patronStatus 
 	return result.Data.GetPatronStatusByType, nil
 }
 
-// BorrowRecords is the resolver for the borrowRecords field.
 func (r *queryResolver) BorrowRecords(ctx context.Context, patronID *string, bookID *string, status *model.BorrowStatus) ([]*model.BorrowRecord, error) {
-	panic(fmt.Errorf("not implemented: BorrowRecords - borrowRecords"))
+    query := `
+        query BorrowRecords($patronID: String, $bookID: String, $status: BorrowStatus) {
+            borrowRecords(patronID: $patronID, bookID: $bookID, status: $status) {
+                id
+                bookId
+                patronId
+                bookCopyId
+                borrowedAt
+                dueDate
+                returnedAt
+                renewalCount
+                status
+                previousDueDate
+            }
+        }`
+
+    variables := map[string]interface{}{
+        "patronID": patronID,
+        "bookID":   bookID,
+        "status":   status,
+    }
+
+    resp, err := forwardRequest(ctx, query, variables, borrowingServiceURL)
+    if err != nil {
+        return nil, fmt.Errorf("failed to fetch borrow records: %v", err)
+    }
+
+    var result struct {
+        Data struct {
+            BorrowRecords []*model.BorrowRecord `json:"borrowRecords"`
+        } `json:"data"`
+        Errors []struct {
+            Message string `json:"message"`
+        } `json:"errors"`
+    }
+
+    if err := json.Unmarshal(resp, &result); err != nil {
+        return nil, fmt.Errorf("failed to parse response: %v", err)
+    }
+
+    if len(result.Errors) > 0 {
+        return nil, fmt.Errorf("service error: %s", result.Errors[0].Message)
+    }
+
+    return result.Data.BorrowRecords, nil
 }
 
 // Reservations is the resolver for the reservations field.
 func (r *queryResolver) Reservations(ctx context.Context, patronID *string, bookID *string, status *model.ReservationStatus) ([]*model.Reservation, error) {
-	panic(fmt.Errorf("not implemented: Reservations - reservations"))
+    query := `
+        query Reservations($patronID: String, $bookID: String, $status: ReservationStatus) {
+            reservations(patronID: $patronID, bookID: $bookID, status: $status) {
+                id
+                bookId
+                patronId
+                bookCopyId
+                reservedAt
+                expiresAt
+                status
+            }
+        }`
+
+    variables := map[string]interface{}{
+        "patronID": patronID,
+        "bookID":   bookID,
+        "status":   status,
+    }
+
+    resp, err := forwardRequest(ctx, query, variables, borrowingServiceURL)
+    if err != nil {
+        return nil, fmt.Errorf("failed to fetch reservations: %v", err)
+    }
+
+    var result struct {
+        Data struct {
+            Reservations []*model.Reservation `json:"reservations"`
+        } `json:"data"`
+        Errors []struct {
+            Message string `json:"message"`
+        } `json:"errors"`
+    }
+
+    if err := json.Unmarshal(resp, &result); err != nil {
+        return nil, fmt.Errorf("failed to parse response: %v", err)
+    }
+
+    if len(result.Errors) > 0 {
+        return nil, fmt.Errorf("service error: %s", result.Errors[0].Message)
+    }
+
+    return result.Data.Reservations, nil
 }
 
 // OverdueRecords is the resolver for the overdueRecords field.
 func (r *queryResolver) OverdueRecords(ctx context.Context) ([]*model.BorrowRecord, error) {
-	panic(fmt.Errorf("not implemented: OverdueRecords - overdueRecords"))
+    query := `
+        query {
+            overdueRecords {
+                id
+                bookId
+                patronId
+                bookCopyId
+                borrowedAt
+                dueDate
+                returnedAt
+                renewalCount
+                status
+                previousDueDate
+            }
+        }`
+
+    resp, err := forwardRequest(ctx, query, nil, borrowingServiceURL)
+    if err != nil {
+        return nil, fmt.Errorf("failed to fetch overdue records: %v", err)
+    }
+
+    var result struct {
+        Data struct {
+            OverdueRecords []*model.BorrowRecord `json:"overdueRecords"`
+        } `json:"data"`
+        Errors []struct {
+            Message string `json:"message"`
+        } `json:"errors"`
+    }
+
+    if err := json.Unmarshal(resp, &result); err != nil {
+        return nil, fmt.Errorf("failed to parse response: %v", err)
+    }
+
+    if len(result.Errors) > 0 {
+        return nil, fmt.Errorf("service error: %s", result.Errors[0].Message)
+    }
+
+    return result.Data.OverdueRecords, nil
 }
 
 // PatronBorrowHistory is the resolver for the patronBorrowHistory field.
 func (r *queryResolver) PatronBorrowHistory(ctx context.Context, patronID string) ([]*model.BorrowRecord, error) {
-	panic(fmt.Errorf("not implemented: PatronBorrowHistory - patronBorrowHistory"))
+    query := `
+        query PatronBorrowHistory($patronID: String!) {
+            patronBorrowHistory(patronID: $patronID) {
+                id
+                bookId
+                patronId
+                bookCopyId
+                borrowedAt
+                dueDate
+                returnedAt
+                renewalCount
+                status
+                previousDueDate
+            }
+        }`
+
+    variables := map[string]interface{}{
+        "patronID": patronID,
+    }
+
+    resp, err := forwardRequest(ctx, query, variables, borrowingServiceURL)
+    if err != nil {
+        return nil, fmt.Errorf("failed to fetch patron history: %v", err)
+    }
+
+    var result struct {
+        Data struct {
+            PatronBorrowHistory []*model.BorrowRecord `json:"patronBorrowHistory"`
+        } `json:"data"`
+        Errors []struct {
+            Message string `json:"message"`
+        } `json:"errors"`
+    }
+
+    if err := json.Unmarshal(resp, &result); err != nil {
+        return nil, fmt.Errorf("failed to parse response: %v", err)
+    }
+
+    if len(result.Errors) > 0 {
+        return nil, fmt.Errorf("service error: %s", result.Errors[0].Message)
+    }
+
+    return result.Data.PatronBorrowHistory, nil
 }
+
 
 // BorrowBook is the resolver for the borrowBook field.
 func (r *queryResolver) BorrowBook(ctx context.Context, bookID string, patronID string) (*model.BorrowRecord, error) {
