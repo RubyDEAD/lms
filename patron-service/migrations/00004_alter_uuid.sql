@@ -1,13 +1,11 @@
 -- +goose Up
 -- +goose StatementBegin
 ALTER TABLE patrons
-ADD COLUMN password VARCHAR(255)  NOT NULL,
-ADD COLUMN email VARCHAR(60) UNIQUE NOT NULL;
+ALTER COLUMN patron_id DROP DEFAULT;
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
 ALTER TABLE patrons
-DROP COLUMN password,
-DROP COLUMN email;
+ALTER COLUMN patron_id SET DEFAULT gen_random_uuid();
 -- +goose StatementEnd

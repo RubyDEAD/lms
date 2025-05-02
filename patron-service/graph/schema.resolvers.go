@@ -12,8 +12,8 @@ import (
 	"log"
 	"strings"
 
+	auth "github.com/GSalise/lms/patron-service/auth"
 	"github.com/GSalise/lms/patron-service/graph/model"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // CreatePatron is the resolver for the createPatron field.
@@ -23,8 +23,6 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 	var patron_status model.PatronStatus
 	var violations []*model.ViolationRecord
 
-	// Note: add a condition that will only allow the correct regex for phone_number - front end na bahala ana kapoy
-
 	tx, transactErr := r.DB.Begin(ctx)
 	if transactErr != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
@@ -32,23 +30,21 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 
 	defer tx.Rollback(ctx)
 
-	bytedPassword := []byte(password)
-	hashedPassword, err := bcrypt.GenerateFromPassword(bytedPassword, 12)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash password")
+	patron_id, PatronIDerr := auth.CreateSupabaseAuthUser(email, password)
+	if PatronIDerr != nil {
+		log.Printf("Failed to create an authenticated user: %v", PatronIDerr)
 	}
 
 	PatronErr := tx.QueryRow(ctx, `
-		INSERT INTO patrons (first_name, last_name, phone_number, password, email)
-		VALUES ($1,$2,$3,$4,$5)
-		RETURNING patron_id, first_name, last_name, phone_number, patron_created::text, email
-	`, firstName, lastName, phoneNumber, string(hashedPassword), email).Scan(
+		INSERT INTO patrons (patron_id, first_name, last_name, phone_number)
+		VALUES ($1,$2,$3,$4)
+		RETURNING patron_id, first_name, last_name, phone_number, patron_created::text
+	`, patron_id, firstName, lastName, phoneNumber).Scan(
 		&patron.PatronID,
 		&patron.FirstName,
 		&patron.LastName,
 		&patron.PhoneNumber,
 		&patron.PatronCreated,
-		&patron.Email,
 	)
 
 	if PatronErr != nil {
@@ -204,7 +200,7 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 	}
 
 	FinalErr := tx.QueryRow(ctx, `
-		SELECT patron_id, first_name, last_name, phone_number, patron_created::text, email
+		SELECT patron_id, first_name, last_name, phone_number, patron_created::text
 		FROM patrons
 		WHERE patron_id = $1
 	`, patronID).Scan(
@@ -213,7 +209,6 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 		&patron.LastName,
 		&patron.PhoneNumber,
 		&patron.PatronCreated,
-		&patron.Email,
 	)
 
 	if FinalErr != nil {
@@ -292,82 +287,6 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 	return &patron, nil
 }
 
-// UpdatePassword is the resolver for the updatePassword field.
-func (r *mutationResolver) UpdatePassword(ctx context.Context, patronID string, oldPassword string, newPassword string) (*bool, error) {
-	var status bool
-	var oldPasswordFromDatabase string
-
-	if oldPassword == "" || newPassword == "" {
-		status = false
-		return &status, fmt.Errorf("missing fields")
-	}
-
-	var exists bool
-	err := r.DB.QueryRow(ctx, `
-	    SELECT EXISTS(SELECT 1 FROM patrons WHERE patron_id = $1)
-	`, patronID).Scan(&exists)
-
-	if err != nil {
-		status = false
-		return &status, fmt.Errorf("database error checking patron existence: %v", err)
-	}
-	if !exists {
-		status = false
-		return &status, fmt.Errorf("patron does not exist")
-	}
-
-	tx, transactErr := r.DB.Begin(ctx)
-	if transactErr != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
-	}
-
-	defer tx.Rollback(ctx)
-
-	QueryErr := tx.QueryRow(ctx, `
-		SELECT password
-		FROM patrons
-		WHERE patron_id = $1
-	`, patronID).Scan(
-		&oldPasswordFromDatabase,
-	)
-
-	if QueryErr != nil {
-		status = false
-		return &status, fmt.Errorf("failed to get password %v", QueryErr)
-	}
-
-	err = bcrypt.CompareHashAndPassword([]byte(oldPasswordFromDatabase), []byte(oldPassword))
-	if err != nil {
-		status = false
-		return &status, fmt.Errorf("password does not match: %v", err)
-	}
-
-	updatedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), 12)
-	if err != nil {
-		status = false
-		return &status, fmt.Errorf("failed to hash new password: %v", err)
-	}
-
-	_, err = tx.Exec(ctx, `
-		UPDATE patrons
-		SET password = $1
-		WHERE patron_id = $2
-	`, string(updatedPassword), patronID)
-
-	if err != nil {
-		status = false
-		return &status, fmt.Errorf("failed to upadte new password: %v", err)
-	}
-
-	if transactErr := tx.Commit(ctx); transactErr != nil {
-		status = false
-		return &status, fmt.Errorf("failed to commit transaction: %v", transactErr)
-	}
-
-	status = true
-	return &status, nil
-}
-
 // DeletePatronByID is the resolver for the deletePatronById field.
 func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string) (*model.Patron, error) {
 	var patron model.Patron
@@ -383,7 +302,7 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 	defer tx.Rollback(ctx)
 
 	err := tx.QueryRow(ctx, `
-        SELECT patron_id, first_name, last_name, phone_number, patron_created::text, email
+        SELECT patron_id, first_name, last_name, phone_number, patron_created::text
         FROM patrons 
         WHERE patron_id = $1
     `, patronID).Scan(
@@ -392,7 +311,6 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 		&patron.LastName,
 		&patron.PhoneNumber,
 		&patron.PatronCreated,
-		&patron.Email,
 	)
 
 	if err != nil {
@@ -799,7 +717,7 @@ func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*mo
 	var violations []*model.ViolationRecord
 
 	err := r.DB.QueryRow(ctx, `
-		SELECT first_name, last_name, phone_number, patron_created::text, email
+		SELECT first_name, last_name, phone_number, patron_created::text
 		FROM patrons
 		WHERE patron_id = $1
 	`, patronID).Scan(
@@ -807,7 +725,6 @@ func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*mo
 		&patron.LastName,
 		&patron.PhoneNumber,
 		&patron.PatronCreated,
-		&patron.Email,
 	)
 
 	if err != nil {
@@ -910,7 +827,6 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 			&patron.LastName,
 			&patron.PhoneNumber,
 			&patron.PatronCreated,
-			&patron.Email,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan patron: %v", err)

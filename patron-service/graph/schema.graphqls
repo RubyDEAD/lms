@@ -3,7 +3,6 @@ type Patron {
   first_name: String!
   last_name: String!
   phone_number: String!
-  email: String!
   patron_created: String!
   membership: Membership
   status: PatronStatus
@@ -70,9 +69,8 @@ type Query {
 }
 
 type Mutation {
-  createPatron(first_name: String!, last_name: String!, phone_number: String!, email: String!, password: String!): Patron
+  createPatron(first_name: String!, last_name: String!, phone_number: String! email: String!, password: String!): Patron
   updatePatron(patron_id: ID!, first_name: String, last_name: String, phone_number: String): Patron
-  updatePassword(patron_id: ID!, oldPassword: String!, newPassword: String!): Boolean
   deletePatronById(patron_id: ID!): Patron
 
   updateMembershipByPatronId(patron_id: ID!, level: MembershipLevel!): Membership

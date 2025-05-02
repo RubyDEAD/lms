@@ -165,8 +165,8 @@ func resolversConnect(ch *amqp.Channel, data GraphQLMessage, msg amqp.Delivery, 
 		firstName, _ := data.Variables["firstName"].(string)
 		lastName, _ := data.Variables["lastName"].(string)
 		phoneNumber, _ := data.Variables["phoneNumber"].(string)
-		password, _ := data.Variables["password"].(string)
 		email, _ := data.Variables["email"].(string)
+		password, _ := data.Variables["password"].(string)
 
 		patron, ResolverErr := resolver.Mutation().CreatePatron(ctx, firstName, lastName, phoneNumber, email, password)
 
@@ -259,43 +259,43 @@ func resolversConnect(ch *amqp.Channel, data GraphQLMessage, msg amqp.Delivery, 
 			log.Printf("failed to publish message: %v", err)
 		}
 
-	case "updatePassword":
-		patron_id, _ := data.Variables["patron_id"].(string)
-		oldPassword, _ := data.Variables["oldPassword"].(string)
-		newPassword, _ := data.Variables["newPassword"].(string)
+	// case "updatePassword":
+	// 	patron_id, _ := data.Variables["patron_id"].(string)
+	// 	oldPassword, _ := data.Variables["oldPassword"].(string)
+	// 	newPassword, _ := data.Variables["newPassword"].(string)
 
-		patron, ResolverErr := resolver.Mutation().UpdatePassword(ctx, patron_id, oldPassword, newPassword)
+	// 	patron, ResolverErr := resolver.Mutation().UpdatePassword(ctx, patron_id, oldPassword, newPassword)
 
-		if ResolverErr != nil {
-			log.Printf("err: %v", ResolverErr)
-		}
+	// 	if ResolverErr != nil {
+	// 		log.Printf("err: %v", ResolverErr)
+	// 	}
 
-		response := map[string]interface{}{
-			"data": map[string]interface{}{
-				"updatePatron": patron,
-			},
-		}
+	// 	response := map[string]interface{}{
+	// 		"data": map[string]interface{}{
+	// 			"updatePatron": patron,
+	// 		},
+	// 	}
 
-		result, err := json.Marshal(response)
-		if err != nil {
-			log.Printf("Error marshalling patron to JSON: %v", err)
-		}
+	// 	result, err := json.Marshal(response)
+	// 	if err != nil {
+	// 		log.Printf("Error marshalling patron to JSON: %v", err)
+	// 	}
 
-		err = ch.Publish(
-			"",
-			msg.ReplyTo,
-			false,
-			false,
-			amqp.Publishing{
-				ContentType:   "application/json",
-				CorrelationId: msg.CorrelationId,
-				Body:          result,
-			},
-		)
+	// 	err = ch.Publish(
+	// 		"",
+	// 		msg.ReplyTo,
+	// 		false,
+	// 		false,
+	// 		amqp.Publishing{
+	// 			ContentType:   "application/json",
+	// 			CorrelationId: msg.CorrelationId,
+	// 			Body:          result,
+	// 		},
+	// 	)
 
-		if err != nil {
-			log.Printf("failed to publish message: %v", err)
-		}
+	// 	if err != nil {
+	// 		log.Printf("failed to publish message: %v", err)
+	// 	}
 
 	case "deletePatronById":
 		patron_id, _ := data.Variables["patron_id"].(string)
