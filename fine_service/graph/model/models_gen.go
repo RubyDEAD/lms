@@ -3,14 +3,20 @@
 package model
 
 type Fine struct {
-	ID         string  `json:"id"`
+	FineID     string  `json:"fine_id"`
+	PatronID   string  `json:"patronId"`
+	BookID     string  `json:"bookId"`
 	DaysLate   int32   `json:"daysLate"`
 	RatePerDay float64 `json:"ratePerDay"`
 	Amount     float64 `json:"amount"`
+	CreatedAt  string  `json:"createdAt"`
 }
 
 type Mutation struct {
 }
 
 type Query struct {
+}
+
+type Subscription struct {
 }

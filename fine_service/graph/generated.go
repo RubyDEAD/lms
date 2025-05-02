@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fine_service/graph/model"
 	"fmt"
+	"io"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -41,6 +42,7 @@ type Config struct {
 type ResolverRoot interface {
 	Mutation() MutationResolver
 	Query() QueryResolver
+	Subscription() SubscriptionResolver
 }
 
 type DirectiveRoot struct {
@@ -49,31 +51,41 @@ type DirectiveRoot struct {
 type ComplexityRoot struct {
 	Fine struct {
 		Amount     func(childComplexity int) int
+		BookID     func(childComplexity int) int
+		CreatedAt  func(childComplexity int) int
 		DaysLate   func(childComplexity int) int
-		ID         func(childComplexity int) int
+		FineID     func(childComplexity int) int
+		PatronID   func(childComplexity int) int
 		RatePerDay func(childComplexity int) int
 	}
 
 	Mutation struct {
-		CreateFine func(childComplexity int, daysLate int32, ratePerDay float64) int
-		DeleteFine func(childComplexity int, id string) int
-		UpdateFine func(childComplexity int, id string, daysLate int32, ratePerDay float64) int
+		CreateFine func(childComplexity int, patronID string, bookID string, ratePerDay float64) int
+		DeleteFine func(childComplexity int, fineID string) int
+		UpdateFine func(childComplexity int, fineID string, daysLate int32, ratePerDay float64) int
 	}
 
 	Query struct {
-		GetFine   func(childComplexity int, id string) int
+		GetFine   func(childComplexity int, fineID string) int
 		ListFines func(childComplexity int) int
+	}
+
+	Subscription struct {
+		FineCreated func(childComplexity int) int
 	}
 }
 
 type MutationResolver interface {
-	CreateFine(ctx context.Context, daysLate int32, ratePerDay float64) (*model.Fine, error)
-	UpdateFine(ctx context.Context, id string, daysLate int32, ratePerDay float64) (*model.Fine, error)
-	DeleteFine(ctx context.Context, id string) (bool, error)
+	CreateFine(ctx context.Context, patronID string, bookID string, ratePerDay float64) (*model.Fine, error)
+	UpdateFine(ctx context.Context, fineID string, daysLate int32, ratePerDay float64) (*model.Fine, error)
+	DeleteFine(ctx context.Context, fineID string) (bool, error)
 }
 type QueryResolver interface {
-	GetFine(ctx context.Context, id string) (*model.Fine, error)
+	GetFine(ctx context.Context, fineID string) (*model.Fine, error)
 	ListFines(ctx context.Context) ([]*model.Fine, error)
+}
+type SubscriptionResolver interface {
+	FineCreated(ctx context.Context) (<-chan *model.Fine, error)
 }
 
 type executableSchema struct {
@@ -102,6 +114,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Fine.Amount(childComplexity), true
 
+	case "Fine.bookId":
+		if e.complexity.Fine.BookID == nil {
+			break
+		}
+
+		return e.complexity.Fine.BookID(childComplexity), true
+
+	case "Fine.createdAt":
+		if e.complexity.Fine.CreatedAt == nil {
+			break
+		}
+
+		return e.complexity.Fine.CreatedAt(childComplexity), true
+
 	case "Fine.daysLate":
 		if e.complexity.Fine.DaysLate == nil {
 			break
@@ -109,12 +135,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Fine.DaysLate(childComplexity), true
 
-	case "Fine.id":
-		if e.complexity.Fine.ID == nil {
+	case "Fine.fine_id":
+		if e.complexity.Fine.FineID == nil {
 			break
 		}
 
-		return e.complexity.Fine.ID(childComplexity), true
+		return e.complexity.Fine.FineID(childComplexity), true
+
+	case "Fine.patronId":
+		if e.complexity.Fine.PatronID == nil {
+			break
+		}
+
+		return e.complexity.Fine.PatronID(childComplexity), true
 
 	case "Fine.ratePerDay":
 		if e.complexity.Fine.RatePerDay == nil {
@@ -133,7 +166,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateFine(childComplexity, args["daysLate"].(int32), args["ratePerDay"].(float64)), true
+		return e.complexity.Mutation.CreateFine(childComplexity, args["patronId"].(string), args["bookId"].(string), args["ratePerDay"].(float64)), true
 
 	case "Mutation.deleteFine":
 		if e.complexity.Mutation.DeleteFine == nil {
@@ -145,7 +178,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.DeleteFine(childComplexity, args["id"].(string)), true
+		return e.complexity.Mutation.DeleteFine(childComplexity, args["fine_id"].(string)), true
 
 	case "Mutation.updateFine":
 		if e.complexity.Mutation.UpdateFine == nil {
@@ -157,7 +190,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateFine(childComplexity, args["id"].(string), args["daysLate"].(int32), args["ratePerDay"].(float64)), true
+		return e.complexity.Mutation.UpdateFine(childComplexity, args["fine_id"].(string), args["daysLate"].(int32), args["ratePerDay"].(float64)), true
 
 	case "Query.getFine":
 		if e.complexity.Query.GetFine == nil {
@@ -169,7 +202,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Query.GetFine(childComplexity, args["id"].(string)), true
+		return e.complexity.Query.GetFine(childComplexity, args["fine_id"].(string)), true
 
 	case "Query.listFines":
 		if e.complexity.Query.ListFines == nil {
@@ -177,6 +210,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.ListFines(childComplexity), true
+
+	case "Subscription.fineCreated":
+		if e.complexity.Subscription.FineCreated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.FineCreated(childComplexity), true
 
 	}
 	return 0, false
@@ -228,6 +268,23 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			ctx = graphql.WithUnmarshalerMap(ctx, inputUnmarshalMap)
 			data := ec._Mutation(ctx, opCtx.Operation.SelectionSet)
 			var buf bytes.Buffer
+			data.MarshalGQL(&buf)
+
+			return &graphql.Response{
+				Data: buf.Bytes(),
+			}
+		}
+	case ast.Subscription:
+		next := ec._Subscription(ctx, opCtx.Operation.SelectionSet)
+
+		var buf bytes.Buffer
+		return func(ctx context.Context) *graphql.Response {
+			buf.Reset()
+			data := next(ctx)
+
+			if data == nil {
+				return nil
+			}
 			data.MarshalGQL(&buf)
 
 			return &graphql.Response{
@@ -304,28 +361,46 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 func (ec *executionContext) field_Mutation_createFine_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Mutation_createFine_argsDaysLate(ctx, rawArgs)
+	arg0, err := ec.field_Mutation_createFine_argsPatronID(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["daysLate"] = arg0
-	arg1, err := ec.field_Mutation_createFine_argsRatePerDay(ctx, rawArgs)
+	args["patronId"] = arg0
+	arg1, err := ec.field_Mutation_createFine_argsBookID(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["ratePerDay"] = arg1
+	args["bookId"] = arg1
+	arg2, err := ec.field_Mutation_createFine_argsRatePerDay(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["ratePerDay"] = arg2
 	return args, nil
 }
-func (ec *executionContext) field_Mutation_createFine_argsDaysLate(
+func (ec *executionContext) field_Mutation_createFine_argsPatronID(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (int32, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("daysLate"))
-	if tmp, ok := rawArgs["daysLate"]; ok {
-		return ec.unmarshalNInt2int32(ctx, tmp)
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patronId"))
+	if tmp, ok := rawArgs["patronId"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
 	}
 
-	var zeroVal int32
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_createFine_argsBookID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("bookId"))
+	if tmp, ok := rawArgs["bookId"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
 	return zeroVal, nil
 }
 
@@ -345,19 +420,19 @@ func (ec *executionContext) field_Mutation_createFine_argsRatePerDay(
 func (ec *executionContext) field_Mutation_deleteFine_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Mutation_deleteFine_argsID(ctx, rawArgs)
+	arg0, err := ec.field_Mutation_deleteFine_argsFineID(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["id"] = arg0
+	args["fine_id"] = arg0
 	return args, nil
 }
-func (ec *executionContext) field_Mutation_deleteFine_argsID(
+func (ec *executionContext) field_Mutation_deleteFine_argsFineID(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
-	if tmp, ok := rawArgs["id"]; ok {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("fine_id"))
+	if tmp, ok := rawArgs["fine_id"]; ok {
 		return ec.unmarshalNID2string(ctx, tmp)
 	}
 
@@ -368,11 +443,11 @@ func (ec *executionContext) field_Mutation_deleteFine_argsID(
 func (ec *executionContext) field_Mutation_updateFine_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Mutation_updateFine_argsID(ctx, rawArgs)
+	arg0, err := ec.field_Mutation_updateFine_argsFineID(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["id"] = arg0
+	args["fine_id"] = arg0
 	arg1, err := ec.field_Mutation_updateFine_argsDaysLate(ctx, rawArgs)
 	if err != nil {
 		return nil, err
@@ -385,12 +460,12 @@ func (ec *executionContext) field_Mutation_updateFine_args(ctx context.Context, 
 	args["ratePerDay"] = arg2
 	return args, nil
 }
-func (ec *executionContext) field_Mutation_updateFine_argsID(
+func (ec *executionContext) field_Mutation_updateFine_argsFineID(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
-	if tmp, ok := rawArgs["id"]; ok {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("fine_id"))
+	if tmp, ok := rawArgs["fine_id"]; ok {
 		return ec.unmarshalNID2string(ctx, tmp)
 	}
 
@@ -450,19 +525,19 @@ func (ec *executionContext) field_Query___type_argsName(
 func (ec *executionContext) field_Query_getFine_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Query_getFine_argsID(ctx, rawArgs)
+	arg0, err := ec.field_Query_getFine_argsFineID(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["id"] = arg0
+	args["fine_id"] = arg0
 	return args, nil
 }
-func (ec *executionContext) field_Query_getFine_argsID(
+func (ec *executionContext) field_Query_getFine_argsFineID(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
-	if tmp, ok := rawArgs["id"]; ok {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("fine_id"))
+	if tmp, ok := rawArgs["fine_id"]; ok {
 		return ec.unmarshalNID2string(ctx, tmp)
 	}
 
@@ -570,8 +645,8 @@ func (ec *executionContext) field___Type_fields_argsIncludeDeprecated(
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _Fine_id(ctx context.Context, field graphql.CollectedField, obj *model.Fine) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Fine_id(ctx, field)
+func (ec *executionContext) _Fine_fine_id(ctx context.Context, field graphql.CollectedField, obj *model.Fine) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Fine_fine_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -584,7 +659,7 @@ func (ec *executionContext) _Fine_id(ctx context.Context, field graphql.Collecte
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.ID, nil
+		return obj.FineID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -601,7 +676,95 @@ func (ec *executionContext) _Fine_id(ctx context.Context, field graphql.Collecte
 	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Fine_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Fine_fine_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Fine",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Fine_patronId(ctx context.Context, field graphql.CollectedField, obj *model.Fine) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Fine_patronId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PatronID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Fine_patronId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Fine",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Fine_bookId(ctx context.Context, field graphql.CollectedField, obj *model.Fine) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Fine_bookId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.BookID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Fine_bookId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Fine",
 		Field:      field,
@@ -746,6 +909,50 @@ func (ec *executionContext) fieldContext_Fine_amount(_ context.Context, field gr
 	return fc, nil
 }
 
+func (ec *executionContext) _Fine_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.Fine) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Fine_createdAt(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CreatedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Fine_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Fine",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_createFine(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Mutation_createFine(ctx, field)
 	if err != nil {
@@ -760,7 +967,7 @@ func (ec *executionContext) _Mutation_createFine(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateFine(rctx, fc.Args["daysLate"].(int32), fc.Args["ratePerDay"].(float64))
+		return ec.resolvers.Mutation().CreateFine(rctx, fc.Args["patronId"].(string), fc.Args["bookId"].(string), fc.Args["ratePerDay"].(float64))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -785,14 +992,20 @@ func (ec *executionContext) fieldContext_Mutation_createFine(ctx context.Context
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Fine_id(ctx, field)
+			case "fine_id":
+				return ec.fieldContext_Fine_fine_id(ctx, field)
+			case "patronId":
+				return ec.fieldContext_Fine_patronId(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Fine_bookId(ctx, field)
 			case "daysLate":
 				return ec.fieldContext_Fine_daysLate(ctx, field)
 			case "ratePerDay":
 				return ec.fieldContext_Fine_ratePerDay(ctx, field)
 			case "amount":
 				return ec.fieldContext_Fine_amount(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Fine_createdAt(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
@@ -825,7 +1038,7 @@ func (ec *executionContext) _Mutation_updateFine(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateFine(rctx, fc.Args["id"].(string), fc.Args["daysLate"].(int32), fc.Args["ratePerDay"].(float64))
+		return ec.resolvers.Mutation().UpdateFine(rctx, fc.Args["fine_id"].(string), fc.Args["daysLate"].(int32), fc.Args["ratePerDay"].(float64))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -850,14 +1063,20 @@ func (ec *executionContext) fieldContext_Mutation_updateFine(ctx context.Context
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Fine_id(ctx, field)
+			case "fine_id":
+				return ec.fieldContext_Fine_fine_id(ctx, field)
+			case "patronId":
+				return ec.fieldContext_Fine_patronId(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Fine_bookId(ctx, field)
 			case "daysLate":
 				return ec.fieldContext_Fine_daysLate(ctx, field)
 			case "ratePerDay":
 				return ec.fieldContext_Fine_ratePerDay(ctx, field)
 			case "amount":
 				return ec.fieldContext_Fine_amount(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Fine_createdAt(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
@@ -890,7 +1109,7 @@ func (ec *executionContext) _Mutation_deleteFine(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DeleteFine(rctx, fc.Args["id"].(string))
+		return ec.resolvers.Mutation().DeleteFine(rctx, fc.Args["fine_id"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -945,7 +1164,7 @@ func (ec *executionContext) _Query_getFine(ctx context.Context, field graphql.Co
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetFine(rctx, fc.Args["id"].(string))
+		return ec.resolvers.Query().GetFine(rctx, fc.Args["fine_id"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -967,14 +1186,20 @@ func (ec *executionContext) fieldContext_Query_getFine(ctx context.Context, fiel
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Fine_id(ctx, field)
+			case "fine_id":
+				return ec.fieldContext_Fine_fine_id(ctx, field)
+			case "patronId":
+				return ec.fieldContext_Fine_patronId(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Fine_bookId(ctx, field)
 			case "daysLate":
 				return ec.fieldContext_Fine_daysLate(ctx, field)
 			case "ratePerDay":
 				return ec.fieldContext_Fine_ratePerDay(ctx, field)
 			case "amount":
 				return ec.fieldContext_Fine_amount(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Fine_createdAt(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
@@ -1032,14 +1257,20 @@ func (ec *executionContext) fieldContext_Query_listFines(_ context.Context, fiel
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Fine_id(ctx, field)
+			case "fine_id":
+				return ec.fieldContext_Fine_fine_id(ctx, field)
+			case "patronId":
+				return ec.fieldContext_Fine_patronId(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Fine_bookId(ctx, field)
 			case "daysLate":
 				return ec.fieldContext_Fine_daysLate(ctx, field)
 			case "ratePerDay":
 				return ec.fieldContext_Fine_ratePerDay(ctx, field)
 			case "amount":
 				return ec.fieldContext_Fine_amount(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Fine_createdAt(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
@@ -1173,6 +1404,80 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 				return ec.fieldContext___Schema_directives(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Schema", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_fineCreated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_fineCreated(ctx, field)
+	if err != nil {
+		return nil
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().FineCreated(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func(ctx context.Context) graphql.Marshaler {
+		select {
+		case res, ok := <-resTmp.(<-chan *model.Fine):
+			if !ok {
+				return nil
+			}
+			return graphql.WriterFunc(func(w io.Writer) {
+				w.Write([]byte{'{'})
+				graphql.MarshalString(field.Alias).MarshalGQL(w)
+				w.Write([]byte{':'})
+				ec.marshalNFine2ᚖfine_serviceᚋgraphᚋmodelᚐFine(ctx, field.Selections, res).MarshalGQL(w)
+				w.Write([]byte{'}'})
+			})
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (ec *executionContext) fieldContext_Subscription_fineCreated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "fine_id":
+				return ec.fieldContext_Fine_fine_id(ctx, field)
+			case "patronId":
+				return ec.fieldContext_Fine_patronId(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Fine_bookId(ctx, field)
+			case "daysLate":
+				return ec.fieldContext_Fine_daysLate(ctx, field)
+			case "ratePerDay":
+				return ec.fieldContext_Fine_ratePerDay(ctx, field)
+			case "amount":
+				return ec.fieldContext_Fine_amount(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Fine_createdAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
 	}
 	return fc, nil
@@ -3148,8 +3453,18 @@ func (ec *executionContext) _Fine(ctx context.Context, sel ast.SelectionSet, obj
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Fine")
-		case "id":
-			out.Values[i] = ec._Fine_id(ctx, field, obj)
+		case "fine_id":
+			out.Values[i] = ec._Fine_fine_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "patronId":
+			out.Values[i] = ec._Fine_patronId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "bookId":
+			out.Values[i] = ec._Fine_bookId(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -3165,6 +3480,11 @@ func (ec *executionContext) _Fine(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "amount":
 			out.Values[i] = ec._Fine_amount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._Fine_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -3343,6 +3663,26 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	}
 
 	return out
+}
+
+var subscriptionImplementors = []string{"Subscription"}
+
+func (ec *executionContext) _Subscription(ctx context.Context, sel ast.SelectionSet) func(ctx context.Context) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, subscriptionImplementors)
+	ctx = graphql.WithFieldContext(ctx, &graphql.FieldContext{
+		Object: "Subscription",
+	})
+	if len(fields) != 1 {
+		ec.Errorf(ctx, "must subscribe to exactly one stream")
+		return nil
+	}
+
+	switch fields[0].Name {
+	case "fineCreated":
+		return ec._Subscription_fineCreated(ctx, fields[0])
+	default:
+		panic("unknown field " + strconv.Quote(fields[0].Name))
+	}
 }
 
 var __DirectiveImplementors = []string{"__Directive"}
