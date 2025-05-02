@@ -10,33 +10,39 @@ import Profile from './components/profile';
 import Topbar from './components/topbar';
 import SignUpPage from './pages/signup_page';
 import LoginPage from './pages/login_page';
+import ForgotPasswordPage from './pages/forgot_pass_page';
+import UpdatePasswordPage from './pages/update_pass_page';
+
 function App() {
   const location = useLocation();
-  const noDesignRoutes = ['/sign-in'];
+  const noDesignRoutes = ['/sign-up', '/login', '/forgot-password', '/update-password'];
+
+  const isLayoutVisible = !noDesignRoutes.includes(location.pathname);
 
   return (
     <div className="App">
-      {!noDesignRoutes.includes(location.pathname) && <Topbar />}
+      {isLayoutVisible && <Topbar />}
 
       <div style={{ display: 'flex' }}>
-        {!noDesignRoutes.includes(location.pathname) && <Sidebar />}
+        {isLayoutVisible && <Sidebar />}
 
-        {!noDesignRoutes.includes(location.pathname) ? (
-          <div style={{ marginLeft: '250px', padding: '20px', flex: 1 }}>
-            <Routes>
-              <Route path="/" element={<LoginPage/>} />
-              <Route path="/signup" element={<SignUpPage />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/books" element={<Books />} />
-              <Route path="/borrowed-books" element={<BorrowedBooks />} />
-              <Route path="/add-book" element={<AddBook />} />
-              <Route path="/profile" element={<Profile />} />
-            </Routes>
-          </div>
-        ) : (
+        <div style={{ marginLeft: isLayoutVisible ? '250px' : 0, padding: '20px', flex: 1 }}>
           <Routes>
+            {/* Auth & Onboarding */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/sign-up" element={<SignUpPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/update-password" element={<UpdatePasswordPage />} />
+
+            {/* App Pages */}
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/books" element={<Books />} />
+            <Route path="/borrowed-books" element={<BorrowedBooks />} />
+            <Route path="/add-book" element={<AddBook />} />
+            <Route path="/profile" element={<Profile />} />
           </Routes>
-        )}
+        </div>
       </div>
     </div>
   );

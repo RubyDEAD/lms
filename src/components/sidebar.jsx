@@ -1,43 +1,59 @@
 import React from "react";
-import { Link } from "react-router-dom"; // To use routing for links
-import { FaBook,FaDiceD6,FaHandHolding, FaHandHoldingHand, FaRegUser } from "react-icons/fa6";
+import { Link, useNavigate } from "react-router-dom"; // useNavigate for redirect
+import { FaBook, FaDiceD6, FaHandHolding, FaHandHoldingHand, FaRegUser, FaRightFromBracket } from "react-icons/fa6";
+import { supabase } from "../supabaseClient"; // adjust path if necessary
 
 function Sidebar() {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Error during logout:", error.message);
+    } else {
+      // Optionally clear local storage or other state
+      // localStorage.clear();
+
+      // Refresh the page
+      window.location.href = "/login";
+    }
+  };
+
   return (
     <aside className="sidebar">
       <div className="sidebar-container">
-        
-        {/* <div className="sidebar-title">
-          <h1>Libary Management System</h1>
-        </div> */}
-
-        
         <div className="sidebar-nav">
           <ul>
             <li>
               <Link to="/" className="sidebar-link">
-                <FaDiceD6></FaDiceD6> Dashboard
+                <FaDiceD6 /> Dashboard
               </Link>
             </li>
             <li>
               <Link to="/books" className="sidebar-link">
-                <FaBook></FaBook> Books
+                <FaBook /> Books
               </Link>
             </li>
             <li>
               <Link to="/borrowed-books" className="sidebar-link">
-                <FaHandHolding></FaHandHolding> Borrowed Books
+                <FaHandHolding /> Borrowed Books
               </Link>
             </li>
             <li>
               <Link to="/add-book" className="sidebar-link">
-                <FaHandHoldingHand></FaHandHoldingHand> Returned Books
+                <FaHandHoldingHand /> Returned Books
               </Link>
             </li>
             <li>
               <Link to="/profile" className="sidebar-link">
-                <FaRegUser></FaRegUser> Profile
+                <FaRegUser /> Profile
               </Link>
+            </li>
+            <li>
+              <button className="sidebar-link btn btn-link text-danger" onClick={handleLogout}>
+                <FaRightFromBracket /> Logout
+              </button>
             </li>
           </ul>
         </div>

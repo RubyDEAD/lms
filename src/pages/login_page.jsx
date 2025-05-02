@@ -49,7 +49,6 @@ function LoginPage() {
       valid = false;
     }
 
-    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
       valid = false;
@@ -68,7 +67,6 @@ function LoginPage() {
     setErrors({ email: '', password: '', general: '' });
     setSuccessMsg('');
 
-    // Validate form before submission
     if (!validateForm()) {
       setLoading(false);
       return;
@@ -84,10 +82,8 @@ function LoginPage() {
       
       setSuccessMsg('Login successful! Redirecting...');
       
-      // Store user session if needed
       localStorage.setItem('user', JSON.stringify(data.user));
       
-      // Redirect after a short delay
       setTimeout(() => {
         window.location.href = '/dashboard';
       }, 1500);
@@ -95,7 +91,6 @@ function LoginPage() {
     } catch (error) {
       console.error('Login error:', error);
       
-      // Handle specific Supabase errors
       let errorMessage = 'Login failed. Please try again.';
       if (error.message.includes('Invalid login credentials')) {
         errorMessage = 'Invalid email or password';
@@ -185,7 +180,7 @@ function LoginPage() {
               <a href="/forgot-password">Forgot password?</a>
             </div>
             <div className="mt-2 text-center">
-              <small>Don't have an account? <a href="signup">Register here</a></small>
+              <small>Don't have an account? <a href="/signup">Register here</a></small>
             </div>
           </form>
         </div>
