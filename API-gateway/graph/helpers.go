@@ -18,6 +18,7 @@ import (
 
 const bookServiceURL = "http://localhost:8080/query"
 const patronServiceQueue = "patron-service-queue"
+const borrowingServiceURL = "http://localhost:8082/query"
 
 // forwardRequest forwards HTTP requests from the gateway to individual services.
 func forwardRequest(ctx context.Context, query string, variables map[string]interface{}, serviceURL string) ([]byte, error) {
@@ -37,19 +38,48 @@ func forwardRequest(ctx context.Context, query string, variables map[string]inte
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json") // Ensure we expect JSON response
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 10 * time.Second, // Add timeout to prevent hanging
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %v", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received non-200 response: %d", resp.StatusCode)
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
-	return io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		// Try to parse the error response
+		var errResponse struct {
+			Errors []struct {
+				Message    string `json:"message"`
+				Extensions struct {
+					Code string `json:"code"`
+				} `json:"extensions"`
+			} `json:"errors"`
+		}
+
+		if err := json.Unmarshal(responseBody, &errResponse); err == nil && len(errResponse.Errors) > 0 {
+			if errResponse.Errors[0].Extensions.Code != "" {
+				return nil, fmt.Errorf("%s (code: %s)",
+					errResponse.Errors[0].Message,
+					errResponse.Errors[0].Extensions.Code)
+			}
+			return nil, fmt.Errorf("%s", errResponse.Errors[0].Message)
+		}
+
+		// Fallback to generic error if we couldn't parse the response
+		return nil, fmt.Errorf("service returned status %d: %s", resp.StatusCode, string(responseBody))
+	}
+
+	return responseBody, nil
 }
 
 // forwardRequestMQ forwards requests using RabbitMQ.

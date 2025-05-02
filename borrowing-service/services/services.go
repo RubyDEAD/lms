@@ -7,10 +7,8 @@ import (
 	"log"
 	"time"
 
-
 	amqp "github.com/rabbitmq/amqp091-go"
 )
-
 
 // func GetBookCopyForReturn(bookID string) (*amqp.Connection, string, error) {
 // 	// 1. Establish RabbitMQ connection
@@ -243,95 +241,95 @@ func sendAvailabilityRequest(ch *amqp.Channel, bookID string) error {
 
 // sendUpdateRequest sends a request to update the status of a book copy
 func SendUpdateRequest(conn *amqp.Connection, bookCopyID string, status string) error {
-    // Validate inputs
-    if conn == nil {
-        return fmt.Errorf("RabbitMQ connection cannot be nil")
-    }
-    if bookCopyID == "" {
-        return fmt.Errorf("bookCopyID cannot be empty")
-    }
-    if status == "" {
-        return fmt.Errorf("status cannot be empty")
-    }
+	// Validate inputs
+	if conn == nil {
+		return fmt.Errorf("RabbitMQ connection cannot be nil")
+	}
+	if bookCopyID == "" {
+		return fmt.Errorf("bookCopyID cannot be empty")
+	}
+	if status == "" {
+		return fmt.Errorf("status cannot be empty")
+	}
 
-    // Open a new channel with retry logic
-    var ch *amqp.Channel
-    var err error
-    const maxRetries = 3
-    
-    for attempt := 1; attempt <= maxRetries; attempt++ {
-        ch, err = conn.Channel()
-        if err == nil {
-            break
-        }
-        
-        if attempt == maxRetries {
-            return fmt.Errorf("failed to open channel after %d attempts: %w", maxRetries, err)
-        }
-        
-        time.Sleep(time.Duration(attempt) * time.Second)
-    }
-    defer func() {
-        if ch != nil {
-            ch.Close()
-        }
-    }()
+	// Open a new channel with retry logic
+	var ch *amqp.Channel
+	var err error
+	const maxRetries = 3
 
-    // Prepare context with timeout
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		ch, err = conn.Channel()
+		if err == nil {
+			break
+		}
 
-    // Create and marshal payload
-    updatePayload := struct {
-        ID     string `json:"id"`
-        Status string `json:"status"`
-    }{
-        ID:     bookCopyID,
-        Status: status,
-    }
+		if attempt == maxRetries {
+			return fmt.Errorf("failed to open channel after %d attempts: %w", maxRetries, err)
+		}
 
-    updateBody, err := json.Marshal(updatePayload)
-    if err != nil {
-        return fmt.Errorf("failed to marshal update payload: %w", err)
-    }
+		time.Sleep(time.Duration(attempt) * time.Second)
+	}
+	defer func() {
+		if ch != nil {
+			ch.Close()
+		}
+	}()
 
-    // Publish with confirmation
-    err = ch.Confirm(false)
-    if err != nil {
-        return fmt.Errorf("failed to put channel in confirm mode: %w", err)
-    }
+	// Prepare context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-    confirmation := make(chan amqp.Confirmation, 1)
-    ch.NotifyPublish(confirmation)
+	// Create and marshal payload
+	updatePayload := struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}{
+		ID:     bookCopyID,
+		Status: status,
+	}
 
-    err = ch.PublishWithContext(ctx,
-        "",                      // exchange
-        "book-copies-queue",    // routing key
-        false,                   // mandatory
-        false,                   // immediate
-        amqp.Publishing{
-            ContentType:  "application/json",
-            Body:         updateBody,
-            DeliveryMode: amqp.Persistent, // Ensure message survives broker restart
-            Timestamp:    time.Now(),
-        })
+	updateBody, err := json.Marshal(updatePayload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal update payload: %w", err)
+	}
 
-    if err != nil {
-        return fmt.Errorf("failed to publish message: %w", err)
-    }
+	// Publish with confirmation
+	err = ch.Confirm(false)
+	if err != nil {
+		return fmt.Errorf("failed to put channel in confirm mode: %w", err)
+	}
 
-    // Wait for confirmation or timeout
-    select {
-    case confirmed := <-confirmation:
-        if !confirmed.Ack {
-            return fmt.Errorf("failed to receive ack from broker")
-        }
-        log.Printf("Successfully published update for BookCopyID %s (status: %s)", bookCopyID, status)
-    case <-ctx.Done():
-        return fmt.Errorf("timed out waiting for publish confirmation: %w", ctx.Err())
-    }
+	confirmation := make(chan amqp.Confirmation, 1)
+	ch.NotifyPublish(confirmation)
 
-    return nil
+	err = ch.PublishWithContext(ctx,
+		"",                  // exchange
+		"book-copies-queue", // routing key
+		false,               // mandatory
+		false,               // immediate
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         updateBody,
+			DeliveryMode: amqp.Persistent, // Ensure message survives broker restart
+			Timestamp:    time.Now(),
+		})
+
+	if err != nil {
+		return fmt.Errorf("failed to publish message: %w", err)
+	}
+
+	// Wait for confirmation or timeout
+	select {
+	case confirmed := <-confirmation:
+		if !confirmed.Ack {
+			return fmt.Errorf("failed to receive ack from broker")
+		}
+		log.Printf("Successfully published update for BookCopyID %s (status: %s)", bookCopyID, status)
+	case <-ctx.Done():
+		return fmt.Errorf("timed out waiting for publish confirmation: %w", ctx.Err())
+	}
+
+	return nil
 }
 
 func failOnError(err error, msg string) {
@@ -344,14 +342,18 @@ func stringPtr(s string) *string {
 	return &s
 }
 
-// In your services package
-func GetRabbitMQConnection() (*amqp.Connection, error) {
-    conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-    if err != nil {
-        return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
-    }
-    return conn, nil
+func parseTimePtr(s *string) (*time.Time, error) {
+	if s == nil {
+		return nil, nil
+	}
+	t, err := time.Parse(time.RFC3339, *s)
+	return &t, err
 }
 
-
-
+func GetRabbitMQConnection() (*amqp.Connection, error) {
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+	}
+	return conn, nil
+}

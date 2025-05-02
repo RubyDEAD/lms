@@ -1,16 +1,16 @@
 package graph
 
-// This file will not be regenerated automatically.
-//
-// It serves as dependency injection for your app, add any dependencies you require here.
-
 import (
 	"database/sql"
+	"fine_service/graph/model"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Resolver struct {
-	DB *sql.DB
+	DB     *sql.DB
+	Rabbit *amqp.Channel
+	RabbitChannel         *amqp.Channel
+	FineCreatedSubscribers []chan *model.Fine
 }
-
 
 
