@@ -153,12 +153,10 @@ function Books() {
                 setBookCopies([]); // Clear book copies state
             } else {
                 setAvailableCopy(null); // No available copy
-                setError("No available copy for this book.");
             }
         } catch (err) {
             console.error("Error fetching available book copy:", err);
             setAvailableCopy(null); // Reset available copy state
-            setError("No available copy found or failed to fetch availability."); // Non-blocking error message
         }
     };
 
@@ -316,7 +314,12 @@ function Books() {
                         <h2>Available Copy</h2>
                         <p>Copy ID: {availableCopy.id}, Status: {availableCopy.book_status}</p>
                     </div>
-                ) : null}
+                ) : (
+                    <div className="mt-4 text-warning">
+                        <h2>Available Copy</h2>
+                        <p>No available copy for this book.</p>
+                    </div>
+                )}
             </div>
         </div>
     );
