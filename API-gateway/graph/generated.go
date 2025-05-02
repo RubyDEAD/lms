@@ -97,7 +97,7 @@ type ComplexityRoot struct {
 		AddViolation                   func(childComplexity int, patronID string, violationType model.ViolationType, violationInfo string) int
 		BorrowBook                     func(childComplexity int, bookID string, patronID string) int
 		CancelReservation              func(childComplexity int, id string) int
-		CreatePatron                   func(childComplexity int, firstName string, lastName string, phoneNumber string, email string, password string) int
+		CreatePatron                   func(childComplexity int, firstName string, lastName string, phoneNumber string) int
 		DeleteBCopy                    func(childComplexity int, id string) int
 		DeleteBook                     func(childComplexity int, id string) int
 		DeletePatronByID               func(childComplexity int, patronID string) int
@@ -109,14 +109,12 @@ type ComplexityRoot struct {
 		UpdateBookCopyStatus           func(childComplexity int, id string, bookStatus *string) int
 		UpdateMembershipByMembershipID func(childComplexity int, membershipID string, level model.MembershipLevel) int
 		UpdateMembershipByPatronID     func(childComplexity int, patronID string, level model.MembershipLevel) int
-		UpdatePassword                 func(childComplexity int, patronID string, oldPassword string, newPassword string) int
 		UpdatePatron                   func(childComplexity int, patronID string, firstName *string, lastName *string, phoneNumber *string) int
 		UpdatePatronStatus             func(childComplexity int, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) int
 		UpdateViolationStatus          func(childComplexity int, violationID string, violationStatus model.ViolationStatus) int
 	}
 
 	Patron struct {
-		Email         func(childComplexity int) int
 		FirstName     func(childComplexity int) int
 		LastName      func(childComplexity int) int
 		Membership    func(childComplexity int) int
@@ -198,9 +196,8 @@ type MutationResolver interface {
 	UpdateBookCopyStatus(ctx context.Context, id string, bookStatus *string) (*model.BookCopies, error)
 	DeleteBCopy(ctx context.Context, id string) (bool, error)
 	DeleteBook(ctx context.Context, id string) (bool, error)
-	CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string, email string, password string) (*model.Patron, error)
+	CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string) (*model.Patron, error)
 	UpdatePatron(ctx context.Context, patronID string, firstName *string, lastName *string, phoneNumber *string) (*model.Patron, error)
-	UpdatePassword(ctx context.Context, patronID string, oldPassword string, newPassword string) (*bool, error)
 	DeletePatronByID(ctx context.Context, patronID string) (*model.Patron, error)
 	UpdateMembershipByPatronID(ctx context.Context, patronID string, level model.MembershipLevel) (*model.Membership, error)
 	UpdateMembershipByMembershipID(ctx context.Context, membershipID string, level model.MembershipLevel) (*model.Membership, error)
@@ -524,7 +521,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreatePatron(childComplexity, args["first_name"].(string), args["last_name"].(string), args["phone_number"].(string), args["email"].(string), args["password"].(string)), true
+		return e.complexity.Mutation.CreatePatron(childComplexity, args["first_name"].(string), args["last_name"].(string), args["phone_number"].(string)), true
 
 	case "Mutation.deleteBCopy":
 		if e.complexity.Mutation.DeleteBCopy == nil {
@@ -658,18 +655,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.UpdateMembershipByPatronID(childComplexity, args["patron_id"].(string), args["level"].(model.MembershipLevel)), true
 
-	case "Mutation.updatePassword":
-		if e.complexity.Mutation.UpdatePassword == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_updatePassword_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.UpdatePassword(childComplexity, args["patron_id"].(string), args["oldPassword"].(string), args["newPassword"].(string)), true
-
 	case "Mutation.updatePatron":
 		if e.complexity.Mutation.UpdatePatron == nil {
 			break
@@ -705,13 +690,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.UpdateViolationStatus(childComplexity, args["violation_id"].(string), args["violation_status"].(model.ViolationStatus)), true
-
-	case "Patron.email":
-		if e.complexity.Patron.Email == nil {
-			break
-		}
-
-		return e.complexity.Patron.Email(childComplexity), true
 
 	case "Patron.first_name":
 		if e.complexity.Patron.FirstName == nil {
@@ -1560,16 +1538,6 @@ func (ec *executionContext) field_Mutation_createPatron_args(ctx context.Context
 		return nil, err
 	}
 	args["phone_number"] = arg2
-	arg3, err := ec.field_Mutation_createPatron_argsEmail(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["email"] = arg3
-	arg4, err := ec.field_Mutation_createPatron_argsPassword(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["password"] = arg4
 	return args, nil
 }
 func (ec *executionContext) field_Mutation_createPatron_argsFirstName(
@@ -1604,32 +1572,6 @@ func (ec *executionContext) field_Mutation_createPatron_argsPhoneNumber(
 ) (string, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("phone_number"))
 	if tmp, ok := rawArgs["phone_number"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_createPatron_argsEmail(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("email"))
-	if tmp, ok := rawArgs["email"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_createPatron_argsPassword(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("password"))
-	if tmp, ok := rawArgs["password"]; ok {
 		return ec.unmarshalNString2string(ctx, tmp)
 	}
 
@@ -2031,65 +1973,6 @@ func (ec *executionContext) field_Mutation_updateMembershipByPatronId_argsLevel(
 	}
 
 	var zeroVal model.MembershipLevel
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updatePassword_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_updatePassword_argsPatronID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patron_id"] = arg0
-	arg1, err := ec.field_Mutation_updatePassword_argsOldPassword(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["oldPassword"] = arg1
-	arg2, err := ec.field_Mutation_updatePassword_argsNewPassword(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["newPassword"] = arg2
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_updatePassword_argsPatronID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
-	if tmp, ok := rawArgs["patron_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updatePassword_argsOldPassword(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("oldPassword"))
-	if tmp, ok := rawArgs["oldPassword"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updatePassword_argsNewPassword(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("newPassword"))
-	if tmp, ok := rawArgs["newPassword"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
 	return zeroVal, nil
 }
 
@@ -4538,7 +4421,7 @@ func (ec *executionContext) _Mutation_createPatron(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreatePatron(rctx, fc.Args["first_name"].(string), fc.Args["last_name"].(string), fc.Args["phone_number"].(string), fc.Args["email"].(string), fc.Args["password"].(string))
+		return ec.resolvers.Mutation().CreatePatron(rctx, fc.Args["first_name"].(string), fc.Args["last_name"].(string), fc.Args["phone_number"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4568,8 +4451,6 @@ func (ec *executionContext) fieldContext_Mutation_createPatron(ctx context.Conte
 				return ec.fieldContext_Patron_last_name(ctx, field)
 			case "phone_number":
 				return ec.fieldContext_Patron_phone_number(ctx, field)
-			case "email":
-				return ec.fieldContext_Patron_email(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
 			case "membership":
@@ -4640,8 +4521,6 @@ func (ec *executionContext) fieldContext_Mutation_updatePatron(ctx context.Conte
 				return ec.fieldContext_Patron_last_name(ctx, field)
 			case "phone_number":
 				return ec.fieldContext_Patron_phone_number(ctx, field)
-			case "email":
-				return ec.fieldContext_Patron_email(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
 			case "membership":
@@ -4662,58 +4541,6 @@ func (ec *executionContext) fieldContext_Mutation_updatePatron(ctx context.Conte
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_updatePatron_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_updatePassword(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_updatePassword(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdatePassword(rctx, fc.Args["patron_id"].(string), fc.Args["oldPassword"].(string), fc.Args["newPassword"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*bool)
-	fc.Result = res
-	return ec.marshalOBoolean2ᚖbool(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_updatePassword(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Boolean does not have child fields")
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_updatePassword_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -4764,8 +4591,6 @@ func (ec *executionContext) fieldContext_Mutation_deletePatronById(ctx context.C
 				return ec.fieldContext_Patron_last_name(ctx, field)
 			case "phone_number":
 				return ec.fieldContext_Patron_phone_number(ctx, field)
-			case "email":
-				return ec.fieldContext_Patron_email(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
 			case "membership":
@@ -5684,50 +5509,6 @@ func (ec *executionContext) fieldContext_Patron_phone_number(_ context.Context, 
 	return fc, nil
 }
 
-func (ec *executionContext) _Patron_email(ctx context.Context, field graphql.CollectedField, obj *model.Patron) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Patron_email(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Email, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Patron_email(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Patron",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Patron_patron_created(ctx context.Context, field graphql.CollectedField, obj *model.Patron) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Patron_patron_created(ctx, field)
 	if err != nil {
@@ -6476,8 +6257,6 @@ func (ec *executionContext) fieldContext_Query_getPatronById(ctx context.Context
 				return ec.fieldContext_Patron_last_name(ctx, field)
 			case "phone_number":
 				return ec.fieldContext_Patron_phone_number(ctx, field)
-			case "email":
-				return ec.fieldContext_Patron_email(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
 			case "membership":
@@ -6548,8 +6327,6 @@ func (ec *executionContext) fieldContext_Query_getAllPatrons(_ context.Context, 
 				return ec.fieldContext_Patron_last_name(ctx, field)
 			case "phone_number":
 				return ec.fieldContext_Patron_phone_number(ctx, field)
-			case "email":
-				return ec.fieldContext_Patron_email(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
 			case "membership":
@@ -8181,8 +7958,6 @@ func (ec *executionContext) fieldContext_Subscription_patronCreated(_ context.Co
 				return ec.fieldContext_Patron_last_name(ctx, field)
 			case "phone_number":
 				return ec.fieldContext_Patron_phone_number(ctx, field)
-			case "email":
-				return ec.fieldContext_Patron_email(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
 			case "membership":
@@ -11033,10 +10808,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updatePatron(ctx, field)
 			})
-		case "updatePassword":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_updatePassword(ctx, field)
-			})
 		case "deletePatronById":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deletePatronById(ctx, field)
@@ -11154,11 +10925,6 @@ func (ec *executionContext) _Patron(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "phone_number":
 			out.Values[i] = ec._Patron_phone_number(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "email":
-			out.Values[i] = ec._Patron_email(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
