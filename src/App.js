@@ -9,7 +9,7 @@ import AddBook from './components/AddBook';
 import Profile from './components/profile';
 import Topbar from './components/topbar';
 import SignUpPage from './pages/signup_page';
-
+import LoginPage from './pages/login_page';
 function App() {
   const location = useLocation();
   const noDesignRoutes = ['/sign-in'];
@@ -24,7 +24,8 @@ function App() {
         {!noDesignRoutes.includes(location.pathname) ? (
           <div style={{ marginLeft: '250px', padding: '20px', flex: 1 }}>
             <Routes>
-              <Route path="/" element={<SignUpPage />} />
+              <Route path="/" element={<LoginPage/>} />
+              <Route path="/signup" element={<SignUpPage />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/books" element={<Books />} />
               <Route path="/borrowed-books" element={<BorrowedBooks />} />
@@ -34,7 +35,6 @@ function App() {
           </div>
         ) : (
           <Routes>
-              <Route path="/" element={<SignUpPage />} />
           </Routes>
         )}
       </div>
