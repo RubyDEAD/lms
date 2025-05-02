@@ -6,101 +6,191 @@ package graph
 
 import (
 	"context"
-	"database/sql"
 	"fine_service/graph/model"
+    "github.com/google/uuid"
+    amqp "github.com/rabbitmq/amqp091-go"
 	"fmt"
+	"log"
+	"time"
 )
 
-// CreateFine is the resolver for the createFine field.
-func (r *mutationResolver) CreateFine(ctx context.Context, daysLate int32, ratePerDay float64) (*model.Fine, error) {
-	amount := float64(daysLate) * ratePerDay
+func (r *mutationResolver) CreateFine(ctx context.Context, patronID string, bookID string, ratePerDay float64) (*model.Fine, error) {
+	// 1. Generate fine details
+	fineID := uuid.NewString()
+	createdAt := time.Now()
+	daysLate := 5 // Replace with actual logic if needed
+	amount := ratePerDay * float64(daysLate)
 
-	query := `
-		INSERT INTO fines (daysLate, ratePerDay, amount)
-		VALUES ($1, $2, $3)
-		RETURNING id, daysLate, ratePerDay, amount
-	`
-	row := r.DB.QueryRowContext(ctx, query, daysLate, ratePerDay, amount)
-
-	var fine model.Fine
-	err := row.Scan(&fine.ID, &fine.DaysLate, &fine.RatePerDay, &fine.Amount)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create fine: %w", err)
+	// 2. Create the fine object
+	fine := &model.Fine{
+		FineID:     fineID,
+		PatronID:   patronID,
+		BookID:     bookID,
+		DaysLate:   int32(daysLate),
+		RatePerDay: ratePerDay,
+		Amount:     amount,
+		CreatedAt:  createdAt.Format(time.RFC3339),
 	}
 
-	return &fine, nil
+	// 3. Send message to RabbitMQ (if available)
+	if r.Resolver.Rabbit != nil {
+		message := fmt.Sprintf(`{
+			"fine_id": "%s",
+			"patron_id": "%s",
+			"book_id": "%s",
+			"amount": %.2f,
+			"created_at": "%s"
+		}`, fine.FineID, fine.PatronID, fine.BookID, fine.Amount, fine.CreatedAt)
+
+		err := r.Resolver.Rabbit.Publish(
+			"", // default exchange
+			"fine_created_queue", // queue name as routing key
+			false,
+			false,
+			amqp.Publishing{
+				ContentType: "application/json",
+				Body:        []byte(message),
+			},
+		)
+		if err != nil {
+			log.Printf("🐇 Failed to publish to RabbitMQ: %v", err)
+			// Optionally: return error or log only
+		}
+	}
+
+	// 4. Return the created fine
+	return fine, nil
 }
 
-// UpdateFine is the resolver for the updateFine field.
-func (r *mutationResolver) UpdateFine(ctx context.Context, id string, daysLate int32, ratePerDay float64) (*model.Fine, error) {
+
+// UpdateFine Resolver
+func (r *mutationResolver) UpdateFine(ctx context.Context, fineID string, daysLate int32, ratePerDay float64) (*model.Fine, error) {
+	// Fix: casting daysLate to float64 for multiplication
 	amount := float64(daysLate) * ratePerDay
 
 	query := `
 		UPDATE fines
-		SET daysLate = $2,
-		    ratePerDay = $3,
-		    amount = $4
-		WHERE id = $1
-		RETURNING id, daysLate, ratePerDay, amount
+		SET days_late = $1, rate_per_day = $2, amount = $3
+		WHERE fine_id = $4
+		RETURNING patron_id, book_id, created_at
 	`
-
-	row := r.DB.QueryRowContext(ctx, query, id, daysLate, ratePerDay, amount)
-
-	var fine model.Fine
-	err := row.Scan(&fine.ID, &fine.DaysLate, &fine.RatePerDay, &fine.Amount)
+	var patronID, bookID string
+	var createdAt time.Time
+	err := r.DB.QueryRowContext(ctx, query, daysLate, ratePerDay, amount, fineID).
+		Scan(&patronID, &bookID, &createdAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update fine: %w", err)
 	}
 
-	return &fine, nil
+	// Fix: casting daysLate to int32 in the struct
+	return &model.Fine{
+		FineID:     fineID,
+		PatronID:   patronID,
+		BookID:     bookID,
+		DaysLate:   daysLate,
+		RatePerDay: ratePerDay,
+		Amount:     amount,
+		CreatedAt:  createdAt.Format(time.RFC3339),
+	}, nil
 }
 
 // DeleteFine is the resolver for the deleteFine field.
-func (r *mutationResolver) DeleteFine(ctx context.Context, id string) (bool, error) {
-	result, err := r.DB.ExecContext(ctx, `DELETE FROM fines WHERE id = $1`, id)
+func (r *mutationResolver) DeleteFine(ctx context.Context, fineID string) (bool, error) {
+	query := `
+		DELETE FROM fines
+		WHERE fine_id = $1
+	`
+	_, err := r.DB.ExecContext(ctx, query, fineID)
 	if err != nil {
 		return false, fmt.Errorf("failed to delete fine: %w", err)
 	}
 
-	rowsAffected, _ := result.RowsAffected()
-	return rowsAffected > 0, nil
+	return true, nil
 }
 
-// GetFine is the resolver for the getFine field.
-func (r *queryResolver) GetFine(ctx context.Context, id string) (*model.Fine, error) {
-	query := `SELECT id, daysLate, ratePerDay, amount FROM fines WHERE id = $1`
-	row := r.DB.QueryRowContext(ctx, query, id)
-
+// Query Resolver
+func (r *queryResolver) GetFine(ctx context.Context, fineID string) (*model.Fine, error) {
 	var fine model.Fine
-	err := row.Scan(&fine.ID, &fine.DaysLate, &fine.RatePerDay, &fine.Amount)
+
+	query := `
+		SELECT fine_id, patron_id, book_id, days_late, rate_per_day, amount, created_at
+		FROM fines
+		WHERE fine_id = $1
+	`
+	row := r.DB.QueryRowContext(ctx, query, fineID)
+	var createdAt time.Time
+	err := row.Scan(
+		&fine.FineID,
+		&fine.PatronID,
+		&fine.BookID,
+		&fine.DaysLate,
+		&fine.RatePerDay,
+		&fine.Amount,
+		&createdAt,
+	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("fine not found")
-		}
-		return nil, fmt.Errorf("failed to retrieve fine: %w", err)
+		return nil, fmt.Errorf("failed to fetch fine: %w", err)
 	}
+
+	fine.CreatedAt = createdAt.Format(time.RFC3339)
 
 	return &fine, nil
 }
 
 // ListFines is the resolver for the listFines field.
 func (r *queryResolver) ListFines(ctx context.Context) ([]*model.Fine, error) {
-	rows, err := r.DB.QueryContext(ctx, `SELECT id, daysLate, ratePerDay, amount FROM fines`)
+	query := `
+		SELECT fine_id, patron_id, book_id, days_late, rate_per_day, amount, created_at
+		FROM fines
+	`
+	rows, err := r.DB.QueryContext(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query fines: %w", err)
+		return nil, fmt.Errorf("failed to list fines: %w", err)
 	}
 	defer rows.Close()
 
 	var fines []*model.Fine
+
 	for rows.Next() {
 		var fine model.Fine
-		if err := rows.Scan(&fine.ID, &fine.DaysLate, &fine.RatePerDay, &fine.Amount); err != nil {
+		var createdAt time.Time
+		err := rows.Scan(
+			&fine.FineID,
+			&fine.PatronID,
+			&fine.BookID,
+			&fine.DaysLate,
+			&fine.RatePerDay,
+			&fine.Amount,
+			&createdAt,
+		)
+		if err != nil {
 			return nil, err
 		}
+		fine.CreatedAt = createdAt.Format(time.RFC3339)
 		fines = append(fines, &fine)
 	}
 
 	return fines, nil
+}
+
+// FineCreated is the resolver for the fineCreated field.
+func (r *subscriptionResolver) FineCreated(ctx context.Context) (<-chan *model.Fine, error) {
+	ch := make(chan *model.Fine, 1)
+
+	r.FineCreatedSubscribers = append(r.FineCreatedSubscribers, ch)
+
+	go func() {
+		<-ctx.Done() // When the client disconnects
+		// Remove the channel from subscribers
+		for i, subscriber := range r.FineCreatedSubscribers {
+			if subscriber == ch {
+				r.FineCreatedSubscribers = append(r.FineCreatedSubscribers[:i], r.FineCreatedSubscribers[i+1:]...)
+				break
+			}
+		}
+	}()
+
+	return ch, nil
 }
 
 // Mutation returns MutationResolver implementation.
@@ -109,5 +199,9 @@ func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+// Subscription returns SubscriptionResolver implementation.
+func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
+
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }

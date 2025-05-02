@@ -99,6 +99,8 @@ function Books() {
                 `,
             });
             setBookDetails(response.data.data.getBookById);
+            setAvailableCopy(null); // Clear availability state
+            setBookCopies([]); // Clear book copies state
         } catch (err) {
             console.error("Error fetching book by ID:", err);
             setError("Failed to fetch book details. Please try again later.");
@@ -120,32 +122,11 @@ function Books() {
                 `,
             });
             setBookCopies(response.data.data.getBookCopiesById);
+            setBookDetails(null); // Clear book details state
+            setAvailableCopy(null); // Clear availability state
         } catch (err) {
             console.error("Error fetching book copies:", err);
             setError("Failed to fetch book copies. Please try again later.");
-        }
-    };
-
-    // Search books by query
-    const searchBooks = async (query) => {
-        try {
-            const response = await axios.post(API_URL, {
-                query: `
-                    query {
-                        searchBooks(query: "${query}") {
-                            id
-                            title
-                            author_name
-                            date_published
-                            description
-                        }
-                    }
-                `,
-            });
-            setSearchResults(response.data.data.searchBooks);
-        } catch (err) {
-            console.error("Error searching books:", err);
-            setError("Failed to search books. Please try again later.");
         }
     };
 
@@ -168,14 +149,14 @@ function Books() {
 
             if (availableCopy) {
                 setAvailableCopy(availableCopy);
+                setBookDetails(null); // Clear book details state
+                setBookCopies([]); // Clear book copies state
             } else {
                 setAvailableCopy(null); // No available copy
-                setError("No available copy for this book.");
             }
         } catch (err) {
             console.error("Error fetching available book copy:", err);
             setAvailableCopy(null); // Reset available copy state
-            setError("No available copy found or failed to fetch availability."); // Non-blocking error message
         }
     };
 
@@ -301,6 +282,44 @@ function Books() {
                         </div>
                     ))}
                 </div>
+
+                {/* Book Details */}
+                {bookDetails && (
+                    <div className="mt-4">
+                        <h2>Book Details</h2>
+                        <p><strong>Title:</strong> {bookDetails.title}</p>
+                        <p><strong>Author:</strong> {bookDetails.author_name}</p>
+                        <p><strong>Published:</strong> {bookDetails.date_published}</p>
+                        <p><strong>Description:</strong> {bookDetails.description}</p>
+                    </div>
+                )}
+
+                {/* Book Copies */}
+                {bookCopies.length > 0 && (
+                    <div className="mt-4">
+                        <h2>Book Copies</h2>
+                        <ul>
+                            {bookCopies.map((copy) => (
+                                <li key={copy.id}>
+                                    Copy ID: {copy.id}, Status: {copy.book_status}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {/* Available Copy */}
+                {availableCopy ? (
+                    <div className="mt-4">
+                        <h2>Available Copy</h2>
+                        <p>Copy ID: {availableCopy.id}, Status: {availableCopy.book_status}</p>
+                    </div>
+                ) : (
+                    <div className="mt-4 text-warning">
+                        <h2>Available Copy</h2>
+                        <p>No available copy for this book.</p>
+                    </div>
+                )}
             </div>
         </div>
     );
