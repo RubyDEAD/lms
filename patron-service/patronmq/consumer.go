@@ -165,8 +165,10 @@ func resolversConnect(ch *amqp.Channel, data GraphQLMessage, msg amqp.Delivery, 
 		firstName, _ := data.Variables["firstName"].(string)
 		lastName, _ := data.Variables["lastName"].(string)
 		phoneNumber, _ := data.Variables["phoneNumber"].(string)
+		email, _ := data.Variables["email"].(string)
+		password, _ := data.Variables["password"].(string)
 
-		patron, ResolverErr := resolver.Mutation().CreatePatron(ctx, firstName, lastName, phoneNumber)
+		patron, ResolverErr := resolver.Mutation().CreatePatron(ctx, firstName, lastName, phoneNumber, email, password)
 
 		if ResolverErr != nil {
 			log.Printf("Create Patron Resolver err: %v", ResolverErr)

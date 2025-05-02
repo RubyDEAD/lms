@@ -55,7 +55,7 @@ type Mutation {
   deleteBCopy(id:ID!):Boolean!
   deleteBook(id:ID!):Boolean!
   
-  createPatron(first_name: String!, last_name: String!, phone_number: String!): Patron
+  createPatron(first_name: String!, last_name: String!, phone_number: String! email: String!, password: String!): Patron
   updatePatron(patron_id: ID!, first_name: String, last_name: String, phone_number: String): Patron
   deletePatronById(patron_id: ID!): Patron
 

@@ -224,11 +224,13 @@ func (r *mutationResolver) DeleteBook(ctx context.Context, id string) (bool, err
 }
 
 // CreatePatron is the resolver for the createPatron field.
-func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string) (*model.Patron, error) {
+func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string, email string, password string) (*model.Patron, error) {
 	variables := map[string]interface{}{
 		"firstName":   firstName,
 		"lastName":    lastName,
 		"phoneNumber": phoneNumber,
+		"email":       email,
+		"password":    password,
 	}
 
 	//resp, err := forwardRequest(ctx, query, variables, patronServiceURL)

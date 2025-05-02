@@ -12,11 +12,12 @@ import (
 	"log"
 	"strings"
 
+	auth "github.com/GSalise/lms/patron-service/auth"
 	"github.com/GSalise/lms/patron-service/graph/model"
 )
 
 // CreatePatron is the resolver for the createPatron field.
-func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string) (*model.Patron, error) {
+func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string, email string, password string) (*model.Patron, error) {
 	var patron model.Patron
 	var membership model.Membership
 	var patron_status model.PatronStatus
@@ -29,11 +30,16 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 
 	defer tx.Rollback(ctx)
 
+	patron_id, PatronIDerr := auth.CreateSupabaseAuthUser(email, password)
+	if PatronIDerr != nil {
+		log.Printf("Failed to create an authenticated user: %v", PatronIDerr)
+	}
+
 	PatronErr := tx.QueryRow(ctx, `
-		INSERT INTO patrons (first_name, last_name, phone_number)
-		VALUES ($1,$2,$3)
+		INSERT INTO patrons (patron_id, first_name, last_name, phone_number)
+		VALUES ($1,$2,$3,$4)
 		RETURNING patron_id, first_name, last_name, phone_number, patron_created::text
-	`, firstName, lastName, phoneNumber).Scan(
+	`, patron_id, firstName, lastName, phoneNumber).Scan(
 		&patron.PatronID,
 		&patron.FirstName,
 		&patron.LastName,

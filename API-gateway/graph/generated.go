@@ -97,7 +97,7 @@ type ComplexityRoot struct {
 		AddViolation                   func(childComplexity int, patronID string, violationType model.ViolationType, violationInfo string) int
 		BorrowBook                     func(childComplexity int, bookID string, patronID string) int
 		CancelReservation              func(childComplexity int, id string) int
-		CreatePatron                   func(childComplexity int, firstName string, lastName string, phoneNumber string) int
+		CreatePatron                   func(childComplexity int, firstName string, lastName string, phoneNumber string, email string, password string) int
 		DeleteBCopy                    func(childComplexity int, id string) int
 		DeleteBook                     func(childComplexity int, id string) int
 		DeletePatronByID               func(childComplexity int, patronID string) int
@@ -196,7 +196,7 @@ type MutationResolver interface {
 	UpdateBookCopyStatus(ctx context.Context, id string, bookStatus *string) (*model.BookCopies, error)
 	DeleteBCopy(ctx context.Context, id string) (bool, error)
 	DeleteBook(ctx context.Context, id string) (bool, error)
-	CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string) (*model.Patron, error)
+	CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string, email string, password string) (*model.Patron, error)
 	UpdatePatron(ctx context.Context, patronID string, firstName *string, lastName *string, phoneNumber *string) (*model.Patron, error)
 	DeletePatronByID(ctx context.Context, patronID string) (*model.Patron, error)
 	UpdateMembershipByPatronID(ctx context.Context, patronID string, level model.MembershipLevel) (*model.Membership, error)
@@ -521,7 +521,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreatePatron(childComplexity, args["first_name"].(string), args["last_name"].(string), args["phone_number"].(string)), true
+		return e.complexity.Mutation.CreatePatron(childComplexity, args["first_name"].(string), args["last_name"].(string), args["phone_number"].(string), args["email"].(string), args["password"].(string)), true
 
 	case "Mutation.deleteBCopy":
 		if e.complexity.Mutation.DeleteBCopy == nil {
@@ -1538,6 +1538,16 @@ func (ec *executionContext) field_Mutation_createPatron_args(ctx context.Context
 		return nil, err
 	}
 	args["phone_number"] = arg2
+	arg3, err := ec.field_Mutation_createPatron_argsEmail(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["email"] = arg3
+	arg4, err := ec.field_Mutation_createPatron_argsPassword(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["password"] = arg4
 	return args, nil
 }
 func (ec *executionContext) field_Mutation_createPatron_argsFirstName(
@@ -1572,6 +1582,32 @@ func (ec *executionContext) field_Mutation_createPatron_argsPhoneNumber(
 ) (string, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("phone_number"))
 	if tmp, ok := rawArgs["phone_number"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_createPatron_argsEmail(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("email"))
+	if tmp, ok := rawArgs["email"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_createPatron_argsPassword(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("password"))
+	if tmp, ok := rawArgs["password"]; ok {
 		return ec.unmarshalNString2string(ctx, tmp)
 	}
 
@@ -4421,7 +4457,7 @@ func (ec *executionContext) _Mutation_createPatron(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreatePatron(rctx, fc.Args["first_name"].(string), fc.Args["last_name"].(string), fc.Args["phone_number"].(string))
+		return ec.resolvers.Mutation().CreatePatron(rctx, fc.Args["first_name"].(string), fc.Args["last_name"].(string), fc.Args["phone_number"].(string), fc.Args["email"].(string), fc.Args["password"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)

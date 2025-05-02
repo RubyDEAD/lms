@@ -57,11 +57,12 @@ function SignUpPage() {
           first_name: "${inputs.first_name}"
           last_name: "${inputs.last_name}"
           phone_number: "${inputs.phoneNumber}"
+          email: "${inputs.email}"
+          password: "${inputs.password}"
         ) {
           first_name
           last_name
           phone_number
-          email
         }
       }
     `
