@@ -18,14 +18,13 @@ type Mutation struct {
 }
 
 type Patron struct {
-	PatronID      string             `json:"patron_id"`
-	FirstName     string             `json:"first_name"`
-	LastName      string             `json:"last_name"`
-	PhoneNumber   string             `json:"phone_number"`
-	PatronCreated string             `json:"patron_created"`
-	Membership    *Membership        `json:"membership,omitempty"`
-	Status        *PatronStatus      `json:"status,omitempty"`
-	Violations    []*ViolationRecord `json:"violations,omitempty"`
+	PatronID      string        `json:"patron_id"`
+	FirstName     string        `json:"first_name"`
+	LastName      string        `json:"last_name"`
+	PhoneNumber   string        `json:"phone_number"`
+	PatronCreated string        `json:"patron_created"`
+	Membership    *Membership   `json:"membership,omitempty"`
+	Status        *PatronStatus `json:"status,omitempty"`
 }
 
 type PatronStatus struct {
@@ -39,15 +38,6 @@ type Query struct {
 }
 
 type Subscription struct {
-}
-
-type ViolationRecord struct {
-	ViolationRecordID string          `json:"violation_record_id"`
-	PatronID          string          `json:"patron_id"`
-	ViolationType     ViolationType   `json:"violation_type"`
-	ViolationInfo     string          `json:"violation_info"`
-	ViolationCreated  string          `json:"violation_created"`
-	ViolationStatus   ViolationStatus `json:"violation_status"`
 }
 
 type MembershipLevel string
@@ -135,89 +125,5 @@ func (e *Status) UnmarshalGQL(v any) error {
 }
 
 func (e Status) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-type ViolationStatus string
-
-const (
-	ViolationStatusOngoing  ViolationStatus = "Ongoing"
-	ViolationStatusResolved ViolationStatus = "Resolved"
-)
-
-var AllViolationStatus = []ViolationStatus{
-	ViolationStatusOngoing,
-	ViolationStatusResolved,
-}
-
-func (e ViolationStatus) IsValid() bool {
-	switch e {
-	case ViolationStatusOngoing, ViolationStatusResolved:
-		return true
-	}
-	return false
-}
-
-func (e ViolationStatus) String() string {
-	return string(e)
-}
-
-func (e *ViolationStatus) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = ViolationStatus(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid ViolationStatus", str)
-	}
-	return nil
-}
-
-func (e ViolationStatus) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-type ViolationType string
-
-const (
-	ViolationTypeLateReturn  ViolationType = "Late_Return"
-	ViolationTypeUnpaidFees  ViolationType = "Unpaid_Fees"
-	ViolationTypeDamagedBook ViolationType = "Damaged_Book"
-)
-
-var AllViolationType = []ViolationType{
-	ViolationTypeLateReturn,
-	ViolationTypeUnpaidFees,
-	ViolationTypeDamagedBook,
-}
-
-func (e ViolationType) IsValid() bool {
-	switch e {
-	case ViolationTypeLateReturn, ViolationTypeUnpaidFees, ViolationTypeDamagedBook:
-		return true
-	}
-	return false
-}
-
-func (e ViolationType) String() string {
-	return string(e)
-}
-
-func (e *ViolationType) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = ViolationType(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid ViolationType", str)
-	}
-	return nil
-}
-
-func (e ViolationType) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }

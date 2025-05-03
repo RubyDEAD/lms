@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/Cat6utpcableclarke/API-gateway/graph/model"
@@ -380,57 +379,6 @@ func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID stri
 	}
 
 	return result.Data.UpdatePatronStatus, nil
-}
-
-// AddViolation is the resolver for the addViolation field.
-func (r *mutationResolver) AddViolation(ctx context.Context, patronID string, violationType model.ViolationType, violationInfo string) (*model.ViolationRecord, error) {
-	variables := map[string]interface{}{
-		"patron_id":      patronID,
-		"violation_type": violationType,
-		"violation_info": violationInfo,
-	}
-
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "addViolation")
-	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
-	}
-
-	var result struct {
-		Data struct {
-			AddViolation *model.ViolationRecord `json:"addViolation"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
-	}
-
-	return result.Data.AddViolation, nil
-}
-
-// UpdateViolationStatus is the resolver for the updateViolationStatus field.
-func (r *mutationResolver) UpdateViolationStatus(ctx context.Context, violationID string, violationStatus model.ViolationStatus) (*model.ViolationRecord, error) {
-	variables := map[string]interface{}{
-		"violation_id":   violationID,
-		"violation_type": violationStatus,
-	}
-
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "updateViolationStatus")
-	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
-	}
-
-	var result struct {
-		Data struct {
-			UpdateViolationStatus *model.ViolationRecord `json:"updateViolationStatus"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
-	}
-
-	return result.Data.UpdateViolationStatus, nil
 }
 
 // BorrowBook is the resolver for the borrowBook field.
@@ -963,54 +911,6 @@ func (r *queryResolver) GetMembershipByPatronID(ctx context.Context, patronID st
 	return result.Data.GetMembershipByPatronID, nil
 }
 
-// GetViolationByPatronID is the resolver for the getViolationByPatronId field.
-func (r *queryResolver) GetViolationByPatronID(ctx context.Context, patronID string) ([]*model.ViolationRecord, error) {
-	variables := map[string]interface{}{
-		"patron_id": patronID,
-	}
-
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "getViolationByPatronId")
-	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
-	}
-
-	var result struct {
-		Data struct {
-			GetViolationByPatronID []*model.ViolationRecord `json:"getViolationByPatronId"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
-	}
-
-	return result.Data.GetViolationByPatronID, nil
-}
-
-// GetViolationByType is the resolver for the getViolationByType field.
-func (r *queryResolver) GetViolationByType(ctx context.Context, violationType model.ViolationType) ([]*model.ViolationRecord, error) {
-	variables := map[string]interface{}{
-		"violation_type": violationType,
-	}
-
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "getViolationByType")
-	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
-	}
-
-	var result struct {
-		Data struct {
-			GetViolationByType []*model.ViolationRecord `json:"getViolationByType"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
-	}
-
-	return result.Data.GetViolationByType, nil
-}
-
 // GetPatronStatusByType is the resolver for the getPatronStatusByType field.
 func (r *queryResolver) GetPatronStatusByType(ctx context.Context, patronStatus model.Status) ([]*model.PatronStatus, error) {
 	variables := map[string]interface{}{
@@ -1330,7 +1230,127 @@ func (r *subscriptionResolver) PatronCreated(ctx context.Context) (<-chan *model
 	return patronChan, nil
 }
 
-// OngoingViolations is the resolver for the ongoingViolations field.
+// ReservationCreated is the resolver for the reservationCreated field.
+func (r *subscriptionResolver) ReservationCreated(ctx context.Context) (<-chan *model.Reservation, error) {
+	panic(fmt.Errorf("not implemented: ReservationCreated - reservationCreated"))
+}
+
+// BorrowRecordUpdated is the resolver for the borrowRecordUpdated field.
+func (r *subscriptionResolver) BorrowRecordUpdated(ctx context.Context) (<-chan *model.BorrowRecord, error) {
+	panic(fmt.Errorf("not implemented: BorrowRecordUpdated - borrowRecordUpdated"))
+}
+
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
+
+// Query returns QueryResolver implementation.
+func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
+
+// Subscription returns SubscriptionResolver implementation.
+func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
+
+type mutationResolver struct{ *Resolver }
+type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *mutationResolver) AddViolation(ctx context.Context, patronID string, violationType model.ViolationType, violationInfo string) (*model.ViolationRecord, error) {
+	variables := map[string]interface{}{
+		"patron_id":      patronID,
+		"violation_type": violationType,
+		"violation_info": violationInfo,
+	}
+
+	resp, err := forwardRequestMQ(patronServiceQueue, variables, "addViolation")
+	if err != nil {
+		return nil, fmt.Errorf("failed to forward request: %v", err)
+	}
+
+	var result struct {
+		Data struct {
+			AddViolation *model.ViolationRecord `json:"addViolation"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
+	}
+
+	return result.Data.AddViolation, nil
+}
+func (r *mutationResolver) UpdateViolationStatus(ctx context.Context, violationID string, violationStatus model.ViolationStatus) (*model.ViolationRecord, error) {
+	variables := map[string]interface{}{
+		"violation_id":   violationID,
+		"violation_type": violationStatus,
+	}
+
+	resp, err := forwardRequestMQ(patronServiceQueue, variables, "updateViolationStatus")
+	if err != nil {
+		return nil, fmt.Errorf("failed to forward request: %v", err)
+	}
+
+	var result struct {
+		Data struct {
+			UpdateViolationStatus *model.ViolationRecord `json:"updateViolationStatus"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
+	}
+
+	return result.Data.UpdateViolationStatus, nil
+}
+func (r *queryResolver) GetViolationByPatronID(ctx context.Context, patronID string) ([]*model.ViolationRecord, error) {
+	variables := map[string]interface{}{
+		"patron_id": patronID,
+	}
+
+	resp, err := forwardRequestMQ(patronServiceQueue, variables, "getViolationByPatronId")
+	if err != nil {
+		return nil, fmt.Errorf("failed to forward request: %v", err)
+	}
+
+	var result struct {
+		Data struct {
+			GetViolationByPatronID []*model.ViolationRecord `json:"getViolationByPatronId"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
+	}
+
+	return result.Data.GetViolationByPatronID, nil
+}
+func (r *queryResolver) GetViolationByType(ctx context.Context, violationType model.ViolationType) ([]*model.ViolationRecord, error) {
+	variables := map[string]interface{}{
+		"violation_type": violationType,
+	}
+
+	resp, err := forwardRequestMQ(patronServiceQueue, variables, "getViolationByType")
+	if err != nil {
+		return nil, fmt.Errorf("failed to forward request: %v", err)
+	}
+
+	var result struct {
+		Data struct {
+			GetViolationByType []*model.ViolationRecord `json:"getViolationByType"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
+	}
+
+	return result.Data.GetViolationByType, nil
+}
 func (r *subscriptionResolver) OngoingViolations(ctx context.Context) (<-chan *model.ViolationRecord, error) {
 	violationsChan := make(chan *model.ViolationRecord)
 
@@ -1403,26 +1423,4 @@ func (r *subscriptionResolver) OngoingViolations(ctx context.Context) (<-chan *m
 
 	return violationsChan, nil
 }
-
-// ReservationCreated is the resolver for the reservationCreated field.
-func (r *subscriptionResolver) ReservationCreated(ctx context.Context) (<-chan *model.Reservation, error) {
-	panic(fmt.Errorf("not implemented: ReservationCreated - reservationCreated"))
-}
-
-// BorrowRecordUpdated is the resolver for the borrowRecordUpdated field.
-func (r *subscriptionResolver) BorrowRecordUpdated(ctx context.Context) (<-chan *model.BorrowRecord, error) {
-	panic(fmt.Errorf("not implemented: BorrowRecordUpdated - borrowRecordUpdated"))
-}
-
-// Mutation returns MutationResolver implementation.
-func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
-
-// Query returns QueryResolver implementation.
-func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
-
-// Subscription returns SubscriptionResolver implementation.
-func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
-
-type mutationResolver struct{ *Resolver }
-type queryResolver struct{ *Resolver }
-type subscriptionResolver struct{ *Resolver }
+*/
