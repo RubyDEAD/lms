@@ -1073,11 +1073,10 @@ func (r *queryResolver) OverdueRecords(ctx context.Context) ([]*model.BorrowReco
 	return result.Data.OverdueRecords, nil
 }
 
-// PatronBorrowHistory is the resolver for the patronBorrowHistory field.
 func (r *queryResolver) PatronBorrowHistory(ctx context.Context, patronID string) ([]*model.BorrowRecord, error) {
 	query := `
-        query PatronBorrowHistory($patronId: String!) {
-            patronBorrowHistory(patronId: $patronID) {
+        query PatronBorrowHistory($patronId: ID!) {
+            patronBorrowHistory(patronId: $patronId) {
                 id
                 bookId
                 patronId
