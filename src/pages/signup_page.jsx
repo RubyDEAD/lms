@@ -2,6 +2,7 @@ import React from "react";
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useState } from 'react';
 import axios from "axios";
+import { supabase } from '../supabaseClient';
 
 function SignUpPage() {
   const API_URL = "http://localhost:8081/query";
@@ -18,8 +19,20 @@ function SignUpPage() {
   const createPatron = async (mutation) => {
     try {
       const response = await axios.post(API_URL, {query: mutation})
+      console.log(response)
 
-      console.log(response);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: inputs.email,
+        password: inputs.password
+      });
+      if (error) throw error;
+  
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1500);
+
     } catch (err){
       console.error("Error adding user: ", err);
     }

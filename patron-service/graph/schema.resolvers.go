@@ -301,6 +301,10 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
 	}
 
+	if authenticatedErr := auth.DeleteAuthenticatedUser(patronID); authenticatedErr != nil {
+		log.Printf("warning: user deleted from DB, but failed to delete from Supabase Auth: %v", err)
+	}
+
 	return &patron, nil
 }
 
