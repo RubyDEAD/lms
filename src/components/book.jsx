@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function Books() {
+    const [borrowRecords, setBorrowRecords] = useState([]);
+    const [showBorrowRecordsModal, setShowBorrowRecordsModal] = useState(false);
     const [books, setBooks] = useState([]);
     const [bookDetails, setBookDetails] = useState(null);
     const [bookCopies, setBookCopies] = useState([]);
@@ -161,7 +163,7 @@ function Books() {
 
             const response = await axios.post(API_URL, {
                 query: `
-                    query GetBookById($id: ID!) {
+                    query getBookById($id: String!) {
                         getBookById(id: $id) {
                             id
                             title
@@ -203,7 +205,7 @@ function Books() {
 
             const response = await axios.post(API_URL, {
                 query: `
-                    query GetBookCopiesById($id: ID!) {
+                    query getBookCopiesById($id: String!) {
                         getBookCopiesById(id: $id) {
                             id
                             book_id
@@ -228,6 +230,7 @@ function Books() {
             console.error("Error fetching book copies:", err);
             setError("Failed to fetch book copies. Please try again later.");
         }
+       
     };
 
     // Fetch available book copy by book ID
@@ -243,7 +246,7 @@ function Books() {
 
             const response = await axios.post(API_URL, {
                 query: `
-                    query GetAvailableBookCopyByID($id: ID!) {
+                    query getAvailableBookCopyByID($id: String!) {
                         getAvailbleBookCopyByID(id: $id) {
                             id
                             book_id
@@ -295,7 +298,152 @@ function Books() {
     if (loading) {
         return <div className="container mt-5">Loading books...</div>;
     }
+    const borrowBook = async (bookId) => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                navigate('/login');
+                return;
+            }
+    
+            const token = session.access_token;
+            console.log(session.user.id);
+            console.log(bookId);
+            const response = await axios.post(API_URL, {
+                query: `
+                mutation borrowBook($bookId:ID!,$patronId:ID!){
+                            borrowBook(bookId:$bookId, patronId:$patronId){
+                                id
+                                bookId
+                                bookCopyId
+                                borrowedAt
+                                patronId
+                                status
+                            }
+                         }
+                `,
+                variables: {
+                    bookId: bookId,
+                    patronId: session.user.id // Assuming patron ID is the same as user ID
+                }
+            }, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+    
+            const result = response.data.data.borrowBook;
+    
+            if (result) {
+                setError(null);
+                alert("Book borrowed successfully!");
+                fetchBooks(); // Refresh the book list
+            } else {
+                console.log(result.message || "Failed to borrow the book.");
+            }
+        } catch (err) {
+            console.error("Error borrowing book:", err);
+            console.log("Failed to borrow the book. Please try again later.");
+        }
+    };
 
+    const fetchBorrowRecords = async (bookid) => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                setError("You must be logged in to view borrow records.");
+                return;
+            }
+    
+            const token = session.access_token;
+    
+            console.log("Variables:", { patronId: session.user.id, bookId: bookid });
+    
+            const response = await axios.post(
+                API_URL,
+                {
+                    query: `
+                        query getrecord($patronId: ID, $bookId: ID) {
+                            borrowRecords(patronId: $patronId, bookId: $bookId) {
+                                id
+                                bookId
+                                bookCopyId
+                                returnedAt
+                                borrowedAt
+                                status
+                            }
+                        }
+                    `,
+                    variables: {
+                        patronId: session.user.id,
+                        bookId: bookid,
+                    },
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+    
+            setBorrowRecords(response.data.data.borrowRecords);
+            setShowBorrowRecordsModal(true);
+        } catch (err) {
+            console.error("Error fetching borrow records:", err);
+            setError("Failed to fetch borrow records. Please try again later.");
+        }
+    };
+
+    const returnBook = async (recordId) => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                setError("You must be logged in to return a book.");
+                return;
+            }
+    
+            const token = session.access_token;
+    
+            const response = await axios.post(
+                API_URL,
+                {
+                    query: `
+                        mutation ReturnBook($recordId: ID!) {
+                            returnBook(recordId: $recordId) {
+                                id
+                                returnedAt
+                                status
+                            }
+                        }
+                    `,
+                    variables: {
+                        recordId: recordId,
+                    },
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+    
+            const result = response.data.data.returnBook;
+            console.log(result);
+            if (result) {
+                alert("Book returned successfully!");
+                setBorrowRecords((prevRecords) =>
+                    prevRecords.map((record) =>
+                        record.id === recordId ? { ...record, status: "RETURNED", returnedAt: result.returnedAt } : record
+                    )
+                );
+            } else {
+                setError("Failed to return the book. Please try again later.");
+            }
+        } catch (err) {
+            console.error("Error returning book:", err);
+            setError("Failed to return the book. Please try again later.");
+        }
+    };
     return (
         <div className="body">
             <div className="container mt-4">
@@ -405,10 +553,22 @@ function Books() {
                                         Copies
                                     </button>
                                     <button
-                                        className="btn btn-sm btn-outline-success"
+                                        className="btn btn-sm btn-outline-success me-2"
                                         onClick={() => fetchAvailableBookCopyById(book.id)}
                                     >
                                         Availability
+                                    </button>
+                                    <button
+                                        className="btn btn-sm btn-outline-warning me-2" 
+                                        onClick={() => borrowBook(book.id)}
+                                     >
+                                        Borrow
+                                    </button> 
+                                    <button
+                                        className="btn btn-primary mb-4"
+                                        onClick={() => fetchBorrowRecords(book.id)}
+                                    >
+                                        View Borrow Records
                                     </button>
                                 </div>
                             </div>
@@ -495,6 +655,51 @@ function Books() {
                                 </div>
                                 <div className="modal-footer">
                                     <button type="button" className="btn btn-secondary" onClick={() => setAvailableCopy(null)}>
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {/* Borrow Records Modal */}
+                {showBorrowRecordsModal && (
+                    <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <div className="modal-dialog">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">Borrow Records</h5>
+                                    <button type="button" className="btn-close" onClick={() => setShowBorrowRecordsModal(false)}></button>
+                                </div>
+                                <div className="modal-body">
+                                    {borrowRecords.length > 0 ? (
+                                        <ul className="list-group">
+                                            {borrowRecords.map((record) => (
+                                                <li key={record.id} className="list-group-item d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <p><strong>Book ID:</strong> {record.bookId}</p>
+                                                        <p><strong>Copy ID:</strong> {record.bookCopyId}</p>
+                                                        <p><strong>Status:</strong> {record.status}</p>
+                                                        <p><strong>Borrowed At:</strong> {record.borrowedAt}</p>
+                                                        <p><strong>Returned At:</strong> {record.returnedAt || "Not Returned"}</p>
+                                                    </div>
+                                                    {record.status !== "RETURNED" && (
+                                                        <button
+                                                            className="btn btn-sm btn-outline-danger"
+                                                            onClick={() => returnBook(record.id)}
+                                                        >
+                                                            Return
+                                                        </button>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <div className="alert alert-warning">No borrow records found.</div>
+                                    )}
+                                </div>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-secondary" onClick={() => setShowBorrowRecordsModal(false)}>
                                         Close
                                     </button>
                                 </div>
