@@ -473,6 +473,20 @@ func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID stri
 		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
 	}
 
+	subscriptionCopy := patron_status
+
+	r.SubscribersMutex.Lock()
+	for subscriber := range r.UpdatesSubscrubers {
+		select {
+		case subscriber <- &subscriptionCopy:
+
+		default:
+			log.Printf("Subscriber channel full, skipping notification for patron %s", patron_status.PatronID)
+		}
+	}
+
+	r.SubscribersMutex.Unlock()
+
 	return &patron_status, nil
 }
 
@@ -715,6 +729,25 @@ func (r *subscriptionResolver) PatronCreated(ctx context.Context) (<-chan *model
 	}()
 
 	return patronChan, nil
+}
+
+// PatronStatusUpdated is the resolver for the patronStatusUpdated field.
+func (r *subscriptionResolver) PatronStatusUpdated(ctx context.Context) (<-chan *model.PatronStatus, error) {
+	updatesChan := make(chan *model.PatronStatus, 1)
+
+	r.SubscribersMutex.Lock()
+	r.UpdatesSubscrubers[updatesChan] = true
+	r.SubscribersMutex.Unlock()
+
+	go func() {
+		<-ctx.Done()
+		r.SubscribersMutex.Lock()
+		delete(r.UpdatesSubscrubers, updatesChan)
+		close(updatesChan)
+		r.SubscribersMutex.Unlock()
+	}()
+
+	return updatesChan, nil
 }
 
 // Mutation returns MutationResolver implementation.
