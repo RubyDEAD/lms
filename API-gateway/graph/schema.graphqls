@@ -78,6 +78,7 @@ type Mutation {
 type Subscription {
   bookAdded: Book!
   patronCreated: Patron
+  patronStatusUpdated: PatronStatus
   reservationCreated: Reservation!
   borrowRecordUpdated: BorrowRecord!
 }
