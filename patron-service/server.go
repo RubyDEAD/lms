@@ -56,9 +56,8 @@ func main() {
 
 	// Pass the database connection to the Resolver
 	resolver := &graph.Resolver{
-		DB:                   dbpool,
-		PatronSubscribers:    make(map[chan *model.Patron]bool),
-		ViolationSubscribers: make(map[chan *model.ViolationRecord]bool),
+		DB:                dbpool,
+		PatronSubscribers: make(map[chan *model.Patron]bool),
 	}
 
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
