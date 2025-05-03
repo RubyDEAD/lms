@@ -1038,8 +1038,8 @@ func (r *queryResolver) GetPatronStatusByType(ctx context.Context, patronStatus 
 // BorrowRecords is the resolver for the borrowRecords field.
 func (r *queryResolver) BorrowRecords(ctx context.Context, patronID *string, bookID *string, status *model.BorrowStatus) ([]*model.BorrowRecord, error) {
 	query := `
-        query BorrowRecords($patronID: String, $bookID: String, $status: BorrowStatus) {
-            borrowRecords(patronID: $patronID, bookID: $bookID, status: $status) {
+        query BorrowRecords($patronID: ID, $bookID: ID, $status: BorrowStatus) {
+            borrowRecords(patronId: $patronID, bookId: $bookID, status: $status) {
                 id
                 bookId
                 patronId
