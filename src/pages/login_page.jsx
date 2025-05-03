@@ -180,7 +180,7 @@ function LoginPage() {
               <a href="/forgot-password">Forgot password?</a>
             </div>
             <div className="mt-2 text-center">
-              <small>Don't have an account? <a href="/signup">Register here</a></small>
+              <small>Don't have an account? <a href="/sign-up">Register here</a></small>
             </div>
           </form>
         </div>
