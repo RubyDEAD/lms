@@ -75,15 +75,16 @@ func StartRabbitMQConsumer(dbpool *pgxpool.Pool) {
 		log.Fatal("failed to declare queue: %w", err)
 	}
 
-	// Queue dedicated for ongoing violations SUBSCRIPTIONS
+	// Queue dedicated for patron updates SUBSCRIPTIONS
 	_, err = ch.QueueDeclare(
-		"patron-subscription-violationChan-queue",
+		"patron-subscription-updatesChan-queue",
 		false,
 		false,
 		false,
 		false,
 		nil,
 	)
+
 	if err != nil {
 		log.Fatal("failed to declare queue: %w", err)
 	}
@@ -259,44 +260,6 @@ func resolversConnect(ch *amqp.Channel, data GraphQLMessage, msg amqp.Delivery, 
 			log.Printf("failed to publish message: %v", err)
 		}
 
-	// case "updatePassword":
-	// 	patron_id, _ := data.Variables["patron_id"].(string)
-	// 	oldPassword, _ := data.Variables["oldPassword"].(string)
-	// 	newPassword, _ := data.Variables["newPassword"].(string)
-
-	// 	patron, ResolverErr := resolver.Mutation().UpdatePassword(ctx, patron_id, oldPassword, newPassword)
-
-	// 	if ResolverErr != nil {
-	// 		log.Printf("err: %v", ResolverErr)
-	// 	}
-
-	// 	response := map[string]interface{}{
-	// 		"data": map[string]interface{}{
-	// 			"updatePatron": patron,
-	// 		},
-	// 	}
-
-	// 	result, err := json.Marshal(response)
-	// 	if err != nil {
-	// 		log.Printf("Error marshalling patron to JSON: %v", err)
-	// 	}
-
-	// 	err = ch.Publish(
-	// 		"",
-	// 		msg.ReplyTo,
-	// 		false,
-	// 		false,
-	// 		amqp.Publishing{
-	// 			ContentType:   "application/json",
-	// 			CorrelationId: msg.CorrelationId,
-	// 			Body:          result,
-	// 		},
-	// 	)
-
-	// 	if err != nil {
-	// 		log.Printf("failed to publish message: %v", err)
-	// 	}
-
 	case "deletePatronById":
 		patron_id, _ := data.Variables["patron_id"].(string)
 
@@ -462,132 +425,20 @@ func resolversConnect(ch *amqp.Channel, data GraphQLMessage, msg amqp.Delivery, 
 			log.Printf("failed to publish message: %v", err)
 		}
 
-	// case "addViolation":
-	// 	patron_id, _ := data.Variables["patron_id"].(string)
-	// 	violation_type, _ := data.Variables["violation_type"].(string)
-	// 	violation_info, _ := data.Variables["violation_info"].(string)
+		SubErr := ch.Publish(
+			"",
+			"patron-subscription-updatesChan-queue",
+			false,
+			false,
+			amqp.Publishing{
+				ContentType: "application/json",
+				Body:        result,
+			},
+		)
 
-	// 	patron, ResolverErr := resolver.Mutation().AddViolation(ctx, patron_id, model.ViolationType(violation_type), violation_info)
-
-	// 	if ResolverErr != nil {
-	// 		log.Printf("Add Violation Resolver err: %v", ResolverErr)
-	// 	}
-
-	// 	response := map[string]interface{}{
-	// 		"data": map[string]interface{}{
-	// 			"addViolation": patron,
-	// 		},
-	// 	}
-
-	// 	result, err := json.Marshal(response)
-	// 	if err != nil {
-	// 		log.Printf("Error marshalling patron to JSON: %v", err)
-	// 	}
-
-	// 	err = ch.Publish(
-	// 		"",
-	// 		msg.ReplyTo,
-	// 		false,
-	// 		false,
-	// 		amqp.Publishing{
-	// 			ContentType:   "application/json",
-	// 			CorrelationId: msg.CorrelationId,
-	// 			Body:          result,
-	// 		},
-	// 	)
-
-	// 	if err != nil {
-	// 		log.Printf("failed to publish message: %v", err)
-	// 	}
-
-	// 	subResponse := map[string]interface{}{
-	// 		"data": map[string]interface{}{
-	// 			"ongoingViolations": patron,
-	// 		},
-	// 	}
-
-	// 	subResult, err := json.Marshal(subResponse)
-	// 	if err != nil {
-	// 		log.Printf("Error marshalling subscription output to JSON: %v", err)
-	// 	}
-
-	// 	err = ch.Publish(
-	// 		"",
-	// 		"patron-subscription-violationChan-queue",
-	// 		false,
-	// 		false,
-	// 		amqp.Publishing{
-	// 			ContentType: "application/json",
-	// 			Body:        subResult,
-	// 		},
-	// 	)
-
-	// 	if err != nil {
-	// 		log.Printf("failed to publish subscription message: %v", err)
-	// 	}
-
-	// case "updateViolationStatus":
-	// 	violation_id, _ := data.Variables["violation_id"].(string)
-	// 	violation_status, _ := data.Variables["violation_type"].(string)
-
-	// 	patron, ResolverErr := resolver.Mutation().UpdateViolationStatus(ctx, violation_id, model.ViolationStatus(violation_status))
-
-	// 	if ResolverErr != nil {
-	// 		log.Printf("Update Violation Status Resolver err: %v", ResolverErr)
-	// 	}
-
-	// 	response := map[string]interface{}{
-	// 		"data": map[string]interface{}{
-	// 			"updateViolationStatus": patron,
-	// 		},
-	// 	}
-
-	// 	result, err := json.Marshal(response)
-	// 	if err != nil {
-	// 		log.Printf("Error marshalling patron to JSON: %v", err)
-	// 	}
-
-	// 	err = ch.Publish(
-	// 		"",
-	// 		msg.ReplyTo,
-	// 		false,
-	// 		false,
-	// 		amqp.Publishing{
-	// 			ContentType:   "application/json",
-	// 			CorrelationId: msg.CorrelationId,
-	// 			Body:          result,
-	// 		},
-	// 	)
-
-	// 	if err != nil {
-	// 		log.Printf("failed to publish message: %v", err)
-	// 	}
-
-	// 	subResponse := map[string]interface{}{
-	// 		"data": map[string]interface{}{
-	// 			"ongoingViolations": patron,
-	// 		},
-	// 	}
-
-	// 	subResult, err := json.Marshal(subResponse)
-	// 	if err != nil {
-	// 		log.Printf("Error marshalling subscription output to JSON: %v", err)
-	// 	}
-
-	// 	err = ch.Publish(
-	// 		"",
-	// 		"patron-subscription-violationChan-queue",
-	// 		false,
-	// 		false,
-	// 		amqp.Publishing{
-	// 			ContentType: "application/json",
-	// 			Body:        subResult,
-	// 		},
-	// 	)
-
-	// 	if err != nil {
-	// 		log.Printf("failed to publish subscription message: %v", err)
-	// 	}
+		if SubErr != nil {
+			log.Printf("failed to publish message: %v", SubErr)
+		}
 
 	case "getPatronById":
 		patron_id, _ := data.Variables["patron_id"].(string)
@@ -726,76 +577,6 @@ func resolversConnect(ch *amqp.Channel, data GraphQLMessage, msg amqp.Delivery, 
 		if err != nil {
 			log.Printf("failed to publish message: %v", err)
 		}
-
-	// case "getViolationByPatronId":
-	// 	patron_id, _ := data.Variables["patron_id"].(string)
-
-	// 	patron, ResolverErr := resolver.Query().GetViolationByPatronID(ctx, patron_id)
-	// 	if ResolverErr != nil {
-	// 		log.Printf("Get Patron By ID Resolver err: %v", ResolverErr)
-	// 	}
-
-	// 	response := map[string]interface{}{
-	// 		"data": map[string]interface{}{
-	// 			"getViolationByPatronId": patron,
-	// 		},
-	// 	}
-
-	// 	result, err := json.Marshal(response)
-	// 	if err != nil {
-	// 		log.Printf("Error marshalling patron to JSON: %v", err)
-	// 	}
-
-	// 	err = ch.Publish(
-	// 		"",
-	// 		msg.ReplyTo,
-	// 		false,
-	// 		false,
-	// 		amqp.Publishing{
-	// 			ContentType:   "application/json",
-	// 			CorrelationId: msg.CorrelationId,
-	// 			Body:          result,
-	// 		},
-	// 	)
-
-	// 	if err != nil {
-	// 		log.Printf("failed to publish message: %v", err)
-	// 	}
-
-	// case "getViolationByType":
-	// 	violation_type, _ := data.Variables["violation_type"].(string)
-
-	// 	patron, ResolverErr := resolver.Query().GetViolationByType(ctx, model.ViolationType(violation_type))
-	// 	if ResolverErr != nil {
-	// 		log.Printf("Get Patron By ID Resolver err: %v", ResolverErr)
-	// 	}
-
-	// 	response := map[string]interface{}{
-	// 		"data": map[string]interface{}{
-	// 			"getViolationByType": patron,
-	// 		},
-	// 	}
-
-	// 	result, err := json.Marshal(response)
-	// 	if err != nil {
-	// 		log.Printf("Error marshalling patron to JSON: %v", err)
-	// 	}
-
-	// 	err = ch.Publish(
-	// 		"",
-	// 		msg.ReplyTo,
-	// 		false,
-	// 		false,
-	// 		amqp.Publishing{
-	// 			ContentType:   "application/json",
-	// 			CorrelationId: msg.CorrelationId,
-	// 			Body:          result,
-	// 		},
-	// 	)
-
-	// 	if err != nil {
-	// 		log.Printf("failed to publish message: %v", err)
-	// 	}
 
 	case "getPatronStatusByType":
 		status, _ := data.Variables["status"].(string)
