@@ -190,7 +190,7 @@ func SubscribeToBookAdded(ctx context.Context, out chan<- *model.Book) error {
 		"id":   "1",
 		"type": "start",
 		"payload": map[string]interface{}{
-			"query": `subscription { bookAdded { id title author_name date_published description } }`,
+			"query": `subscription { bookAdded { id title author_name date_published description image} }`,
 		},
 	}
 	msg, _ := json.Marshal(payload)
