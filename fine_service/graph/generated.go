@@ -61,7 +61,7 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreateFine            func(childComplexity int, patronID string, bookID string, ratePerDay float64) int
+		CreateFine            func(childComplexity int, patronID string, bookID string, ratePerDay float64, violationType model.ViolationType, daysLate *int32) int
 		CreateViolationRecord func(childComplexity int, patronID string, violationType model.ViolationType, violationInfo string) int
 		DeleteFine            func(childComplexity int, fineID string) int
 		DeleteViolationRecord func(childComplexity int, violationRecordID string) int
@@ -92,7 +92,7 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
-	CreateFine(ctx context.Context, patronID string, bookID string, ratePerDay float64) (*model.Fine, error)
+	CreateFine(ctx context.Context, patronID string, bookID string, ratePerDay float64, violationType model.ViolationType, daysLate *int32) (*model.Fine, error)
 	UpdateFine(ctx context.Context, fineID string, daysLate int32, ratePerDay float64) (*model.Fine, error)
 	DeleteFine(ctx context.Context, fineID string) (bool, error)
 	CreateViolationRecord(ctx context.Context, patronID string, violationType model.ViolationType, violationInfo string) (*model.ViolationRecord, error)
@@ -195,7 +195,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateFine(childComplexity, args["patronId"].(string), args["bookId"].(string), args["ratePerDay"].(float64)), true
+		return e.complexity.Mutation.CreateFine(childComplexity, args["patronId"].(string), args["bookId"].(string), args["ratePerDay"].(float64), args["violationType"].(model.ViolationType), args["daysLate"].(*int32)), true
 
 	case "Mutation.createViolationRecord":
 		if e.complexity.Mutation.CreateViolationRecord == nil {
@@ -509,6 +509,16 @@ func (ec *executionContext) field_Mutation_createFine_args(ctx context.Context, 
 		return nil, err
 	}
 	args["ratePerDay"] = arg2
+	arg3, err := ec.field_Mutation_createFine_argsViolationType(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["violationType"] = arg3
+	arg4, err := ec.field_Mutation_createFine_argsDaysLate(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["daysLate"] = arg4
 	return args, nil
 }
 func (ec *executionContext) field_Mutation_createFine_argsPatronID(
@@ -547,6 +557,32 @@ func (ec *executionContext) field_Mutation_createFine_argsRatePerDay(
 	}
 
 	var zeroVal float64
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_createFine_argsViolationType(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (model.ViolationType, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("violationType"))
+	if tmp, ok := rawArgs["violationType"]; ok {
+		return ec.unmarshalNViolationType2fine_serviceᚋgraphᚋmodelᚐViolationType(ctx, tmp)
+	}
+
+	var zeroVal model.ViolationType
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_createFine_argsDaysLate(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*int32, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("daysLate"))
+	if tmp, ok := rawArgs["daysLate"]; ok {
+		return ec.unmarshalOInt2ᚖint32(ctx, tmp)
+	}
+
+	var zeroVal *int32
 	return zeroVal, nil
 }
 
@@ -1290,7 +1326,7 @@ func (ec *executionContext) _Mutation_createFine(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateFine(rctx, fc.Args["patronId"].(string), fc.Args["bookId"].(string), fc.Args["ratePerDay"].(float64))
+		return ec.resolvers.Mutation().CreateFine(rctx, fc.Args["patronId"].(string), fc.Args["bookId"].(string), fc.Args["ratePerDay"].(float64), fc.Args["violationType"].(model.ViolationType), fc.Args["daysLate"].(*int32))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5632,6 +5668,22 @@ func (ec *executionContext) marshalOFine2ᚖfine_serviceᚋgraphᚋmodelᚐFine(
 		return graphql.Null
 	}
 	return ec._Fine(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOInt2ᚖint32(ctx context.Context, v any) (*int32, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalInt32(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOInt2ᚖint32(ctx context.Context, sel ast.SelectionSet, v *int32) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	res := graphql.MarshalInt32(*v)
+	return res
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {
