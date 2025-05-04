@@ -155,3 +155,53 @@
 .custom-bg {
   background-color: #432580;
 }
+
+.dashboard-container {
+  margin-left: 100px; /* Adjust based on your sidebar width */
+  padding: 40px 20px;
+  
+  min-height: 100vh;
+  font-family: "Roboto", sans-serif;
+}
+
+.dashboard-title {
+  font-size: 32px;
+  margin-bottom: 30px;
+  color: #333;
+  font-family: "Lilita One", cursive;
+}
+
+.dashboard-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.dashboard-card {
+  flex: 1 1 22%;
+  background-color: #FAEED1;
+  border-radius: 12px;
+  padding: 30px 20px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: center;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-card-title {
+  font-size: 20px;
+  margin-bottom: 15px;
+  color: #432580;
+  font-weight: 600;
+}
+
+.dashboard-card-value {
+  font-size: 32px;
+  color: #333;
+  font-weight: bold;
+}
