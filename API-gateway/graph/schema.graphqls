@@ -195,6 +195,59 @@ enum RenewalErrorCode {
   LOAN_ALREADY_RETURNED
 }
 
+type Fine {
+  fine_id: ID!
+  patronId: ID!
+  bookId: ID!
+  daysLate: Int!
+  ratePerDay: Float!
+  amount: Float!
+  createdAt: String!
+  violationRecordId: ID!
+}
+
+enum ViolationStatus {
+  Ongoing
+  Resolved
+}
+
+enum ViolationType {
+  Late_Return
+  Unpaid_Fees
+  Damaged_Book
+}
+
+type ViolationRecord {
+  violation_record_id: ID!
+  patron_id: ID!
+  violation_type: ViolationType!
+  violation_info: String!
+  violation_created: String!
+  violation_status: ViolationStatus!
+}
+
+type Subscription {
+  fineCreated: Fine!
+  violationRecordCreated: ViolationRecord!
+}
+
+type Query {
+  getFine(fine_id: ID!): Fine
+  listFines: [Fine!]!
+  getViolationRecord(violation_record_id: ID!): ViolationRecord
+  listViolationRecords: [ViolationRecord!]!
+}
+
+type Mutation {
+  createFine(patronId: ID!, bookId: ID!, ratePerDay: Float!, violationType: ViolationType!,daysLate: Int): Fine!
+  updateFine(fine_id: ID!, daysLate: Int!, ratePerDay: Float!): Fine!
+  deleteFine(fine_id: ID!): Boolean!
+
+  createViolationRecord(patron_id: ID!, violation_type: ViolationType!, violation_info: String!): ViolationRecord!
+  updateViolationStatus(violation_record_id: ID!, violation_status: ViolationStatus!): ViolationRecord!
+  deleteViolationRecord(violation_record_id: ID!): Boolean!
+}
+
 
 
 
