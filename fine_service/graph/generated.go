@@ -50,28 +50,44 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	Fine struct {
-		Amount     func(childComplexity int) int
-		BookID     func(childComplexity int) int
-		CreatedAt  func(childComplexity int) int
-		DaysLate   func(childComplexity int) int
-		FineID     func(childComplexity int) int
-		PatronID   func(childComplexity int) int
-		RatePerDay func(childComplexity int) int
+		Amount            func(childComplexity int) int
+		BookID            func(childComplexity int) int
+		CreatedAt         func(childComplexity int) int
+		DaysLate          func(childComplexity int) int
+		FineID            func(childComplexity int) int
+		PatronID          func(childComplexity int) int
+		RatePerDay        func(childComplexity int) int
+		ViolationRecordID func(childComplexity int) int
 	}
 
 	Mutation struct {
-		CreateFine func(childComplexity int, patronID string, bookID string, ratePerDay float64) int
-		DeleteFine func(childComplexity int, fineID string) int
-		UpdateFine func(childComplexity int, fineID string, daysLate int32, ratePerDay float64) int
+		CreateFine            func(childComplexity int, patronID string, bookID string, ratePerDay float64) int
+		CreateViolationRecord func(childComplexity int, patronID string, violationType model.ViolationType, violationInfo string) int
+		DeleteFine            func(childComplexity int, fineID string) int
+		DeleteViolationRecord func(childComplexity int, violationRecordID string) int
+		UpdateFine            func(childComplexity int, fineID string, daysLate int32, ratePerDay float64) int
+		UpdateViolationStatus func(childComplexity int, violationRecordID string, violationStatus model.ViolationStatus) int
 	}
 
 	Query struct {
-		GetFine   func(childComplexity int, fineID string) int
-		ListFines func(childComplexity int) int
+		GetFine              func(childComplexity int, fineID string) int
+		GetViolationRecord   func(childComplexity int, violationRecordID string) int
+		ListFines            func(childComplexity int) int
+		ListViolationRecords func(childComplexity int) int
 	}
 
 	Subscription struct {
-		FineCreated func(childComplexity int) int
+		FineCreated            func(childComplexity int) int
+		ViolationRecordCreated func(childComplexity int) int
+	}
+
+	ViolationRecord struct {
+		PatronID          func(childComplexity int) int
+		ViolationCreated  func(childComplexity int) int
+		ViolationInfo     func(childComplexity int) int
+		ViolationRecordID func(childComplexity int) int
+		ViolationStatus   func(childComplexity int) int
+		ViolationType     func(childComplexity int) int
 	}
 }
 
@@ -79,13 +95,19 @@ type MutationResolver interface {
 	CreateFine(ctx context.Context, patronID string, bookID string, ratePerDay float64) (*model.Fine, error)
 	UpdateFine(ctx context.Context, fineID string, daysLate int32, ratePerDay float64) (*model.Fine, error)
 	DeleteFine(ctx context.Context, fineID string) (bool, error)
+	CreateViolationRecord(ctx context.Context, patronID string, violationType model.ViolationType, violationInfo string) (*model.ViolationRecord, error)
+	UpdateViolationStatus(ctx context.Context, violationRecordID string, violationStatus model.ViolationStatus) (*model.ViolationRecord, error)
+	DeleteViolationRecord(ctx context.Context, violationRecordID string) (bool, error)
 }
 type QueryResolver interface {
 	GetFine(ctx context.Context, fineID string) (*model.Fine, error)
 	ListFines(ctx context.Context) ([]*model.Fine, error)
+	GetViolationRecord(ctx context.Context, violationRecordID string) (*model.ViolationRecord, error)
+	ListViolationRecords(ctx context.Context) ([]*model.ViolationRecord, error)
 }
 type SubscriptionResolver interface {
 	FineCreated(ctx context.Context) (<-chan *model.Fine, error)
+	ViolationRecordCreated(ctx context.Context) (<-chan *model.ViolationRecord, error)
 }
 
 type executableSchema struct {
@@ -156,6 +178,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Fine.RatePerDay(childComplexity), true
 
+	case "Fine.violationRecordId":
+		if e.complexity.Fine.ViolationRecordID == nil {
+			break
+		}
+
+		return e.complexity.Fine.ViolationRecordID(childComplexity), true
+
 	case "Mutation.createFine":
 		if e.complexity.Mutation.CreateFine == nil {
 			break
@@ -167,6 +196,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.CreateFine(childComplexity, args["patronId"].(string), args["bookId"].(string), args["ratePerDay"].(float64)), true
+
+	case "Mutation.createViolationRecord":
+		if e.complexity.Mutation.CreateViolationRecord == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createViolationRecord_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreateViolationRecord(childComplexity, args["patron_id"].(string), args["violation_type"].(model.ViolationType), args["violation_info"].(string)), true
 
 	case "Mutation.deleteFine":
 		if e.complexity.Mutation.DeleteFine == nil {
@@ -180,6 +221,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Mutation.DeleteFine(childComplexity, args["fine_id"].(string)), true
 
+	case "Mutation.deleteViolationRecord":
+		if e.complexity.Mutation.DeleteViolationRecord == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteViolationRecord_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteViolationRecord(childComplexity, args["violation_record_id"].(string)), true
+
 	case "Mutation.updateFine":
 		if e.complexity.Mutation.UpdateFine == nil {
 			break
@@ -191,6 +244,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.UpdateFine(childComplexity, args["fine_id"].(string), args["daysLate"].(int32), args["ratePerDay"].(float64)), true
+
+	case "Mutation.updateViolationStatus":
+		if e.complexity.Mutation.UpdateViolationStatus == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateViolationStatus_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateViolationStatus(childComplexity, args["violation_record_id"].(string), args["violation_status"].(model.ViolationStatus)), true
 
 	case "Query.getFine":
 		if e.complexity.Query.GetFine == nil {
@@ -204,6 +269,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.GetFine(childComplexity, args["fine_id"].(string)), true
 
+	case "Query.getViolationRecord":
+		if e.complexity.Query.GetViolationRecord == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getViolationRecord_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetViolationRecord(childComplexity, args["violation_record_id"].(string)), true
+
 	case "Query.listFines":
 		if e.complexity.Query.ListFines == nil {
 			break
@@ -211,12 +288,68 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.ListFines(childComplexity), true
 
+	case "Query.listViolationRecords":
+		if e.complexity.Query.ListViolationRecords == nil {
+			break
+		}
+
+		return e.complexity.Query.ListViolationRecords(childComplexity), true
+
 	case "Subscription.fineCreated":
 		if e.complexity.Subscription.FineCreated == nil {
 			break
 		}
 
 		return e.complexity.Subscription.FineCreated(childComplexity), true
+
+	case "Subscription.violationRecordCreated":
+		if e.complexity.Subscription.ViolationRecordCreated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.ViolationRecordCreated(childComplexity), true
+
+	case "ViolationRecord.patron_id":
+		if e.complexity.ViolationRecord.PatronID == nil {
+			break
+		}
+
+		return e.complexity.ViolationRecord.PatronID(childComplexity), true
+
+	case "ViolationRecord.violation_created":
+		if e.complexity.ViolationRecord.ViolationCreated == nil {
+			break
+		}
+
+		return e.complexity.ViolationRecord.ViolationCreated(childComplexity), true
+
+	case "ViolationRecord.violation_info":
+		if e.complexity.ViolationRecord.ViolationInfo == nil {
+			break
+		}
+
+		return e.complexity.ViolationRecord.ViolationInfo(childComplexity), true
+
+	case "ViolationRecord.violation_record_id":
+		if e.complexity.ViolationRecord.ViolationRecordID == nil {
+			break
+		}
+
+		return e.complexity.ViolationRecord.ViolationRecordID(childComplexity), true
+
+	case "ViolationRecord.violation_status":
+		if e.complexity.ViolationRecord.ViolationStatus == nil {
+			break
+		}
+
+		return e.complexity.ViolationRecord.ViolationStatus(childComplexity), true
+
+	case "ViolationRecord.violation_type":
+		if e.complexity.ViolationRecord.ViolationType == nil {
+			break
+		}
+
+		return e.complexity.ViolationRecord.ViolationType(childComplexity), true
 
 	}
 	return 0, false
@@ -417,6 +550,65 @@ func (ec *executionContext) field_Mutation_createFine_argsRatePerDay(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Mutation_createViolationRecord_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_createViolationRecord_argsPatronID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["patron_id"] = arg0
+	arg1, err := ec.field_Mutation_createViolationRecord_argsViolationType(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["violation_type"] = arg1
+	arg2, err := ec.field_Mutation_createViolationRecord_argsViolationInfo(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["violation_info"] = arg2
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_createViolationRecord_argsPatronID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
+	if tmp, ok := rawArgs["patron_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_createViolationRecord_argsViolationType(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (model.ViolationType, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("violation_type"))
+	if tmp, ok := rawArgs["violation_type"]; ok {
+		return ec.unmarshalNViolationType2fine_serviceᚋgraphᚋmodelᚐViolationType(ctx, tmp)
+	}
+
+	var zeroVal model.ViolationType
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_createViolationRecord_argsViolationInfo(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("violation_info"))
+	if tmp, ok := rawArgs["violation_info"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
 func (ec *executionContext) field_Mutation_deleteFine_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -433,6 +625,29 @@ func (ec *executionContext) field_Mutation_deleteFine_argsFineID(
 ) (string, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("fine_id"))
 	if tmp, ok := rawArgs["fine_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteViolationRecord_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_deleteViolationRecord_argsViolationRecordID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["violation_record_id"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_deleteViolationRecord_argsViolationRecordID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("violation_record_id"))
+	if tmp, ok := rawArgs["violation_record_id"]; ok {
 		return ec.unmarshalNID2string(ctx, tmp)
 	}
 
@@ -499,6 +714,47 @@ func (ec *executionContext) field_Mutation_updateFine_argsRatePerDay(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Mutation_updateViolationStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_updateViolationStatus_argsViolationRecordID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["violation_record_id"] = arg0
+	arg1, err := ec.field_Mutation_updateViolationStatus_argsViolationStatus(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["violation_status"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_updateViolationStatus_argsViolationRecordID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("violation_record_id"))
+	if tmp, ok := rawArgs["violation_record_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_updateViolationStatus_argsViolationStatus(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (model.ViolationStatus, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("violation_status"))
+	if tmp, ok := rawArgs["violation_status"]; ok {
+		return ec.unmarshalNViolationStatus2fine_serviceᚋgraphᚋmodelᚐViolationStatus(ctx, tmp)
+	}
+
+	var zeroVal model.ViolationStatus
+	return zeroVal, nil
+}
+
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -538,6 +794,29 @@ func (ec *executionContext) field_Query_getFine_argsFineID(
 ) (string, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("fine_id"))
 	if tmp, ok := rawArgs["fine_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_getViolationRecord_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_getViolationRecord_argsViolationRecordID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["violation_record_id"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Query_getViolationRecord_argsViolationRecordID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("violation_record_id"))
+	if tmp, ok := rawArgs["violation_record_id"]; ok {
 		return ec.unmarshalNID2string(ctx, tmp)
 	}
 
@@ -953,6 +1232,50 @@ func (ec *executionContext) fieldContext_Fine_createdAt(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _Fine_violationRecordId(ctx context.Context, field graphql.CollectedField, obj *model.Fine) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Fine_violationRecordId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ViolationRecordID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Fine_violationRecordId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Fine",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_createFine(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Mutation_createFine(ctx, field)
 	if err != nil {
@@ -1006,6 +1329,8 @@ func (ec *executionContext) fieldContext_Mutation_createFine(ctx context.Context
 				return ec.fieldContext_Fine_amount(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Fine_createdAt(ctx, field)
+			case "violationRecordId":
+				return ec.fieldContext_Fine_violationRecordId(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
@@ -1077,6 +1402,8 @@ func (ec *executionContext) fieldContext_Mutation_updateFine(ctx context.Context
 				return ec.fieldContext_Fine_amount(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Fine_createdAt(ctx, field)
+			case "violationRecordId":
+				return ec.fieldContext_Fine_violationRecordId(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
@@ -1150,6 +1477,199 @@ func (ec *executionContext) fieldContext_Mutation_deleteFine(ctx context.Context
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_createViolationRecord(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_createViolationRecord(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().CreateViolationRecord(rctx, fc.Args["patron_id"].(string), fc.Args["violation_type"].(model.ViolationType), fc.Args["violation_info"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.ViolationRecord)
+	fc.Result = res
+	return ec.marshalNViolationRecord2ᚖfine_serviceᚋgraphᚋmodelᚐViolationRecord(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_createViolationRecord(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "violation_record_id":
+				return ec.fieldContext_ViolationRecord_violation_record_id(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_ViolationRecord_patron_id(ctx, field)
+			case "violation_type":
+				return ec.fieldContext_ViolationRecord_violation_type(ctx, field)
+			case "violation_info":
+				return ec.fieldContext_ViolationRecord_violation_info(ctx, field)
+			case "violation_created":
+				return ec.fieldContext_ViolationRecord_violation_created(ctx, field)
+			case "violation_status":
+				return ec.fieldContext_ViolationRecord_violation_status(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ViolationRecord", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createViolationRecord_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateViolationStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_updateViolationStatus(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpdateViolationStatus(rctx, fc.Args["violation_record_id"].(string), fc.Args["violation_status"].(model.ViolationStatus))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.ViolationRecord)
+	fc.Result = res
+	return ec.marshalNViolationRecord2ᚖfine_serviceᚋgraphᚋmodelᚐViolationRecord(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updateViolationStatus(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "violation_record_id":
+				return ec.fieldContext_ViolationRecord_violation_record_id(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_ViolationRecord_patron_id(ctx, field)
+			case "violation_type":
+				return ec.fieldContext_ViolationRecord_violation_type(ctx, field)
+			case "violation_info":
+				return ec.fieldContext_ViolationRecord_violation_info(ctx, field)
+			case "violation_created":
+				return ec.fieldContext_ViolationRecord_violation_created(ctx, field)
+			case "violation_status":
+				return ec.fieldContext_ViolationRecord_violation_status(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ViolationRecord", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateViolationStatus_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteViolationRecord(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_deleteViolationRecord(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteViolationRecord(rctx, fc.Args["violation_record_id"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_deleteViolationRecord(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteViolationRecord_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_getFine(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Query_getFine(ctx, field)
 	if err != nil {
@@ -1200,6 +1720,8 @@ func (ec *executionContext) fieldContext_Query_getFine(ctx context.Context, fiel
 				return ec.fieldContext_Fine_amount(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Fine_createdAt(ctx, field)
+			case "violationRecordId":
+				return ec.fieldContext_Fine_violationRecordId(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
 		},
@@ -1271,8 +1793,134 @@ func (ec *executionContext) fieldContext_Query_listFines(_ context.Context, fiel
 				return ec.fieldContext_Fine_amount(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Fine_createdAt(ctx, field)
+			case "violationRecordId":
+				return ec.fieldContext_Fine_violationRecordId(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getViolationRecord(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_getViolationRecord(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetViolationRecord(rctx, fc.Args["violation_record_id"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.ViolationRecord)
+	fc.Result = res
+	return ec.marshalOViolationRecord2ᚖfine_serviceᚋgraphᚋmodelᚐViolationRecord(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_getViolationRecord(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "violation_record_id":
+				return ec.fieldContext_ViolationRecord_violation_record_id(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_ViolationRecord_patron_id(ctx, field)
+			case "violation_type":
+				return ec.fieldContext_ViolationRecord_violation_type(ctx, field)
+			case "violation_info":
+				return ec.fieldContext_ViolationRecord_violation_info(ctx, field)
+			case "violation_created":
+				return ec.fieldContext_ViolationRecord_violation_created(ctx, field)
+			case "violation_status":
+				return ec.fieldContext_ViolationRecord_violation_status(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ViolationRecord", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getViolationRecord_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_listViolationRecords(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_listViolationRecords(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().ListViolationRecords(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.ViolationRecord)
+	fc.Result = res
+	return ec.marshalNViolationRecord2ᚕᚖfine_serviceᚋgraphᚋmodelᚐViolationRecordᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_listViolationRecords(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "violation_record_id":
+				return ec.fieldContext_ViolationRecord_violation_record_id(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_ViolationRecord_patron_id(ctx, field)
+			case "violation_type":
+				return ec.fieldContext_ViolationRecord_violation_type(ctx, field)
+			case "violation_info":
+				return ec.fieldContext_ViolationRecord_violation_info(ctx, field)
+			case "violation_created":
+				return ec.fieldContext_ViolationRecord_violation_created(ctx, field)
+			case "violation_status":
+				return ec.fieldContext_ViolationRecord_violation_status(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ViolationRecord", field.Name)
 		},
 	}
 	return fc, nil
@@ -1476,8 +2124,346 @@ func (ec *executionContext) fieldContext_Subscription_fineCreated(_ context.Cont
 				return ec.fieldContext_Fine_amount(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Fine_createdAt(ctx, field)
+			case "violationRecordId":
+				return ec.fieldContext_Fine_violationRecordId(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Fine", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_violationRecordCreated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_violationRecordCreated(ctx, field)
+	if err != nil {
+		return nil
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().ViolationRecordCreated(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func(ctx context.Context) graphql.Marshaler {
+		select {
+		case res, ok := <-resTmp.(<-chan *model.ViolationRecord):
+			if !ok {
+				return nil
+			}
+			return graphql.WriterFunc(func(w io.Writer) {
+				w.Write([]byte{'{'})
+				graphql.MarshalString(field.Alias).MarshalGQL(w)
+				w.Write([]byte{':'})
+				ec.marshalNViolationRecord2ᚖfine_serviceᚋgraphᚋmodelᚐViolationRecord(ctx, field.Selections, res).MarshalGQL(w)
+				w.Write([]byte{'}'})
+			})
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (ec *executionContext) fieldContext_Subscription_violationRecordCreated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "violation_record_id":
+				return ec.fieldContext_ViolationRecord_violation_record_id(ctx, field)
+			case "patron_id":
+				return ec.fieldContext_ViolationRecord_patron_id(ctx, field)
+			case "violation_type":
+				return ec.fieldContext_ViolationRecord_violation_type(ctx, field)
+			case "violation_info":
+				return ec.fieldContext_ViolationRecord_violation_info(ctx, field)
+			case "violation_created":
+				return ec.fieldContext_ViolationRecord_violation_created(ctx, field)
+			case "violation_status":
+				return ec.fieldContext_ViolationRecord_violation_status(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ViolationRecord", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ViolationRecord_violation_record_id(ctx context.Context, field graphql.CollectedField, obj *model.ViolationRecord) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ViolationRecord_violation_record_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ViolationRecordID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ViolationRecord_violation_record_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ViolationRecord",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ViolationRecord_patron_id(ctx context.Context, field graphql.CollectedField, obj *model.ViolationRecord) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ViolationRecord_patron_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PatronID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ViolationRecord_patron_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ViolationRecord",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ViolationRecord_violation_type(ctx context.Context, field graphql.CollectedField, obj *model.ViolationRecord) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ViolationRecord_violation_type(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ViolationType, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(model.ViolationType)
+	fc.Result = res
+	return ec.marshalNViolationType2fine_serviceᚋgraphᚋmodelᚐViolationType(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ViolationRecord_violation_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ViolationRecord",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ViolationType does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ViolationRecord_violation_info(ctx context.Context, field graphql.CollectedField, obj *model.ViolationRecord) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ViolationRecord_violation_info(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ViolationInfo, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ViolationRecord_violation_info(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ViolationRecord",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ViolationRecord_violation_created(ctx context.Context, field graphql.CollectedField, obj *model.ViolationRecord) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ViolationRecord_violation_created(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ViolationCreated, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ViolationRecord_violation_created(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ViolationRecord",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ViolationRecord_violation_status(ctx context.Context, field graphql.CollectedField, obj *model.ViolationRecord) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ViolationRecord_violation_status(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ViolationStatus, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(model.ViolationStatus)
+	fc.Result = res
+	return ec.marshalNViolationStatus2fine_serviceᚋgraphᚋmodelᚐViolationStatus(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ViolationRecord_violation_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ViolationRecord",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ViolationStatus does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3488,6 +4474,11 @@ func (ec *executionContext) _Fine(ctx context.Context, sel ast.SelectionSet, obj
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "violationRecordId":
+			out.Values[i] = ec._Fine_violationRecordId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3547,6 +4538,27 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "deleteFine":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteFine(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createViolationRecord":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createViolationRecord(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateViolationStatus":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateViolationStatus(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteViolationRecord":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteViolationRecord(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -3634,6 +4646,47 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getViolationRecord":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getViolationRecord(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "listViolationRecords":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_listViolationRecords(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -3680,9 +4733,75 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	switch fields[0].Name {
 	case "fineCreated":
 		return ec._Subscription_fineCreated(ctx, fields[0])
+	case "violationRecordCreated":
+		return ec._Subscription_violationRecordCreated(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
+}
+
+var violationRecordImplementors = []string{"ViolationRecord"}
+
+func (ec *executionContext) _ViolationRecord(ctx context.Context, sel ast.SelectionSet, obj *model.ViolationRecord) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, violationRecordImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ViolationRecord")
+		case "violation_record_id":
+			out.Values[i] = ec._ViolationRecord_violation_record_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "patron_id":
+			out.Values[i] = ec._ViolationRecord_patron_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "violation_type":
+			out.Values[i] = ec._ViolationRecord_violation_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "violation_info":
+			out.Values[i] = ec._ViolationRecord_violation_info(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "violation_created":
+			out.Values[i] = ec._ViolationRecord_violation_created(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "violation_status":
+			out.Values[i] = ec._ViolationRecord_violation_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
 }
 
 var __DirectiveImplementors = []string{"__Directive"}
@@ -4153,6 +5272,84 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
+func (ec *executionContext) marshalNViolationRecord2fine_serviceᚋgraphᚋmodelᚐViolationRecord(ctx context.Context, sel ast.SelectionSet, v model.ViolationRecord) graphql.Marshaler {
+	return ec._ViolationRecord(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNViolationRecord2ᚕᚖfine_serviceᚋgraphᚋmodelᚐViolationRecordᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ViolationRecord) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNViolationRecord2ᚖfine_serviceᚋgraphᚋmodelᚐViolationRecord(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNViolationRecord2ᚖfine_serviceᚋgraphᚋmodelᚐViolationRecord(ctx context.Context, sel ast.SelectionSet, v *model.ViolationRecord) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ViolationRecord(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNViolationStatus2fine_serviceᚋgraphᚋmodelᚐViolationStatus(ctx context.Context, v any) (model.ViolationStatus, error) {
+	var res model.ViolationStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNViolationStatus2fine_serviceᚋgraphᚋmodelᚐViolationStatus(ctx context.Context, sel ast.SelectionSet, v model.ViolationStatus) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNViolationType2fine_serviceᚋgraphᚋmodelᚐViolationType(ctx context.Context, v any) (model.ViolationType, error) {
+	var res model.ViolationType
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNViolationType2fine_serviceᚋgraphᚋmodelᚐViolationType(ctx context.Context, sel ast.SelectionSet, v model.ViolationType) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
 	return ec.___Directive(ctx, sel, &v)
 }
@@ -4451,6 +5648,13 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	}
 	res := graphql.MarshalString(*v)
 	return res
+}
+
+func (ec *executionContext) marshalOViolationRecord2ᚖfine_serviceᚋgraphᚋmodelᚐViolationRecord(ctx context.Context, sel ast.SelectionSet, v *model.ViolationRecord) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._ViolationRecord(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

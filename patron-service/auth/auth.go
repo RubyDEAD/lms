@@ -71,6 +71,45 @@ func CreateSupabaseAuthUser(email string, password string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
+	fmt.Print(supabaseResponse)
 	return supabaseResponse.ID, nil
+}
+
+func DeleteAuthenticatedUser(userID string) error {
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found")
+	}
+
+	baseURL := os.Getenv("SUPABASE_URL_PROJECT")
+	if baseURL == "" {
+		log.Fatal("SUPABASE_URL_PROJECT environment variable is not set")
+	}
+
+	anonKey := os.Getenv("SUPABASE_ANONKEY")
+	if anonKey == "" {
+		log.Fatal("SUPABASE_ANONKEY environment variable is not set")
+	}
+
+	url := baseURL + "/auth/v1/admin/users/" + userID
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+anonKey)
+	req.Header.Set("apikey", anonKey)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("supabase auth user creation failed: %v", resp.Status)
+	}
+
+	return nil
 }

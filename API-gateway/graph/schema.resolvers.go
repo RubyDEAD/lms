@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/Cat6utpcableclarke/API-gateway/graph/model"
@@ -380,57 +379,6 @@ func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID stri
 	}
 
 	return result.Data.UpdatePatronStatus, nil
-}
-
-// AddViolation is the resolver for the addViolation field.
-func (r *mutationResolver) AddViolation(ctx context.Context, patronID string, violationType model.ViolationType, violationInfo string) (*model.ViolationRecord, error) {
-	variables := map[string]interface{}{
-		"patron_id":      patronID,
-		"violation_type": violationType,
-		"violation_info": violationInfo,
-	}
-
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "addViolation")
-	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
-	}
-
-	var result struct {
-		Data struct {
-			AddViolation *model.ViolationRecord `json:"addViolation"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
-	}
-
-	return result.Data.AddViolation, nil
-}
-
-// UpdateViolationStatus is the resolver for the updateViolationStatus field.
-func (r *mutationResolver) UpdateViolationStatus(ctx context.Context, violationID string, violationStatus model.ViolationStatus) (*model.ViolationRecord, error) {
-	variables := map[string]interface{}{
-		"violation_id":   violationID,
-		"violation_type": violationStatus,
-	}
-
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "updateViolationStatus")
-	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
-	}
-
-	var result struct {
-		Data struct {
-			UpdateViolationStatus *model.ViolationRecord `json:"updateViolationStatus"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
-	}
-
-	return result.Data.UpdateViolationStatus, nil
 }
 
 // BorrowBook is the resolver for the borrowBook field.
@@ -963,54 +911,6 @@ func (r *queryResolver) GetMembershipByPatronID(ctx context.Context, patronID st
 	return result.Data.GetMembershipByPatronID, nil
 }
 
-// GetViolationByPatronID is the resolver for the getViolationByPatronId field.
-func (r *queryResolver) GetViolationByPatronID(ctx context.Context, patronID string) ([]*model.ViolationRecord, error) {
-	variables := map[string]interface{}{
-		"patron_id": patronID,
-	}
-
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "getViolationByPatronId")
-	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
-	}
-
-	var result struct {
-		Data struct {
-			GetViolationByPatronID []*model.ViolationRecord `json:"getViolationByPatronId"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
-	}
-
-	return result.Data.GetViolationByPatronID, nil
-}
-
-// GetViolationByType is the resolver for the getViolationByType field.
-func (r *queryResolver) GetViolationByType(ctx context.Context, violationType model.ViolationType) ([]*model.ViolationRecord, error) {
-	variables := map[string]interface{}{
-		"violation_type": violationType,
-	}
-
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "getViolationByType")
-	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
-	}
-
-	var result struct {
-		Data struct {
-			GetViolationByType []*model.ViolationRecord `json:"getViolationByType"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
-	}
-
-	return result.Data.GetViolationByType, nil
-}
-
 // GetPatronStatusByType is the resolver for the getPatronStatusByType field.
 func (r *queryResolver) GetPatronStatusByType(ctx context.Context, patronStatus model.Status) ([]*model.PatronStatus, error) {
 	variables := map[string]interface{}{
@@ -1038,8 +938,8 @@ func (r *queryResolver) GetPatronStatusByType(ctx context.Context, patronStatus 
 // BorrowRecords is the resolver for the borrowRecords field.
 func (r *queryResolver) BorrowRecords(ctx context.Context, patronID *string, bookID *string, status *model.BorrowStatus) ([]*model.BorrowRecord, error) {
 	query := `
-        query BorrowRecords($patronID: String, $bookID: String, $status: BorrowStatus) {
-            borrowRecords(patronID: $patronID, bookID: $bookID, status: $status) {
+        query BorrowRecords($patronID: ID, $bookID: ID, $status: BorrowStatus) {
+            borrowRecords(patronId: $patronID, bookId: $bookID, status: $status) {
                 id
                 bookId
                 patronId
@@ -1173,11 +1073,10 @@ func (r *queryResolver) OverdueRecords(ctx context.Context) ([]*model.BorrowReco
 	return result.Data.OverdueRecords, nil
 }
 
-// PatronBorrowHistory is the resolver for the patronBorrowHistory field.
 func (r *queryResolver) PatronBorrowHistory(ctx context.Context, patronID string) ([]*model.BorrowRecord, error) {
 	query := `
-        query PatronBorrowHistory($patronID: String!) {
-            patronBorrowHistory(patronID: $patronID) {
+        query PatronBorrowHistory($patronId: ID!) {
+            patronBorrowHistory(patronId: $patronId) {
                 id
                 bookId
                 patronId
@@ -1192,7 +1091,7 @@ func (r *queryResolver) PatronBorrowHistory(ctx context.Context, patronID string
         }`
 
 	variables := map[string]interface{}{
-		"patronID": patronID,
+		"patronId": patronID,
 	}
 
 	resp, err := forwardRequest(ctx, query, variables, borrowingServiceURL)
@@ -1330,9 +1229,9 @@ func (r *subscriptionResolver) PatronCreated(ctx context.Context) (<-chan *model
 	return patronChan, nil
 }
 
-// OngoingViolations is the resolver for the ongoingViolations field.
-func (r *subscriptionResolver) OngoingViolations(ctx context.Context) (<-chan *model.ViolationRecord, error) {
-	violationsChan := make(chan *model.ViolationRecord)
+// PatronStatusUpdated is the resolver for the patronStatusUpdated field.
+func (r *subscriptionResolver) PatronStatusUpdated(ctx context.Context) (<-chan *model.PatronStatus, error) {
+	patronUpdatesChan := make(chan *model.PatronStatus)
 
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
@@ -1346,7 +1245,7 @@ func (r *subscriptionResolver) OngoingViolations(ctx context.Context) (<-chan *m
 	}
 
 	_, err = ch.QueueDeclare(
-		"patron-subscription-violationChan-queue",
+		"patron-subscription-updatesChan-queue",
 		false,
 		false,
 		false,
@@ -1360,7 +1259,7 @@ func (r *subscriptionResolver) OngoingViolations(ctx context.Context) (<-chan *m
 	}
 
 	msgs, err := ch.Consume(
-		"patron-subscription-violationChan-queue",
+		"patron-subscription-updatesChan-queue",
 		"",
 		true,
 		false,
@@ -1381,27 +1280,23 @@ func (r *subscriptionResolver) OngoingViolations(ctx context.Context) (<-chan *m
 		for {
 			select {
 			case <-ctx.Done():
-				close(violationsChan)
+				close(patronUpdatesChan)
 				return
 			case msg := <-msgs:
 				var response struct {
 					Data struct {
-						OngoingViolations *model.ViolationRecord `json:"ongoingViolations"`
+						PatronStatusUpdate *model.PatronStatus `json:"updatePatronStatus"`
 					} `json:"data"`
 				}
 
 				if err := json.Unmarshal(msg.Body, &response); err == nil {
-					violationsChan <- response.Data.OngoingViolations
-					log.Printf("inside: %v", response.Data.OngoingViolations)
-				}
-				if err != nil {
-					log.Fatalf("error: %v", err)
+					patronUpdatesChan <- response.Data.PatronStatusUpdate
 				}
 			}
 		}
 	}()
 
-	return violationsChan, nil
+	return patronUpdatesChan, nil
 }
 
 // ReservationCreated is the resolver for the reservationCreated field.

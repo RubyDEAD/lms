@@ -2,14 +2,22 @@
 
 package model
 
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
+)
+
 type Fine struct {
-	FineID     string  `json:"fine_id"`
-	PatronID   string  `json:"patronId"`
-	BookID     string  `json:"bookId"`
-	DaysLate   int32   `json:"daysLate"`
-	RatePerDay float64 `json:"ratePerDay"`
-	Amount     float64 `json:"amount"`
-	CreatedAt  string  `json:"createdAt"`
+	FineID            string  `json:"fine_id"`
+	PatronID          string  `json:"patronId"`
+	BookID            string  `json:"bookId"`
+	DaysLate          int32   `json:"daysLate"`
+	RatePerDay        float64 `json:"ratePerDay"`
+	Amount            float64 `json:"amount"`
+	CreatedAt         string  `json:"createdAt"`
+	ViolationRecordID string  `json:"violationRecordId"`
 }
 
 type Mutation struct {
@@ -19,4 +27,125 @@ type Query struct {
 }
 
 type Subscription struct {
+}
+
+type ViolationRecord struct {
+	ViolationRecordID string          `json:"violation_record_id"`
+	PatronID          string          `json:"patron_id"`
+	ViolationType     ViolationType   `json:"violation_type"`
+	ViolationInfo     string          `json:"violation_info"`
+	ViolationCreated  string          `json:"violation_created"`
+	ViolationStatus   ViolationStatus `json:"violation_status"`
+}
+
+type ViolationStatus string
+
+const (
+	ViolationStatusOngoing  ViolationStatus = "Ongoing"
+	ViolationStatusResolved ViolationStatus = "Resolved"
+)
+
+var AllViolationStatus = []ViolationStatus{
+	ViolationStatusOngoing,
+	ViolationStatusResolved,
+}
+
+func (e ViolationStatus) IsValid() bool {
+	switch e {
+	case ViolationStatusOngoing, ViolationStatusResolved:
+		return true
+	}
+	return false
+}
+
+func (e ViolationStatus) String() string {
+	return string(e)
+}
+
+func (e *ViolationStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ViolationStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ViolationStatus", str)
+	}
+	return nil
+}
+
+func (e ViolationStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ViolationStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ViolationStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type ViolationType string
+
+const (
+	ViolationTypeLateReturn  ViolationType = "Late_Return"
+	ViolationTypeUnpaidFees  ViolationType = "Unpaid_Fees"
+	ViolationTypeDamagedBook ViolationType = "Damaged_Book"
+)
+
+var AllViolationType = []ViolationType{
+	ViolationTypeLateReturn,
+	ViolationTypeUnpaidFees,
+	ViolationTypeDamagedBook,
+}
+
+func (e ViolationType) IsValid() bool {
+	switch e {
+	case ViolationTypeLateReturn, ViolationTypeUnpaidFees, ViolationTypeDamagedBook:
+		return true
+	}
+	return false
+}
+
+func (e ViolationType) String() string {
+	return string(e)
+}
+
+func (e *ViolationType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ViolationType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ViolationType", str)
+	}
+	return nil
+}
+
+func (e ViolationType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ViolationType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ViolationType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
