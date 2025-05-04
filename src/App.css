@@ -205,3 +205,51 @@
   color: #333;
   font-weight: bold;
 }
+
+.signup-background {
+  background: linear-gradient(to right, #e3f2fd, #bbdefb);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.signup-card {
+  width: 100%;
+  max-width: 500px;
+  border-radius: 1rem;
+  background-color: white;
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(25px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.signup-card h2 {
+  color: #1976d2;
+}
+
+.signup-card .btn-primary {
+  background-color: #1976d2;
+  border: none;
+}
+
+.signup-card .btn-primary:hover {
+  background-color: #1565c0;
+}
+
+.alert-danger {
+  animation: shake 0.3s;
+}
+
+@keyframes shake {
+  0% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  100% { transform: translateX(0); }
+}
+
