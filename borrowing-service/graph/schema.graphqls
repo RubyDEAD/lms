@@ -52,6 +52,9 @@ type Query {
   
   overdueRecords: [BorrowRecord!]!
   patronBorrowHistory(patronId: ID!): [BorrowRecord!]! # NEW
+  checkActiveBorrow(bookId: ID!, patronId: ID!): BorrowRecord
+  checkActiveReserve(bookId: ID!, patronId: ID!): Reservation
+
 }
 
 type Mutation {
