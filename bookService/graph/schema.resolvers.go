@@ -15,7 +15,7 @@ import (
 )
 
 // AddBook adds a new book along with the author (if the author does not exist).
-func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName string, datePublished string, description string) (*model.Book, error) {
+func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName string, datePublished string, description string, image *string) (*model.Book, error) {
 	conn, err := r.DB.Acquire(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to acquire a database connection: %v", err)
@@ -44,7 +44,12 @@ func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName
 
 	// Insert the book
 	var bookID string
-	err = tx.QueryRow(ctx, "INSERT INTO books (title, author_id, date_published, description) VALUES ($1, $2, $3, $4) RETURNING id", title, authorID, datePublished, description).Scan(&bookID)
+	var img string = ""
+	if image != nil {
+		img = *image
+	}
+
+	err = tx.QueryRow(ctx, "INSERT INTO books (title, author_id, date_published, description, image) VALUES ($1, $2, $3, $4, $5) RETURNING id", title, authorID, datePublished, description, img).Scan(&bookID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert book: %v", err)
 	}
@@ -69,6 +74,7 @@ func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName
 		AuthorName:    authorName,
 		DatePublished: datePublished,
 		Description:   description,
+		Image:         img,
 	}
 	r.mu.Lock()
 	for key, observer := range r.BookAddedObservers {
@@ -281,7 +287,7 @@ func (r *queryResolver) GetBooks(ctx context.Context) ([]*model.Book, error) {
 	defer conn.Release()
 
 	var books []*model.Book
-	rows, err := r.DB.Query(ctx, "SELECT b.id, b.title, a.author_name, b.date_published, b.description FROM books b JOIN authors a ON b.author_id = a.id")
+	rows, err := r.DB.Query(ctx, "SELECT b.id, b.title, a.author_name, b.date_published, b.description , b.image FROM books b JOIN authors a ON b.author_id = a.id")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch books: %v", err)
 	}
@@ -290,7 +296,7 @@ func (r *queryResolver) GetBooks(ctx context.Context) ([]*model.Book, error) {
 		var book model.Book
 		var authorName string
 		var date_published time.Time // Store as time.Time to handle DATE type
-		err := rows.Scan(&book.ID, &book.Title, &authorName, &date_published, &book.Description)
+		err := rows.Scan(&book.ID, &book.Title, &authorName, &date_published, &book.Description, &book.Image)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan book: %v", err)
 		}
@@ -387,8 +393,8 @@ func (r *queryResolver) GetBookByID(ctx context.Context, id string) (*model.Book
 	var authorName string
 	var datePublished time.Time // Store as time.Time to handle DATE type
 
-	err := r.DB.QueryRow(ctx, "SELECT b.id, b.title, a.author_name, b.date_published, b.description FROM books b JOIN authors a ON b.author_id = a.id WHERE b.id=$1", id).
-		Scan(&book.ID, &book.Title, &authorName, &datePublished, &book.Description)
+	err := r.DB.QueryRow(ctx, "SELECT b.id, b.title, a.author_name, b.date_published, b.description, b.image FROM books b JOIN authors a ON b.author_id = a.id WHERE b.id=$1", id).
+		Scan(&book.ID, &book.Title, &authorName, &datePublished, &book.Description, &book.Image)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch book: %v", err)

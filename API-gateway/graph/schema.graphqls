@@ -46,7 +46,7 @@ type Query {
 }
 
 type Mutation {
-  addBook(title: String!, authorName: String!, datePublished: String!, description: String!): Book!
+  addBook(title: String!, authorName: String!, datePublished: String!, description: String! , image: String): Book!
   addBCopy(book_id:String!):Book_copies!
   updateBook(id:ID!,title:String!, author_name:String, datePublished:String,description:String):Book!
   updateBookCopyStatus(id:ID!, book_status:String):Book_copies!
@@ -89,6 +89,7 @@ type Book {
   author_name: String!
   date_published: String! # ISO 8601 format (YYYY-MM-DD)
   description: String!
+  image: String
 }
 
 type Author {

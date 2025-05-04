@@ -15,15 +15,20 @@ import (
 )
 
 // AddBook is the resolver for the addBook field.
-func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName string, datePublished string, description string) (*model.Book, error) {
+func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName string, datePublished string, description string, image *string) (*model.Book, error) {
+	var img string = "image"
+	if image != nil {
+		img = *image
+	}
 	query := `
-        mutation AddBook($title: String!, $author_name: String!, $datePublished: String!, $description: String!) {
-            addBook(title: $title, author_name: $author_name, datePublished: $datePublished, description: $description) {
+        mutation AddBook($title: String!, $author_name: String!, $datePublished: String!, $description: String!, $image: String) {
+            addBook(title: $title, author_name: $author_name, datePublished: $datePublished, description: $description,image:$image) {
                 id
                 title
                 author_name
                 date_published
                 description
+				image
             }
         }
     `
@@ -33,6 +38,7 @@ func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName
 		"author_name":   authorName,
 		"datePublished": datePublished,
 		"description":   description,
+		"image":         img,
 	}
 
 	resp, err := forwardRequest(ctx, query, variables, bookServiceURL)
@@ -649,6 +655,7 @@ func (r *queryResolver) GetBooks(ctx context.Context) ([]*model.Book, error) {
                 author_name
                 date_published
                 description
+				image
             }
         }
     `
@@ -681,6 +688,7 @@ func (r *queryResolver) GetBookByID(ctx context.Context, id string) (*model.Book
                 author_name
                 date_published
                 description
+				image
             }
         }
     `
@@ -1073,6 +1081,7 @@ func (r *queryResolver) OverdueRecords(ctx context.Context) ([]*model.BorrowReco
 	return result.Data.OverdueRecords, nil
 }
 
+// PatronBorrowHistory is the resolver for the patronBorrowHistory field.
 func (r *queryResolver) PatronBorrowHistory(ctx context.Context, patronID string) ([]*model.BorrowRecord, error) {
 	query := `
         query PatronBorrowHistory($patronId: ID!) {

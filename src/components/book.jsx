@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { supabase } from '../supabaseClient';
+import { supabase ,bookservice,bucketURL } from '../supabaseClient';
 import { useNavigate } from "react-router-dom";
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -69,6 +69,7 @@ function Books() {
                             author_name
                             date_published
                             description
+                            image
                         }
                     }
                 `,
@@ -99,29 +100,50 @@ function Books() {
                 navigate('/login');
                 return;
             }
-
+    
             const token = session.access_token;
-
+    
             // Input validation
             if (!newBook.title.trim() || !newBook.authorName.trim()) {
                 setError("Title and Author Name are required");
                 return;
             }
-
+    
+            let imageUrl = null;
+    
+            // Upload the image if a file is selected
+            if (newBook.imageFile) {
+                const fileName = `${Date.now()}_${newBook.imageFile.name}`;
+                const { data, error } = await bookservice.storage
+                    .from('test') // Ensure the bucket name is correct
+                    .upload(fileName, newBook.imageFile);
+    
+                if (error) {
+                    console.error("Error uploading image:", error);
+                    setError("Failed to upload image. Please try again later.");
+                    return;
+                }
+    
+                // Construct the public URL for the uploaded image
+                imageUrl = `${bucketURL}${fileName}`;
+            }
+    
             const response = await axios.post(API_URL, {
                 query: `
-                    mutation AddBook($title: String!, $authorName: String!, $datePublished: String!, $description: String!) {
+                    mutation AddBook($title: String!, $authorName: String!, $datePublished: String!, $description: String!, $image: String) {
                         addBook(
                             title: $title,
                             authorName: $authorName,
                             datePublished: $datePublished,
-                            description: $description
+                            description: $description,
+                            image: $image
                         ) {
                             id
                             title
                             author_name
                             date_published
                             description
+                            image
                         }
                     }
                 `,
@@ -129,19 +151,20 @@ function Books() {
                     title: newBook.title,
                     authorName: newBook.authorName,
                     datePublished: newBook.datePublished,
-                    description: newBook.description
-                }
+                    description: newBook.description,
+                    image: imageUrl,
+                },
             }, {
                 headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                    Authorization: `Bearer ${token}`,
+                },
             });
-
+    
             const addedBook = response.data.data.addBook;
-
+    
             if (addedBook) {
                 setBooks((prevBooks) => [...prevBooks, addedBook]);
-                setNewBook({ title: "", authorName: "", datePublished: "", description: "" });
+                setNewBook({ title: "", authorName: "", datePublished: "", description: "", imageFile: null });
                 setError(null);
             }
         } catch (err) {
@@ -170,6 +193,7 @@ function Books() {
                             author_name
                             date_published
                             description
+                            image
                         }
                     }
                 `,
@@ -183,6 +207,7 @@ function Books() {
             });
             
             setBookDetails(response.data.data.getBookById);
+            console.log(response.data.data.getBookById);
             setAvailableCopy(null);
             setBookCopies([]);
             setError(null);
@@ -519,6 +544,17 @@ function Books() {
                                     onChange={(e) => setNewBook({ ...newBook, description: e.target.value })}
                                 ></textarea>
                             </div>
+                            <div className="mb-3">
+                                <label htmlFor="image" className="form-label">
+                                    Book Cover Image
+                                </label>
+                                <input
+                                    type="file"
+                                    className="form-control"
+                                    id="image"
+                                    onChange={(e) => setNewBook({ ...newBook, imageFile: e.target.files[0] })}
+                                />
+                            </div>
                             <button type="submit" className="btn btn-primary">
                                 Add Book
                             </button>
@@ -586,9 +622,25 @@ function Books() {
                                     <button type="button" className="btn-close" onClick={() => setBookDetails(null)}></button>
                                 </div>
                                 <div className="modal-body">
-                                    <p><strong>Author:</strong> {bookDetails.author_name}</p>
-                                    <p><strong>Published:</strong> {bookDetails.date_published}</p>
-                                    <p><strong>Description:</strong> {bookDetails.description}</p>
+                                    <div className="d-flex">
+                                        {/* Image on the left */}
+                                        <img
+                                            src={
+                                                bookDetails.image && new RegExp(bucketURL).test(bookDetails.image)
+                                                ? bookDetails.image
+                                                : "https://hwkuzfsecehszlftxqpn.supabase.co/storage/v1/object/public/test/default-book.png"
+                                                }                                            
+                                            alt={bookDetails.title}
+                                            className="img-fluid me-3"
+                                            style={{ maxWidth: "150px", maxHeight: "200px", objectFit: "cover" }}
+                                        />
+                                        {/* Details on the right */}
+                                        <div>
+                                            <p><strong>Author:</strong> {bookDetails.author_name}</p>
+                                            <p><strong>Published:</strong> {bookDetails.date_published}</p>
+                                            <p><strong>Description:</strong> {bookDetails.description}</p>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="modal-footer">
                                     <button type="button" className="btn btn-secondary" onClick={() => setBookDetails(null)}>

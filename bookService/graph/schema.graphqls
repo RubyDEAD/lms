@@ -4,6 +4,7 @@ type Book {
   author_name: String!
   date_published: String! # ISO 8601 format (YYYY-MM-DD)
   description: String!
+  image:String!
 }
 
 type Author {
@@ -21,11 +22,7 @@ type Book_copies {
   book_status:String!
 }
 
-type Bcopy{
-  id:Int!
-  book_id:String!
-  book_status:String!
-}
+
 input BookFilter {
   title: String
   author_name: String
@@ -48,7 +45,7 @@ type Query {
 }
 
 type Mutation {
-  addBook(title: String!, author_name: String!, datePublished: String!,description:String!): Book!
+  addBook(title: String!, author_name: String!, datePublished: String!,description:String! , image: String): Book!
   addBCopy(book_id:String!): Book_copies!
   addAuthor(author_name:String!): Author!
   updateBook(id: ID!, title: String, author_name:String!, datePublished: String, description:String): Book!
