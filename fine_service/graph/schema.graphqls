@@ -42,7 +42,7 @@ type Query {
 }
 
 type Mutation {
-  createFine(patronId: ID!, bookId: ID!, ratePerDay: Float!): Fine!
+  createFine(patronId: ID!, bookId: ID!, ratePerDay: Float!, violationType: ViolationType!,daysLate: Int): Fine!
   updateFine(fine_id: ID!, daysLate: Int!, ratePerDay: Float!): Fine!
   deleteFine(fine_id: ID!): Boolean!
 

@@ -16,16 +16,36 @@ import (
 )
 
 // CreateFine is the resolver for the createFine field.
-func (r *mutationResolver) CreateFine(ctx context.Context, patronID string, bookID string, ratePerDay float64) (*model.Fine, error) {
+func (r *mutationResolver) CreateFine(ctx context.Context, patronID string, bookID string, ratePerDay float64, violationType model.ViolationType, daysLate *int32) (*model.Fine, error) {
 	fineID := uuid.NewString()
 	violationID := uuid.NewString()
 	createdAt := time.Now()
-	daysLate := 5 // Replace with actual logic if needed
-	amount := ratePerDay * float64(daysLate)
+	//daysLate := 5 // Replace with actual logic if needed
+	//amount := ratePerDay * float64(daysLate)
+	violationStatus := model.ViolationStatusOngoing
+
+	var amount float64
+	var actualDaysLate int32
+
+	switch violationType {
+	case model.ViolationTypeLateReturn:
+		if daysLate == nil {
+			return nil, fmt.Errorf("daysLate must be provided for Late_Return")
+		}
+		actualDaysLate = *daysLate
+		amount = ratePerDay * float64(actualDaysLate)
+	case model.ViolationTypeDamagedBook:
+		amount = 200.00 // Fixed charge
+		actualDaysLate = 0
+	case model.ViolationTypeUnpaidFees:
+		amount = 100.00 // Default/lookup fee
+		actualDaysLate = 0
+	default:
+		return nil, fmt.Errorf("unsupported violation type")
+	}
 
 	// Insert Violation Record first
-	violationStatus := model.ViolationStatusOngoing
-	violationType := model.ViolationTypeLateReturn
+	//violationType = violationType
 	violationInfo := fmt.Sprintf("Book ID %s returned late", bookID)
 
 	_, err := r.DB.ExecContext(ctx, `
@@ -54,7 +74,7 @@ func (r *mutationResolver) CreateFine(ctx context.Context, patronID string, book
 		FineID:            fineID,
 		PatronID:          patronID,
 		BookID:            bookID,
-		DaysLate:          int32(daysLate),
+		DaysLate:          actualDaysLate,
 		RatePerDay:        ratePerDay,
 		Amount:            amount,
 		CreatedAt:         createdAt.Format(time.RFC3339),
@@ -313,73 +333,3 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *queryResolver) GetFine(ctx context.Context, fineID string) (*model.Fine, error) {
-	var fine model.Fine
-
-	query := `
-		SELECT fine_id, patron_id, book_id, days_late, rate_per_day, amount, created_at
-		FROM fines
-		WHERE fine_id = $1
-	`
-	row := r.DB.QueryRowContext(ctx, query, fineID)
-	var createdAt time.Time
-	err := row.Scan(
-		&fine.FineID,
-		&fine.PatronID,
-		&fine.BookID,
-		&fine.DaysLate,
-		&fine.RatePerDay,
-		&fine.Amount,
-		&createdAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch fine: %w", err)
-	}
-
-	fine.CreatedAt = createdAt.Format(time.RFC3339)
-
-	return &fine, nil
-}
-func (r *queryResolver) ListFines(ctx context.Context) ([]*model.Fine, error) {
-	query := `
-		SELECT fine_id, patron_id, book_id, days_late, rate_per_day, amount, created_at
-		FROM fines
-	`
-	rows, err := r.DB.QueryContext(ctx, query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list fines: %w", err)
-	}
-	defer rows.Close()
-
-	var fines []*model.Fine
-
-	for rows.Next() {
-		var fine model.Fine
-		var createdAt time.Time
-		err := rows.Scan(
-			&fine.FineID,
-			&fine.PatronID,
-			&fine.BookID,
-			&fine.DaysLate,
-			&fine.RatePerDay,
-			&fine.Amount,
-			&createdAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-		fine.CreatedAt = createdAt.Format(time.RFC3339)
-		fines = append(fines, &fine)
-	}
-
-	return fines, nil
-}
-*/
