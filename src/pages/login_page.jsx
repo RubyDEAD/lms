@@ -180,9 +180,6 @@ function LoginPage() {
             <div className="mt-3 text-center">
               <a href="/forgot-password">Forgot password?</a>
             </div>
-            <div className="mt-2 text-center">
-              <small>Don't have an account? <a href="/sign-up">Register here</a></small>
-            </div>
           </form>
         </div>
       </div>
@@ -191,7 +188,7 @@ function LoginPage() {
       <div className="lms-banner-login">
         <h1>Welcome to LMS</h1>
         <p>Dont have an Account? Sign up now.</p>
-        <button onClick={() => window.location.href = '/signup_page'}>Sign up</button>
+        <button onClick={() => window.location.href = '/sign-up'}>Sign up</button>
       </div>
     </div>
   );
