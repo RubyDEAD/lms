@@ -96,12 +96,6 @@ function Books() {
             }
     
             const token = session.access_token;
-<<<<<<< HEAD
-
-=======
-    
-            // Input validation
->>>>>>> e61b099294297fcf15e750c471a96cebbe2c5630
             if (!newBook.title.trim() || !newBook.authorName.trim()) {
                 setError("Title and Author Name are required");
                 return;
@@ -145,17 +139,7 @@ function Books() {
                         }
                     }
                 `,
-<<<<<<< HEAD
                 variables: newBook
-=======
-                variables: {
-                    title: newBook.title,
-                    authorName: newBook.authorName,
-                    datePublished: newBook.datePublished,
-                    description: newBook.description,
-                    image: imageUrl,
-                },
->>>>>>> e61b099294297fcf15e750c471a96cebbe2c5630
             }, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -163,17 +147,10 @@ function Books() {
             });
     
             const addedBook = response.data.data.addBook;
-<<<<<<< HEAD
-            if (addedBook) {
-                setBooks((prevBooks) => [...prevBooks, addedBook]);
-                setNewBook({ title: "", authorName: "", datePublished: "", description: "" });
-                setShowAddForm(false);
-=======
     
             if (addedBook) {
                 setBooks((prevBooks) => [...prevBooks, addedBook]);
                 setNewBook({ title: "", authorName: "", datePublished: "", description: "", imageFile: null });
->>>>>>> e61b099294297fcf15e750c471a96cebbe2c5630
                 setError(null);
             }
         } catch (err) {
@@ -418,7 +395,6 @@ function Books() {
                 </button>
 
                 {/* Add Book Form */}
-<<<<<<< HEAD
                 {showAddForm && (
                     <div className="card mb-4">
                         <div className="card-body">
@@ -453,80 +429,6 @@ function Books() {
                                 <button type="submit" className="btn btn-primary">Add Book</button>
                             </form>
                         </div>
-=======
-                <div className="card mb-4">
-                    <div className="card-body">
-                        <h2 className="card-title">Add a New Book</h2>
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            addBook();
-                        }}>
-                            <div className="mb-3">
-                                <label htmlFor="title" className="form-label">
-                                    Title *
-                                </label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    id="title"
-                                    value={newBook.title}
-                                    onChange={(e) => setNewBook({ ...newBook, title: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="authorName" className="form-label">
-                                    Author Name *
-                                </label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    id="authorName"
-                                    value={newBook.authorName}
-                                    onChange={(e) => setNewBook({ ...newBook, authorName: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="datePublished" className="form-label">
-                                    Date Published
-                                </label>
-                                <input
-                                    type="date"
-                                    className="form-control"
-                                    id="datePublished"
-                                    value={newBook.datePublished}
-                                    onChange={(e) => setNewBook({ ...newBook, datePublished: e.target.value })}
-                                />
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="description" className="form-label">
-                                    Description
-                                </label>
-                                <textarea
-                                    className="form-control"
-                                    id="description"
-                                    rows="3"
-                                    value={newBook.description}
-                                    onChange={(e) => setNewBook({ ...newBook, description: e.target.value })}
-                                ></textarea>
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="image" className="form-label">
-                                    Book Cover Image
-                                </label>
-                                <input
-                                    type="file"
-                                    className="form-control"
-                                    id="image"
-                                    onChange={(e) => setNewBook({ ...newBook, imageFile: e.target.files[0] })}
-                                />
-                            </div>
-                            <button type="submit" className="btn btn-primary">
-                                Add Book
-                            </button>
-                        </form>
->>>>>>> e61b099294297fcf15e750c471a96cebbe2c5630
                     </div>
                 )}
 

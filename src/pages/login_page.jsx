@@ -111,18 +111,19 @@ function LoginPage() {
   };
 
   return (
-    <div className="container mt-5">
-      <div className="row justify-content-center">
-        <div className="col-md-6 col-lg-4">
-          <form onSubmit={handleLogin} className="p-4 border rounded shadow-sm bg-white">
-            <h3 className="text-center mb-4">Login</h3>
+    <div className="login-container">
+      {/* Login Section (Left) */}
+      <div className="login-card-container">
+        <div className="login-card card">
+          <h2 className="text-center mb-4">Login</h2>
 
-            {errors.general && (
-              <div className="alert alert-danger" role="alert">
-                {errors.general}
-              </div>
-            )}
+          {errors.general && (
+            <div className="alert alert-danger" role="alert">
+              {errors.general}
+            </div>
+          )}
 
+          <form onSubmit={handleLogin}>
             <div className="mb-3">
               <label htmlFor="email" className="form-label">Email:</label>
               <input
@@ -184,6 +185,13 @@ function LoginPage() {
             </div>
           </form>
         </div>
+      </div>
+
+      {/* LMS Section (Right) */}
+      <div className="lms-banner-login">
+        <h1>Welcome to LMS</h1>
+        <p>Dont have an Account? Sign up now.</p>
+        <button onClick={() => window.location.href = '/signup_page'}>Sign up</button>
       </div>
     </div>
   );
