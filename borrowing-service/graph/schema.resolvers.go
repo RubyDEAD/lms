@@ -22,7 +22,6 @@ import (
 // BorrowBook implements the borrowBook mutation
 // BorrowBook implements the borrowBook mutation
 func (r *mutationResolver) BorrowBook(ctx context.Context, bookID string, patronID string) (*model.BorrowRecord, error) {
-
 	activeBorrow, err := r.Resolver.Query().CheckActiveBorrow(ctx, bookID, patronID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check active borrow: %v", err)
@@ -106,28 +105,26 @@ func (r *mutationResolver) BorrowBook(ctx context.Context, bookID string, patron
 	return record, nil
 }
 
-// ReturnBook implements the returnBook mutation
 func (r *mutationResolver) ReturnBook(ctx context.Context, recordID string) (*model.BorrowRecord, error) {
-	// 1. Begin database transaction
+	// 1. Begin transaction
 	tx, err := r.DB.Begin(ctx)
 	if err != nil {
+		log.Printf("Failed to begin transaction: %v", err)
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	// 2. Query the borrow record with book copy information
+	// 2. Query borrow record
 	var record model.BorrowRecord
+	var bookCopyID string
 	var borrowedAt, dueDate time.Time
 	var returnedAt pgtype.Timestamptz
-	var bookCopyID string
 
-	const getQuery = `
-	SELECT id, book_id, patron_id, borrowed_at, due_date, 
-	       returned_at, renewal_count, status, book_copy_id
-	FROM borrow_records
-	WHERE id = $1 FOR UPDATE`
-
-	err = tx.QueryRow(ctx, getQuery, recordID).Scan(
+	err = tx.QueryRow(ctx, `
+        SELECT id, book_id, patron_id, borrowed_at, due_date, 
+               returned_at, renewal_count, status, book_copy_id
+        FROM borrow_records
+        WHERE id = $1 FOR UPDATE`, recordID).Scan(
 		&record.ID,
 		&record.BookID,
 		&record.PatronID,
@@ -139,70 +136,118 @@ func (r *mutationResolver) ReturnBook(ctx context.Context, recordID string) (*mo
 		&bookCopyID,
 	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("borrow record not found or no borrowed book copy available")
-		}
+		log.Printf("Failed to get borrow record: %v", err)
 		return nil, fmt.Errorf("failed to get borrow record: %w", err)
 	}
 
-	// Convert timestamps to strings for the model
+	// Convert timestamps
 	record.BorrowedAt = borrowedAt.Format(time.RFC3339)
 	record.DueDate = dueDate.Format(time.RFC3339)
-
 	if returnedAt.Valid {
 		returnedStr := returnedAt.Time.Format(time.RFC3339)
 		record.ReturnedAt = &returnedStr
-	} else {
-		record.ReturnedAt = nil
 	}
 
 	// 3. Check if already returned
 	if record.Status == model.BorrowStatusReturned {
+		log.Printf("Book already returned (recordID: %s)", recordID)
 		return &record, nil
 	}
 
-	// 4. Get RabbitMQ connection for inventory update
-	conn, err := services.GetRabbitMQConnection()
+	// 4. Check for pending reservations BEFORE committing
+	nextReservation := &model.Reservation{}
+	var reservedAt, expiresAt time.Time
+	err = tx.QueryRow(ctx, `
+        SELECT id, book_id, patron_id, book_copy_id, reserved_at, expires_at, status
+        FROM reservations
+        WHERE book_id = $1 AND status = $2
+        ORDER BY reserved_at ASC
+        LIMIT 1`,
+		record.BookID, model.ReservationStatusPending,
+	).Scan(
+		&nextReservation.ID,
+		&nextReservation.BookID,
+		&nextReservation.PatronID,
+		&nextReservation.BookCopyID,
+		&reservedAt,
+		&expiresAt,
+		&nextReservation.Status,
+	)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to get RabbitMQ connection: %w", err)
-	}
-	defer func() {
-		if conn != nil && !conn.IsClosed() {
-			conn.Close()
+		if errors.Is(err, pgx.ErrNoRows) {
+			log.Printf("No pending reservations found for bookID: %s", record.BookID)
+		} else {
+			log.Printf("Failed to query reservations: %v", err)
 		}
-	}()
+	}
 
 	// 5. Update the borrow record
 	now := time.Now()
-	const updateQuery = `
-		UPDATE borrow_records 
-		SET returned_at = $1, status = $2 
-		WHERE id = $3 
-		RETURNING returned_at`
-
-	var updatedReturnedAt time.Time
-	err = tx.QueryRow(ctx, updateQuery, now, model.BorrowStatusReturned, recordID).Scan(&updatedReturnedAt)
+	_, err = tx.Exec(ctx, `
+        UPDATE borrow_records 
+        SET returned_at = $1, status = $2 
+        WHERE id = $3`,
+		now, model.BorrowStatusReturned, recordID,
+	)
 	if err != nil {
+		log.Printf("Failed to update borrow record: %v", err)
 		return nil, fmt.Errorf("failed to update borrow record: %w", err)
 	}
 
-	updatedReturnedStr := updatedReturnedAt.Format(time.RFC3339)
-	record.ReturnedAt = &updatedReturnedStr
-
 	// 6. Commit transaction
 	if err = tx.Commit(ctx); err != nil {
+		log.Printf("Failed to commit transaction: %v", err)
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// 7. Update book copy status in inventory service
-	if err := services.SendUpdateRequest(conn, bookCopyID, "Available"); err != nil {
-		log.Printf("Warning: Book return completed but inventory update failed. BookCopyID: %s, Error: %v",
-			bookCopyID, err)
-		// Consider adding retry logic or dead letter queue here
+	// 7. Update inventory status
+	conn, err := services.GetRabbitMQConnection()
+	if err != nil {
+		log.Printf("Failed to get RabbitMQ connection: %v", err)
+	} else {
+		defer conn.Close()
+		if err := services.SendUpdateRequest(conn, bookCopyID, "Available"); err != nil {
+			log.Printf("Failed to update inventory status: %v", err)
+		} else {
+			log.Printf("Inventory updated successfully for bookCopyID: %s", bookCopyID)
+		}
 	}
 
-	// 8. Return the updated record
+	// 8. Send notification if reservation exists
+	if nextReservation != nil && nextReservation.PatronID != "" {
+		nextReservation.ReservedAt = reservedAt.Format(time.RFC3339)
+		nextReservation.ExpiresAt = expiresAt.Format(time.RFC3339)
+
+		log.Printf("Found reservation for patronID: %s", nextReservation.PatronID)
+
+		go func(res *model.Reservation) {
+			r.mutex.Lock()
+			defer r.mutex.Unlock()
+
+			if chans, ok := r.reservedBookAvailableChannels[res.PatronID]; ok {
+				for _, ch := range chans {
+					select {
+					case ch <- res:
+						log.Printf("Successfully notified patronID: %s", res.PatronID)
+					default:
+						log.Printf("Failed to send notification to patronID: %s (channel full)", res.PatronID)
+					}
+				}
+			} else {
+				log.Printf("No active subscribers found for patronID: %s", res.PatronID)
+			}
+		}(nextReservation)
+	} else {
+		log.Printf("No valid reservation found to notify")
+	}
+
+	// 9. Update return timestamp in response
+	returnedStr := now.Format(time.RFC3339)
+	record.ReturnedAt = &returnedStr
 	record.Status = model.BorrowStatusReturned
+
+	log.Printf("Successfully processed return for recordID: %s", recordID)
 	return &record, nil
 }
 
@@ -968,29 +1013,64 @@ func (r *queryResolver) CheckActiveReserve(ctx context.Context, bookID string, p
 	return &reservation, nil
 }
 
-// ReservationCreated implements SubscriptionResolver.
-func (r *subscriptionResolver) ReservationCreated(ctx context.Context, bookID string) (<-chan *model.Reservation, error) {
-	updates := make(chan *model.Reservation)
+// ReservedBookAvailable is the resolver for the reservedBookAvailable field.
+func (r *subscriptionResolver) ReservedBookAvailable(ctx context.Context, patronID string) (<-chan *model.Reservation, error) {
+	updates := make(chan *model.Reservation, 1)
+
+	// Register this subscriber
+	r.mutex.Lock()
+	r.reservedBookAvailableChannels[patronID] = append(r.reservedBookAvailableChannels[patronID], updates)
+	r.mutex.Unlock()
 
 	go func() {
-		defer close(updates)
+		<-ctx.Done()
 
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(5 * time.Second): // Simulate an update every 5 seconds
-				updates <- &model.Reservation{
-					ID:         "example-reservation-id",
-					BookID:     bookID,
-					PatronID:   "example-patron-id",
-					BookCopyID: 1, // Added bookCopyId
-					ReservedAt: time.Now().Format(time.RFC3339),
-					ExpiresAt:  time.Now().AddDate(0, 0, 3).Format(time.RFC3339),
-					Status:     model.ReservationStatusPending,
-				}
+		// Remove subscriber on disconnect
+		r.mutex.Lock()
+		channels := r.reservedBookAvailableChannels[patronID]
+		for i, ch := range channels {
+			if ch == updates {
+				r.reservedBookAvailableChannels[patronID] = append(channels[:i], channels[i+1:]...)
+				break
 			}
 		}
+		r.mutex.Unlock()
+
+		close(updates)
+	}()
+
+	return updates, nil
+}
+
+// ReservationCreated implements SubscriptionResolver.
+func (r *subscriptionResolver) ReservationCreated(ctx context.Context, bookID string) (<-chan *model.Reservation, error) {
+	updates := make(chan *model.Reservation, 1)
+
+	// Register subscriber safely
+	r.mutex.Lock()
+	r.reservationCreatedChannels[bookID] = append(r.reservationCreatedChannels[bookID], updates)
+	r.mutex.Unlock()
+
+	// Handle context cancellation and cleanup
+	go func() {
+		<-ctx.Done()
+
+		// Remove the channel from subscribers
+		r.mutex.Lock()
+		channels := r.reservationCreatedChannels[bookID]
+		for i, ch := range channels {
+			if ch == updates {
+				r.reservationCreatedChannels[bookID] = append(channels[:i], channels[i+1:]...)
+				break
+			}
+		}
+		// Optional: clean up the map entry if no more subscribers
+		if len(r.reservationCreatedChannels[bookID]) == 0 {
+			delete(r.reservationCreatedChannels, bookID)
+		}
+		r.mutex.Unlock()
+
+		close(updates)
 	}()
 
 	return updates, nil
@@ -1019,6 +1099,63 @@ func (r *subscriptionResolver) BorrowRecordUpdated(ctx context.Context, patronID
 					Status:     model.BorrowStatusActive,
 				}
 			}
+		}
+	}()
+
+	return updates, nil
+}
+
+// BroadcastReservationAvailable is the resolver for the broadcastReservationAvailable field.
+func (r *subscriptionResolver) BroadcastReservationAvailable(ctx context.Context) (<-chan *model.Reservation, error) {
+	updates := make(chan *model.Reservation, 1)
+
+	// Register this subscriber
+	r.mutex.Lock()
+	r.reservedBookAvailableChannels["global"] = append(r.reservedBookAvailableChannels["global"], updates)
+	r.mutex.Unlock()
+
+	go func() {
+		<-ctx.Done()
+
+		r.mutex.Lock()
+		defer r.mutex.Unlock()
+
+		channels := r.reservedBookAvailableChannels["global"]
+		for i, ch := range channels {
+			if ch == updates {
+				// Remove the channel from the slice
+				channels = append(channels[:i], channels[i+1:]...)
+				r.reservedBookAvailableChannels["global"] = channels
+
+				// Close the channel after removing it to prevent races
+				close(ch)
+				break
+			}
+		}
+	}()
+
+	return updates, nil
+}
+
+// BroadcastReservationCreated is the resolver for the broadcastReservationCreated field.
+func (r *subscriptionResolver) BroadcastReservationCreated(ctx context.Context) (<-chan *model.Reservation, error) {
+	updates := make(chan *model.Reservation, 1)
+
+	// Example logic to broadcast a reservation
+	go func() {
+		defer close(updates)
+		// Simulate sending a reservation update
+		select {
+		case updates <- &model.Reservation{
+			ID:         "example-id",
+			BookID:     "example-book-id",
+			PatronID:   "example-patron-id",
+			ReservedAt: time.Now().Format(time.RFC3339),
+			ExpiresAt:  time.Now().AddDate(0, 0, 3).Format(time.RFC3339),
+			Status:     model.ReservationStatusPending,
+		}:
+		case <-ctx.Done():
+			return
 		}
 	}()
 
