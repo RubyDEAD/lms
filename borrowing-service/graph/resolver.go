@@ -13,9 +13,11 @@ import (
 
 // Resolver handles GraphQL queries and mutations for borrowing service
 type Resolver struct {
-	DB       *pgx.Conn
-	Supabase *supa.Client
-	mutex    sync.Mutex
+	DB                            *pgx.Conn
+	Supabase                      *supa.Client
+	mutex                         sync.Mutex
+	reservationCreatedChannels    map[string][]chan *model.Reservation
+	reservedBookAvailableChannels map[string][]chan *model.Reservation
 }
 
 // NewResolver creates a new resolver instance

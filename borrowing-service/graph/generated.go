@@ -96,8 +96,11 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		BorrowRecordUpdated func(childComplexity int, patronID string) int
-		ReservationCreated  func(childComplexity int, bookID string) int
+		BorrowRecordUpdated           func(childComplexity int, patronID string) int
+		BroadcastReservationAvailable func(childComplexity int) int
+		BroadcastReservationCreated   func(childComplexity int) int
+		ReservationCreated            func(childComplexity int, bookID string) int
+		ReservedBookAvailable         func(childComplexity int, patronID string) int
 	}
 }
 
@@ -118,8 +121,11 @@ type QueryResolver interface {
 	CheckActiveReserve(ctx context.Context, bookID string, patronID string) (*model.Reservation, error)
 }
 type SubscriptionResolver interface {
+	ReservedBookAvailable(ctx context.Context, patronID string) (<-chan *model.Reservation, error)
 	ReservationCreated(ctx context.Context, bookID string) (<-chan *model.Reservation, error)
 	BorrowRecordUpdated(ctx context.Context, patronID string) (<-chan *model.BorrowRecord, error)
+	BroadcastReservationAvailable(ctx context.Context) (<-chan *model.Reservation, error)
+	BroadcastReservationCreated(ctx context.Context) (<-chan *model.Reservation, error)
 }
 
 type executableSchema struct {
@@ -425,6 +431,20 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Subscription.BorrowRecordUpdated(childComplexity, args["patronId"].(string)), true
 
+	case "Subscription.broadcastReservationAvailable":
+		if e.complexity.Subscription.BroadcastReservationAvailable == nil {
+			break
+		}
+
+		return e.complexity.Subscription.BroadcastReservationAvailable(childComplexity), true
+
+	case "Subscription.broadcastReservationCreated":
+		if e.complexity.Subscription.BroadcastReservationCreated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.BroadcastReservationCreated(childComplexity), true
+
 	case "Subscription.reservationCreated":
 		if e.complexity.Subscription.ReservationCreated == nil {
 			break
@@ -436,6 +456,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Subscription.ReservationCreated(childComplexity, args["bookId"].(string)), true
+
+	case "Subscription.reservedBookAvailable":
+		if e.complexity.Subscription.ReservedBookAvailable == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_reservedBookAvailable_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.ReservedBookAvailable(childComplexity, args["patronId"].(string)), true
 
 	}
 	return 0, false
@@ -1036,6 +1068,29 @@ func (ec *executionContext) field_Subscription_reservationCreated_argsBookID(
 ) (string, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("bookId"))
 	if tmp, ok := rawArgs["bookId"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Subscription_reservedBookAvailable_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Subscription_reservedBookAvailable_argsPatronID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["patronId"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Subscription_reservedBookAvailable_argsPatronID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patronId"))
+	if tmp, ok := rawArgs["patronId"]; ok {
 		return ec.unmarshalNID2string(ctx, tmp)
 	}
 
@@ -2943,6 +2998,91 @@ func (ec *executionContext) fieldContext_Reservation_status(_ context.Context, f
 	return fc, nil
 }
 
+func (ec *executionContext) _Subscription_reservedBookAvailable(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_reservedBookAvailable(ctx, field)
+	if err != nil {
+		return nil
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().ReservedBookAvailable(rctx, fc.Args["patronId"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func(ctx context.Context) graphql.Marshaler {
+		select {
+		case res, ok := <-resTmp.(<-chan *model.Reservation):
+			if !ok {
+				return nil
+			}
+			return graphql.WriterFunc(func(w io.Writer) {
+				w.Write([]byte{'{'})
+				graphql.MarshalString(field.Alias).MarshalGQL(w)
+				w.Write([]byte{':'})
+				ec.marshalNReservation2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res).MarshalGQL(w)
+				w.Write([]byte{'}'})
+			})
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (ec *executionContext) fieldContext_Subscription_reservedBookAvailable(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Reservation_id(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Reservation_bookId(ctx, field)
+			case "patronId":
+				return ec.fieldContext_Reservation_patronId(ctx, field)
+			case "reservedAt":
+				return ec.fieldContext_Reservation_reservedAt(ctx, field)
+			case "expiresAt":
+				return ec.fieldContext_Reservation_expiresAt(ctx, field)
+			case "bookCopyId":
+				return ec.fieldContext_Reservation_bookCopyId(ctx, field)
+			case "status":
+				return ec.fieldContext_Reservation_status(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Reservation", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Subscription_reservedBookAvailable_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Subscription_reservationCreated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
 	fc, err := ec.fieldContext_Subscription_reservationCreated(ctx, field)
 	if err != nil {
@@ -3115,6 +3255,154 @@ func (ec *executionContext) fieldContext_Subscription_borrowRecordUpdated(ctx co
 	if fc.Args, err = ec.field_Subscription_borrowRecordUpdated_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_broadcastReservationAvailable(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_broadcastReservationAvailable(ctx, field)
+	if err != nil {
+		return nil
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().BroadcastReservationAvailable(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func(ctx context.Context) graphql.Marshaler {
+		select {
+		case res, ok := <-resTmp.(<-chan *model.Reservation):
+			if !ok {
+				return nil
+			}
+			return graphql.WriterFunc(func(w io.Writer) {
+				w.Write([]byte{'{'})
+				graphql.MarshalString(field.Alias).MarshalGQL(w)
+				w.Write([]byte{':'})
+				ec.marshalNReservation2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res).MarshalGQL(w)
+				w.Write([]byte{'}'})
+			})
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (ec *executionContext) fieldContext_Subscription_broadcastReservationAvailable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Reservation_id(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Reservation_bookId(ctx, field)
+			case "patronId":
+				return ec.fieldContext_Reservation_patronId(ctx, field)
+			case "reservedAt":
+				return ec.fieldContext_Reservation_reservedAt(ctx, field)
+			case "expiresAt":
+				return ec.fieldContext_Reservation_expiresAt(ctx, field)
+			case "bookCopyId":
+				return ec.fieldContext_Reservation_bookCopyId(ctx, field)
+			case "status":
+				return ec.fieldContext_Reservation_status(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Reservation", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_broadcastReservationCreated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_broadcastReservationCreated(ctx, field)
+	if err != nil {
+		return nil
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().BroadcastReservationCreated(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func(ctx context.Context) graphql.Marshaler {
+		select {
+		case res, ok := <-resTmp.(<-chan *model.Reservation):
+			if !ok {
+				return nil
+			}
+			return graphql.WriterFunc(func(w io.Writer) {
+				w.Write([]byte{'{'})
+				graphql.MarshalString(field.Alias).MarshalGQL(w)
+				w.Write([]byte{':'})
+				ec.marshalNReservation2ᚖgithubᚗcomᚋRubyDEADᚋlmsᚋborrowingᚑserviceᚋgraphᚋmodelᚐReservation(ctx, field.Selections, res).MarshalGQL(w)
+				w.Write([]byte{'}'})
+			})
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (ec *executionContext) fieldContext_Subscription_broadcastReservationCreated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Reservation_id(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Reservation_bookId(ctx, field)
+			case "patronId":
+				return ec.fieldContext_Reservation_patronId(ctx, field)
+			case "reservedAt":
+				return ec.fieldContext_Reservation_reservedAt(ctx, field)
+			case "expiresAt":
+				return ec.fieldContext_Reservation_expiresAt(ctx, field)
+			case "bookCopyId":
+				return ec.fieldContext_Reservation_bookCopyId(ctx, field)
+			case "status":
+				return ec.fieldContext_Reservation_status(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Reservation", field.Name)
+		},
 	}
 	return fc, nil
 }
@@ -5565,10 +5853,16 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	}
 
 	switch fields[0].Name {
+	case "reservedBookAvailable":
+		return ec._Subscription_reservedBookAvailable(ctx, fields[0])
 	case "reservationCreated":
 		return ec._Subscription_reservationCreated(ctx, fields[0])
 	case "borrowRecordUpdated":
 		return ec._Subscription_borrowRecordUpdated(ctx, fields[0])
+	case "broadcastReservationAvailable":
+		return ec._Subscription_broadcastReservationAvailable(ctx, fields[0])
+	case "broadcastReservationCreated":
+		return ec._Subscription_broadcastReservationCreated(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
