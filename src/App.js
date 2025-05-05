@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import './App.css';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes, useLocation, Navigate } from 'react-router-dom';
 import Dashboard from './components/dashboard';
 import Sidebar from './components/sidebar';
 import Books from './components/book';
@@ -12,35 +12,65 @@ import SignUpPage from './pages/signup_page';
 import LoginPage from './pages/login_page';
 import ForgotPasswordPage from './pages/forgot_pass_page';
 import UpdatePasswordPage from './pages/update_pass_page';
+import { supabase } from './supabaseClient';
 
 function App() {
   const location = useLocation();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   const noDesignRoutes = ['/sign-up', '/login', '/forgot-password', '/update-password'];
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setLoading(false);
+    };
+
+    getSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   const isLayoutVisible = !noDesignRoutes.includes(location.pathname);
 
+  if (loading) return <div>Loading...</div>;
+
   return (
     <div className="App">
-      {isLayoutVisible && <Topbar />}
+      {isLayoutVisible && user && <Topbar />}
 
       <div style={{ display: 'flex' }}>
-        {isLayoutVisible && <Sidebar />}
+        {isLayoutVisible && user && <Sidebar />}
 
-        <div style={{ marginLeft: isLayoutVisible ? '250px' : 0, padding: '20px', flex: 1 }}>
+        <div style={{ marginLeft: isLayoutVisible && user ? '250px' : 0, padding: '20px', flex: 1 }}>
           <Routes>
-            {/* Auth & Onboarding */}
+            {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/sign-up" element={<SignUpPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/update-password" element={<UpdatePasswordPage />} />
 
-            {/* App Pages */}
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/books" element={<Books />} />
-            <Route path="/borrowed-books" element={<BorrowedBooks />} />
-            <Route path="/add-book" element={<AddBook />} />
-            <Route path="/profile" element={<Profile />} />
+            {/* Protected Routes */}
+            {user ? (
+              <>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/books" element={<Books />} />
+                <Route path="/borrowed-books" element={<BorrowedBooks />} />
+                <Route path="/add-book" element={<AddBook />} />
+                <Route path="/profile" element={<Profile />} />
+              </>
+            ) : (
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            )}
           </Routes>
         </div>
       </div>

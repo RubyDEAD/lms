@@ -40,11 +40,11 @@ function Sidebar() {
                 <FaHandHolding /> Borrowed Books
               </Link>
             </li>
-            <li>
+            {/* <li>
               <Link to="/add-book" className="sidebar-link">
                 <FaHandHoldingHand /> Returned Books
               </Link>
-            </li>
+            </li> */}
             <li>
               <Link to="/fines" className="sidebar-link">
                 <FaMoneyBill /> Fines
