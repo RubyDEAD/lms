@@ -14,6 +14,7 @@ function Books() {
     const [loading, setLoading] = useState(true);
     const [authLoading, setAuthLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [showAddForm, setShowAddForm] = useState(false);
     const [newBook, setNewBook] = useState({
         title: "",
         authorName: "",
@@ -25,21 +26,17 @@ function Books() {
 
     const API_URL = "http://localhost:8081/query";
 
-    // Check authentication status
     useEffect(() => {
         const checkAuth = async () => {
             try {
                 setAuthLoading(true);
                 const { data: { session }, error } = await supabase.auth.getSession();
-                
                 if (error) throw error;
-                
                 setIsAuthenticated(!!session);
                 if (!session) {
                     navigate('/login');
                     return;
                 }
-                
                 await fetchBooks();
             } catch (err) {
                 console.error("Authentication error:", err);
@@ -49,11 +46,9 @@ function Books() {
                 setAuthLoading(false);
             }
         };
-
         checkAuth();
     }, [navigate]);
 
-    // Fetch all books
     const fetchBooks = async () => {
         try {
             setLoading(true);
@@ -78,7 +73,7 @@ function Books() {
                     Authorization: `Bearer ${token}`
                 }
             });
-            
+
             setBooks(response.data.data.getBooks);
             setError(null);
         } catch (err) {
@@ -92,7 +87,6 @@ function Books() {
         }
     };
 
-    // Add a new book
     const addBook = async () => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -102,8 +96,6 @@ function Books() {
             }
     
             const token = session.access_token;
-    
-            // Input validation
             if (!newBook.title.trim() || !newBook.authorName.trim()) {
                 setError("Title and Author Name are required");
                 return;
@@ -147,13 +139,7 @@ function Books() {
                         }
                     }
                 `,
-                variables: {
-                    title: newBook.title,
-                    authorName: newBook.authorName,
-                    datePublished: newBook.datePublished,
-                    description: newBook.description,
-                    image: imageUrl,
-                },
+                variables: newBook
             }, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -173,15 +159,10 @@ function Books() {
         }
     };
 
-    // Fetch book details by ID
     const fetchBookById = async (id) => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                navigate('/login');
-                return;
-            }
-
+            if (!session) return navigate('/login');
             const token = session.access_token;
 
             const response = await axios.post(API_URL, {
@@ -197,15 +178,11 @@ function Books() {
                         }
                     }
                 `,
-                variables: {
-                    id: id
-                }
+                variables: { id }
             }, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                headers: { Authorization: `Bearer ${token}` }
             });
-            
+
             setBookDetails(response.data.data.getBookById);
             console.log(response.data.data.getBookById);
             setAvailableCopy(null);
@@ -217,15 +194,10 @@ function Books() {
         }
     };
 
-    // Fetch book copies by book ID
     const fetchBookCopiesById = async (id) => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                navigate('/login');
-                return;
-            }
-
+            if (!session) return navigate('/login');
             const token = session.access_token;
 
             const response = await axios.post(API_URL, {
@@ -238,15 +210,11 @@ function Books() {
                         }
                     }
                 `,
-                variables: {
-                    id: id
-                }
+                variables: { id }
             }, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                headers: { Authorization: `Bearer ${token}` }
             });
-            
+
             setBookCopies(response.data.data.getBookCopiesById);
             setBookDetails(null);
             setAvailableCopy(null);
@@ -258,15 +226,10 @@ function Books() {
        
     };
 
-    // Fetch available book copy by book ID
     const fetchAvailableBookCopyById = async (id) => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                navigate('/login');
-                return;
-            }
-
+            if (!session) return navigate('/login');
             const token = session.access_token;
 
             const response = await axios.post(API_URL, {
@@ -279,13 +242,9 @@ function Books() {
                         }
                     }
                 `,
-                variables: {
-                    id: id
-                }
+                variables: { id }
             }, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                headers: { Authorization: `Bearer ${token}` }
             });
 
             const availableCopy = response.data.data.getAvailbleBookCopyByID;
@@ -306,71 +265,17 @@ function Books() {
         }
     };
 
-    if (authLoading) {
-        return <div className="container mt-5">Checking authentication...</div>;
-    }
+    if (authLoading) return <div className="container mt-5">Checking authentication...</div>;
 
     if (!isAuthenticated) {
         return (
             <div className="container mt-5">
-                <div className="alert alert-warning">
-                    Please log in to access the books library.
-                </div>
+                <div className="alert alert-warning">Please log in to access the books library.</div>
             </div>
         );
     }
 
-    if (loading) {
-        return <div className="container mt-5">Loading books...</div>;
-    }
-    const borrowBook = async (bookId) => {
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                navigate('/login');
-                return;
-            }
-    
-            const token = session.access_token;
-            console.log(session.user.id);
-            console.log(bookId);
-            const response = await axios.post(API_URL, {
-                query: `
-                mutation borrowBook($bookId:ID!,$patronId:ID!){
-                            borrowBook(bookId:$bookId, patronId:$patronId){
-                                id
-                                bookId
-                                bookCopyId
-                                borrowedAt
-                                patronId
-                                status
-                            }
-                         }
-                `,
-                variables: {
-                    bookId: bookId,
-                    patronId: session.user.id // Assuming patron ID is the same as user ID
-                }
-            }, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
-    
-            const result = response.data.data.borrowBook;
-    
-            if (result) {
-                setError(null);
-                alert("Book borrowed successfully!");
-                fetchBooks(); // Refresh the book list
-            } else {
-                console.log(result.message || "Failed to borrow the book.");
-            }
-        } catch (err) {
-            console.error("Error borrowing book:", err);
-            console.log("Failed to borrow the book. Please try again later.");
-        }
-    };
+    if (loading) return <div className="container mt-5">Loading books...</div>;
 
     const fetchBorrowRecords = async (bookid) => {
         try {
@@ -477,90 +382,55 @@ function Books() {
                 {error && (
                     <div className="alert alert-danger mb-4">
                         {error}
-                        <button 
-                            type="button" 
-                            className="btn-close float-end" 
-                            onClick={() => setError(null)}
-                            aria-label="Close"
-                        ></button>
+                        <button className="btn-close float-end" onClick={() => setError(null)}></button>
                     </div>
                 )}
 
+                {/* Toggle Add Book Form */}
+                <button
+                    className="btn btn-outline-primary mb-3"
+                    onClick={() => setShowAddForm(!showAddForm)}
+                >
+                    {showAddForm ? "Cancel" : "Add Book"}
+                </button>
+
                 {/* Add Book Form */}
-                <div className="card mb-4">
-                    <div className="card-body">
-                        <h2 className="card-title">Add a New Book</h2>
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            addBook();
-                        }}>
-                            <div className="mb-3">
-                                <label htmlFor="title" className="form-label">
-                                    Title *
-                                </label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    id="title"
-                                    value={newBook.title}
-                                    onChange={(e) => setNewBook({ ...newBook, title: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="authorName" className="form-label">
-                                    Author Name *
-                                </label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    id="authorName"
-                                    value={newBook.authorName}
-                                    onChange={(e) => setNewBook({ ...newBook, authorName: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="datePublished" className="form-label">
-                                    Date Published
-                                </label>
-                                <input
-                                    type="date"
-                                    className="form-control"
-                                    id="datePublished"
-                                    value={newBook.datePublished}
-                                    onChange={(e) => setNewBook({ ...newBook, datePublished: e.target.value })}
-                                />
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="description" className="form-label">
-                                    Description
-                                </label>
-                                <textarea
-                                    className="form-control"
-                                    id="description"
-                                    rows="3"
-                                    value={newBook.description}
-                                    onChange={(e) => setNewBook({ ...newBook, description: e.target.value })}
-                                ></textarea>
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="image" className="form-label">
-                                    Book Cover Image
-                                </label>
-                                <input
-                                    type="file"
-                                    className="form-control"
-                                    id="image"
-                                    onChange={(e) => setNewBook({ ...newBook, imageFile: e.target.files[0] })}
-                                />
-                            </div>
-                            <button type="submit" className="btn btn-primary">
-                                Add Book
-                            </button>
-                        </form>
+                {showAddForm && (
+                    <div className="card mb-4">
+                        <div className="card-body">
+                            <h2 className="card-title">Add a New Book</h2>
+                            <form onSubmit={(e) => { e.preventDefault(); addBook(); }}>
+                                <div className="mb-3">
+                                    <label htmlFor="title" className="form-label">Title *</label>
+                                    <input type="text" className="form-control" id="title"
+                                        value={newBook.title}
+                                        onChange={(e) => setNewBook({ ...newBook, title: e.target.value })}
+                                        required />
+                                </div>
+                                <div className="mb-3">
+                                    <label htmlFor="authorName" className="form-label">Author Name *</label>
+                                    <input type="text" className="form-control" id="authorName"
+                                        value={newBook.authorName}
+                                        onChange={(e) => setNewBook({ ...newBook, authorName: e.target.value })}
+                                        required />
+                                </div>
+                                <div className="mb-3">
+                                    <label htmlFor="datePublished" className="form-label">Date Published</label>
+                                    <input type="date" className="form-control" id="datePublished"
+                                        value={newBook.datePublished}
+                                        onChange={(e) => setNewBook({ ...newBook, datePublished: e.target.value })} />
+                                </div>
+                                <div className="mb-3">
+                                    <label htmlFor="description" className="form-label">Description</label>
+                                    <textarea className="form-control" id="description" rows="3"
+                                        value={newBook.description}
+                                        onChange={(e) => setNewBook({ ...newBook, description: e.target.value })}></textarea>
+                                </div>
+                                <button type="submit" className="btn btn-primary">Add Book</button>
+                            </form>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Books List */}
                 <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
@@ -576,50 +446,26 @@ function Books() {
                                     </p>
                                 </div>
                                 <div className="card-footer bg-transparent">
-                                    <button
-                                        className="btn btn-sm btn-outline-primary me-2"
-                                        onClick={() => fetchBookById(book.id)}
-                                    >
-                                        Details
-                                    </button>
-                                    <button
-                                        className="btn btn-sm btn-outline-secondary me-2"
-                                        onClick={() => fetchBookCopiesById(book.id)}
-                                    >
-                                        Copies
-                                    </button>
-                                    <button
-                                        className="btn btn-sm btn-outline-success me-2"
-                                        onClick={() => fetchAvailableBookCopyById(book.id)}
-                                    >
-                                        Availability
-                                    </button>
-                                    <button
-                                        className="btn btn-sm btn-outline-warning me-2" 
-                                        onClick={() => borrowBook(book.id)}
-                                     >
-                                        Borrow
-                                    </button> 
-                                    <button
-                                        className="btn btn-primary mb-4"
-                                        onClick={() => fetchBorrowRecords(book.id)}
-                                    >
-                                        View Borrow Records
-                                    </button>
+                                    <button className="btn btn-sm btn-outline-primary me-2"
+                                        onClick={() => fetchBookById(book.id)}>Details</button>
+                                    <button className="btn btn-sm btn-outline-secondary me-2"
+                                        onClick={() => fetchBookCopiesById(book.id)}>Copies</button>
+                                    <button className="btn btn-sm btn-outline-success"
+                                        onClick={() => fetchAvailableBookCopyById(book.id)}>Availability</button>
                                 </div>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Book Details Modal */}
+                {/* Modals */}
                 {bookDetails && (
-                    <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
                         <div className="modal-dialog">
                             <div className="modal-content">
                                 <div className="modal-header">
                                     <h5 className="modal-title">{bookDetails.title}</h5>
-                                    <button type="button" className="btn-close" onClick={() => setBookDetails(null)}></button>
+                                    <button className="btn-close" onClick={() => setBookDetails(null)}></button>
                                 </div>
                                 <div className="modal-body">
                                     <div className="d-flex">
@@ -643,23 +489,20 @@ function Books() {
                                     </div>
                                 </div>
                                 <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setBookDetails(null)}>
-                                        Close
-                                    </button>
+                                    <button className="btn btn-secondary" onClick={() => setBookDetails(null)}>Close</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Book Copies Modal */}
                 {bookCopies.length > 0 && (
-                    <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
                         <div className="modal-dialog">
                             <div className="modal-content">
                                 <div className="modal-header">
                                     <h5 className="modal-title">Book Copies</h5>
-                                    <button type="button" className="btn-close" onClick={() => setBookCopies([])}></button>
+                                    <button className="btn-close" onClick={() => setBookCopies([])}></button>
                                 </div>
                                 <div className="modal-body">
                                     <ul className="list-group">
@@ -674,23 +517,20 @@ function Books() {
                                     </ul>
                                 </div>
                                 <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setBookCopies([])}>
-                                        Close
-                                    </button>
+                                    <button className="btn btn-secondary" onClick={() => setBookCopies([])}>Close</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Available Copy Modal */}
                 {availableCopy !== null && (
-                    <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
                         <div className="modal-dialog">
                             <div className="modal-content">
                                 <div className="modal-header">
                                     <h5 className="modal-title">Copy Availability</h5>
-                                    <button type="button" className="btn-close" onClick={() => setAvailableCopy(null)}></button>
+                                    <button className="btn-close" onClick={() => setAvailableCopy(null)}></button>
                                 </div>
                                 <div className="modal-body">
                                     {availableCopy ? (
@@ -706,54 +546,7 @@ function Books() {
                                     )}
                                 </div>
                                 <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setAvailableCopy(null)}>
-                                        Close
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                {/* Borrow Records Modal */}
-                {showBorrowRecordsModal && (
-                    <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                        <div className="modal-dialog">
-                            <div className="modal-content">
-                                <div className="modal-header">
-                                    <h5 className="modal-title">Borrow Records</h5>
-                                    <button type="button" className="btn-close" onClick={() => setShowBorrowRecordsModal(false)}></button>
-                                </div>
-                                <div className="modal-body">
-                                    {borrowRecords.length > 0 ? (
-                                        <ul className="list-group">
-                                            {borrowRecords.map((record) => (
-                                                <li key={record.id} className="list-group-item d-flex justify-content-between align-items-center">
-                                                    <div>
-                                                        <p><strong>Book ID:</strong> {record.bookId}</p>
-                                                        <p><strong>Copy ID:</strong> {record.bookCopyId}</p>
-                                                        <p><strong>Status:</strong> {record.status}</p>
-                                                        <p><strong>Borrowed At:</strong> {record.borrowedAt}</p>
-                                                        <p><strong>Returned At:</strong> {record.returnedAt || "Not Returned"}</p>
-                                                    </div>
-                                                    {record.status !== "RETURNED" && (
-                                                        <button
-                                                            className="btn btn-sm btn-outline-danger"
-                                                            onClick={() => returnBook(record.id)}
-                                                        >
-                                                            Return
-                                                        </button>
-                                                    )}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <div className="alert alert-warning">No borrow records found.</div>
-                                    )}
-                                </div>
-                                <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setShowBorrowRecordsModal(false)}>
-                                        Close
-                                    </button>
+                                    <button className="btn btn-secondary" onClick={() => setAvailableCopy(null)}>Close</button>
                                 </div>
                             </div>
                         </div>
