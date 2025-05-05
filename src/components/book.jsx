@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { supabase ,bookservice,bucketURL } from '../supabaseClient';
+import { supabase, bookservice, bucketURL } from '../supabaseClient';
 import { useNavigate } from "react-router-dom";
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -20,6 +20,7 @@ function Books() {
         authorName: "",
         datePublished: "",
         description: "",
+        imageFile: null
     });
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const navigate = useNavigate();
@@ -103,11 +104,10 @@ function Books() {
     
             let imageUrl = null;
     
-            // Upload the image if a file is selected
             if (newBook.imageFile) {
                 const fileName = `${Date.now()}_${newBook.imageFile.name}`;
                 const { data, error } = await bookservice.storage
-                    .from('test') // Ensure the bucket name is correct
+                    .from('test')
                     .upload(fileName, newBook.imageFile);
     
                 if (error) {
@@ -116,7 +116,6 @@ function Books() {
                     return;
                 }
     
-                // Construct the public URL for the uploaded image
                 imageUrl = `${bucketURL}${fileName}`;
             }
     
@@ -139,7 +138,10 @@ function Books() {
                         }
                     }
                 `,
-                variables: newBook
+                variables: {
+                    ...newBook,
+                    image: imageUrl
+                }
             }, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -150,7 +152,14 @@ function Books() {
     
             if (addedBook) {
                 setBooks((prevBooks) => [...prevBooks, addedBook]);
-                setNewBook({ title: "", authorName: "", datePublished: "", description: "", imageFile: null });
+                setNewBook({ 
+                    title: "", 
+                    authorName: "", 
+                    datePublished: "", 
+                    description: "", 
+                    imageFile: null 
+                });
+                setShowAddForm(false);
                 setError(null);
             }
         } catch (err) {
@@ -184,7 +193,6 @@ function Books() {
             });
 
             setBookDetails(response.data.data.getBookById);
-            console.log(response.data.data.getBookById);
             setAvailableCopy(null);
             setBookCopies([]);
             setError(null);
@@ -223,7 +231,6 @@ function Books() {
             console.error("Error fetching book copies:", err);
             setError("Failed to fetch book copies. Please try again later.");
         }
-       
     };
 
     const fetchAvailableBookCopyById = async (id) => {
@@ -265,18 +272,6 @@ function Books() {
         }
     };
 
-    if (authLoading) return <div className="container mt-5">Checking authentication...</div>;
-
-    if (!isAuthenticated) {
-        return (
-            <div className="container mt-5">
-                <div className="alert alert-warning">Please log in to access the books library.</div>
-            </div>
-        );
-    }
-
-    if (loading) return <div className="container mt-5">Loading books...</div>;
-
     const fetchBorrowRecords = async (bookid) => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -286,8 +281,6 @@ function Books() {
             }
     
             const token = session.access_token;
-    
-            console.log("Variables:", { patronId: session.user.id, bookId: bookid });
     
             const response = await axios.post(
                 API_URL,
@@ -300,6 +293,7 @@ function Books() {
                                 bookCopyId
                                 returnedAt
                                 borrowedAt
+                                dueDate
                                 status
                             }
                         }
@@ -321,6 +315,53 @@ function Books() {
         } catch (err) {
             console.error("Error fetching borrow records:", err);
             setError("Failed to fetch borrow records. Please try again later.");
+        }
+    };
+
+    const borrowBook = async (bookId) => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                navigate('/login');
+                return;
+            }
+    
+            const token = session.access_token;
+            const patronId = session.user.id;
+    
+            const response = await axios.post(API_URL, {
+                query: `
+                    mutation BorrowBook($bookId: ID!, $patronId: ID!) {
+                        borrowBook(bookId: $bookId, patronId: $patronId) {
+                            id
+                            bookId
+                            patronId
+                            borrowedAt
+                            dueDate
+                            status
+                            bookCopyId
+                        }
+                    }
+                `,
+                variables: {
+                    bookId: bookId,
+                    patronId: patronId
+                }
+            }, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+    
+            const result = response.data.data.borrowBook;
+            if (result) {
+                alert(`Book borrowed successfully! Due date: ${new Date(result.dueDate).toLocaleDateString()}`);
+                // Refresh available copies
+                fetchAvailableBookCopyById(bookId);
+            }
+        } catch (err) {
+            console.error("Error borrowing book:", err);
+            setError(err.response?.data?.errors?.[0]?.message || "You already borrowed this book.");
         }
     };
 
@@ -358,7 +399,6 @@ function Books() {
             );
     
             const result = response.data.data.returnBook;
-            console.log(result);
             if (result) {
                 alert("Book returned successfully!");
                 setBorrowRecords((prevRecords) =>
@@ -366,6 +406,8 @@ function Books() {
                         record.id === recordId ? { ...record, status: "RETURNED", returnedAt: result.returnedAt } : record
                     )
                 );
+                // Refresh the books list to update availability
+                fetchBooks();
             } else {
                 setError("Failed to return the book. Please try again later.");
             }
@@ -374,6 +416,25 @@ function Books() {
             setError("Failed to return the book. Please try again later.");
         }
     };
+
+    const handleImageChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setNewBook({ ...newBook, imageFile: e.target.files[0] });
+        }
+    };
+
+    if (authLoading) return <div className="container mt-5">Checking authentication...</div>;
+
+    if (!isAuthenticated) {
+        return (
+            <div className="container mt-5">
+                <div className="alert alert-warning">Please log in to access the books library.</div>
+            </div>
+        );
+    }
+
+    if (loading) return <div className="container mt-5">Loading books...</div>;
+
     return (
         <div className="body">
             <div className="container mt-4">
@@ -386,15 +447,21 @@ function Books() {
                     </div>
                 )}
 
-                {/* Toggle Add Book Form */}
-                <button
-                    className="btn btn-outline-primary mb-3"
-                    onClick={() => setShowAddForm(!showAddForm)}
-                >
-                    {showAddForm ? "Cancel" : "Add Book"}
-                </button>
+                <div className="d-flex justify-content-between mb-4">
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => setShowAddForm(!showAddForm)}
+                    >
+                        {showAddForm ? "Cancel" : "+ Add Book"}
+                    </button>
+                    <button 
+                        className="btn btn-outline-secondary"
+                        onClick={() => fetchBorrowRecords()}
+                    >
+                        My Borrow Records
+                    </button>
+                </div>
 
-                {/* Add Book Form */}
                 {showAddForm && (
                     <div className="card mb-4">
                         <div className="card-body">
@@ -426,17 +493,32 @@ function Books() {
                                         value={newBook.description}
                                         onChange={(e) => setNewBook({ ...newBook, description: e.target.value })}></textarea>
                                 </div>
+                                <div className="mb-3">
+                                    <label htmlFor="image" className="form-label">Book Cover Image</label>
+                                    <input type="file" className="form-control" id="image"
+                                        accept="image/*"
+                                        onChange={handleImageChange} />
+                                </div>
                                 <button type="submit" className="btn btn-primary">Add Book</button>
                             </form>
                         </div>
                     </div>
                 )}
 
-                {/* Books List */}
                 <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                     {books.map((book) => (
                         <div className="col" key={book.id}>
                             <div className="card h-100 shadow-sm">
+                                <img
+                                    src={
+                                        book.image && new RegExp(bucketURL).test(book.image)
+                                        ? book.image
+                                        : "https://hwkuzfsecehszlftxqpn.supabase.co/storage/v1/object/public/test/default-book.png"
+                                    }
+                                    className="card-img-top"
+                                    alt={book.title}
+                                    style={{ height: '200px', objectFit: 'cover' }}
+                                />
                                 <div className="card-body">
                                     <h5 className="card-title">{book.title}</h5>
                                     <h6 className="card-subtitle mb-2 text-muted">{book.author_name}</h6>
@@ -445,13 +527,19 @@ function Books() {
                                         <small className="text-muted">Published: {book.date_published}</small>
                                     </p>
                                 </div>
-                                <div className="card-footer bg-transparent">
-                                    <button className="btn btn-sm btn-outline-primary me-2"
-                                        onClick={() => fetchBookById(book.id)}>Details</button>
-                                    <button className="btn btn-sm btn-outline-secondary me-2"
-                                        onClick={() => fetchBookCopiesById(book.id)}>Copies</button>
+                                <div className="card-footer bg-transparent d-flex justify-content-between">
+                                    <button className="btn btn-sm btn-outline-primary"
+                                        onClick={() => fetchBookById(book.id)}>
+                                        Details
+                                    </button>
                                     <button className="btn btn-sm btn-outline-success"
-                                        onClick={() => fetchAvailableBookCopyById(book.id)}>Availability</button>
+                                        onClick={() => fetchAvailableBookCopyById(book.id)}>
+                                        Check Availability
+                                    </button>
+                                    <button className="btn btn-sm btn-outline-info"
+                                        onClick={() => borrowBook(book.id)}>
+                                        Borrow
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -461,30 +549,51 @@ function Books() {
                 {/* Modals */}
                 {bookDetails && (
                     <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                        <div className="modal-dialog">
+                        <div className="modal-dialog modal-lg">
                             <div className="modal-content">
                                 <div className="modal-header">
                                     <h5 className="modal-title">{bookDetails.title}</h5>
                                     <button className="btn-close" onClick={() => setBookDetails(null)}></button>
                                 </div>
                                 <div className="modal-body">
-                                    <div className="d-flex">
-                                        {/* Image on the left */}
-                                        <img
-                                            src={
-                                                bookDetails.image && new RegExp(bucketURL).test(bookDetails.image)
-                                                ? bookDetails.image
-                                                : "https://hwkuzfsecehszlftxqpn.supabase.co/storage/v1/object/public/test/default-book.png"
+                                    <div className="row">
+                                        <div className="col-md-4">
+                                            <img
+                                                src={
+                                                    bookDetails.image && new RegExp(bucketURL).test(bookDetails.image)
+                                                    ? bookDetails.image
+                                                    : "https://hwkuzfsecehszlftxqpn.supabase.co/storage/v1/object/public/test/default-book.png"
                                                 }                                            
-                                            alt={bookDetails.title}
-                                            className="img-fluid me-3"
-                                            style={{ maxWidth: "150px", maxHeight: "200px", objectFit: "cover" }}
-                                        />
-                                        {/* Details on the right */}
-                                        <div>
+                                                alt={bookDetails.title}
+                                                className="img-fluid rounded"
+                                                style={{ maxHeight: '300px', objectFit: 'cover' }}
+                                            />
+                                        </div>
+                                        <div className="col-md-8">
                                             <p><strong>Author:</strong> {bookDetails.author_name}</p>
                                             <p><strong>Published:</strong> {bookDetails.date_published}</p>
-                                            <p><strong>Description:</strong> {bookDetails.description}</p>
+                                            <p><strong>Description:</strong></p>
+                                            <p>{bookDetails.description}</p>
+                                            <div className="mt-3">
+                                                <button 
+                                                    className="btn btn-primary me-2"
+                                                    onClick={() => {
+                                                        setBookDetails(null);
+                                                        fetchAvailableBookCopyById(bookDetails.id);
+                                                    }}
+                                                >
+                                                    Check Availability
+                                                </button>
+                                                <button 
+                                                    className="btn btn-success"
+                                                    onClick={() => {
+                                                        setBookDetails(null);
+                                                        borrowBook(bookDetails.id);
+                                                    }}
+                                                >
+                                                    Borrow This Book
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -498,23 +607,49 @@ function Books() {
 
                 {bookCopies.length > 0 && (
                     <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                        <div className="modal-dialog">
+                        <div className="modal-dialog modal-lg">
                             <div className="modal-content">
                                 <div className="modal-header">
                                     <h5 className="modal-title">Book Copies</h5>
                                     <button className="btn-close" onClick={() => setBookCopies([])}></button>
                                 </div>
                                 <div className="modal-body">
-                                    <ul className="list-group">
-                                        {bookCopies.map((copy) => (
-                                            <li key={copy.id} className="list-group-item d-flex justify-content-between align-items-center">
-                                                Copy #{copy.id}
-                                                <span className={`badge ${copy.book_status === 'available' ? 'bg-success' : 'bg-warning'} text-dark`}>
-                                                    {copy.book_status}
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                    <div className="table-responsive">
+                                        <table className="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Copy ID</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {bookCopies.map((copy) => (
+                                                    <tr key={copy.id}>
+                                                        <td>#{copy.id}</td>
+                                                        <td>
+                                                            <span className={`badge ${copy.book_status === 'available' ? 'bg-success' : 'bg-warning'} text-dark`}>
+                                                                {copy.book_status}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            {copy.book_status === 'available' && (
+                                                                <button 
+                                                                    className="btn btn-sm btn-success"
+                                                                    onClick={() => {
+                                                                        setBookCopies([]);
+                                                                        borrowBook(copy.book_id);
+                                                                    }}
+                                                                >
+                                                                    Borrow
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                                 <div className="modal-footer">
                                     <button className="btn btn-secondary" onClick={() => setBookCopies([])}>Close</button>
@@ -534,11 +669,16 @@ function Books() {
                                 </div>
                                 <div className="modal-body">
                                     {availableCopy ? (
-                                        <div className="alert alert-success">
-                                            <h6>Available Copy Found!</h6>
-                                            <p>Copy ID: {availableCopy.id}</p>
-                                            <p>Status: <span className="badge bg-success">{availableCopy.book_status}</span></p>
-                                        </div>
+                                        <>
+                                            <div className="alert alert-success">
+                                                <h6>Available Copy Found!</h6>
+                                                <p>Copy ID: {availableCopy.id}</p>
+                                                <p>Status: <span className="badge bg-success">{availableCopy.book_status}</span></p>
+                                            </div>
+                                            <div className="d-flex justify-content-end">
+        
+                                            </div>
+                                        </>
                                     ) : (
                                         <div className="alert alert-warning">
                                             No available copies for this book at the moment.
@@ -547,6 +687,70 @@ function Books() {
                                 </div>
                                 <div className="modal-footer">
                                     <button className="btn btn-secondary" onClick={() => setAvailableCopy(null)}>Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {showBorrowRecordsModal && (
+                    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <div className="modal-dialog modal-lg">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">My Borrow Records</h5>
+                                    <button className="btn-close" onClick={() => setShowBorrowRecordsModal(false)}></button>
+                                </div>
+                                <div className="modal-body">
+                                    {borrowRecords.length > 0 ? (
+                                        <div className="table-responsive">
+                                            <table className="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Book ID</th>
+                                                        <th>Copy ID</th>
+                                                        <th>Borrowed At</th>
+                                                        <th>Due Date</th>
+                                                        <th>Status</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {borrowRecords.map((record) => (
+                                                        <tr key={record.id}>
+                                                            <td>{record.bookId}</td>
+                                                            <td>{record.bookCopyId}</td>
+                                                            <td>{new Date(record.borrowedAt).toLocaleString()}</td>
+                                                            <td>{record.dueDate ? new Date(record.dueDate).toLocaleDateString() : 'N/A'}</td>
+                                                            <td>
+                                                                <span className={`badge ${
+                                                                    record.status === 'RETURNED' ? 'bg-success' : 
+                                                                    record.status === 'OVERDUE' ? 'bg-danger' : 'bg-warning'
+                                                                }`}>
+                                                                    {record.status}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                {record.status === 'BORROWED' && (
+                                                                    <button 
+                                                                        className="btn btn-sm btn-outline-primary"
+                                                                        onClick={() => returnBook(record.id)}
+                                                                    >
+                                                                        Return
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="alert alert-info">No borrow records found.</div>
+                                    )}
+                                </div>
+                                <div className="modal-footer">
+                                    <button className="btn btn-secondary" onClick={() => setShowBorrowRecordsModal(false)}>Close</button>
                                 </div>
                             </div>
                         </div>
