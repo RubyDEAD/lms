@@ -16,65 +16,74 @@ function SignUpPage() {
     confirm_password: ''
   });
 
-  const [error, setError] = useState(null);
-
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setInputs(values => ({ ...values, [name]: value }));
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError(null);
-
-    if (inputs.password !== inputs.confirm_password) {
-      setError("Passwords do not match");
-      return;
-    }
-
+  const createPatron = async (mutation) => {
     try {
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      const response = await axios.post(API_URL, {query: mutation})
+      console.log(response)
+
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: inputs.email,
         password: inputs.password
       });
+      if (error) throw error;
+  
+      localStorage.setItem('user', JSON.stringify(data.user));
 
-      if (signUpError) throw signUpError;
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1500);
 
-      const mutation = `
-        mutation CreatePatron($first_name: String!, $last_name: String!, $phone_number: String!, $email: String!) {
-          createPatron(
-            first_name: $first_name,
-            last_name: $last_name,
-            phone_number: $phone_number,
-            email: $email
-          ) {
-            first_name
-            last_name
-            phone_number
-          }
-        }
-      `;
+    } catch (err){
+      console.error("Error adding user: ", err);
+    }
+  }
 
-      const gqlResponse = await axios.post(API_URL, {
-        query: mutation,
-        variables: {
-          first_name: inputs.first_name,
-          last_name: inputs.last_name,
-          phone_number: inputs.phoneNumber,
-          email: inputs.email
-        }
+  const handleChange = (event) => {
+    const name = event.target.name;
+    const value = event.target.value;
+    setInputs(values => ({...values, [name]: value}))
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    console.log(inputs);
+
+    // Check if the passwords are the same
+    if (inputs.password !== inputs.confirm_password) {
+      alert("Passwords do not match");
+      setInputs({
+        first_name: '',
+        last_name: '',
+        phoneNumber: '',
+        email: '',
+        password: '',
+        confirm_password: ''
       });
 
-      if (gqlResponse.data.errors) {
-        throw new Error("GraphQL error: " + gqlResponse.data.errors[0].message);
-      }
-
-      localStorage.setItem('user', JSON.stringify(signUpData.user));
-      window.location.href = '/dashboard';
-    } catch (err) {
-      setError("Failed to create account. Please try again.");
+      return;
     }
-  };
+
+    //Forward request to API-GATEWAY
+    const mutation = `
+      mutation {
+        createPatron(
+          first_name: "${inputs.first_name}"
+          last_name: "${inputs.last_name}"
+          phone_number: "${inputs.phoneNumber}"
+          email: "${inputs.email}"
+          password: "${inputs.password}"
+        ) {
+          first_name
+          last_name
+          phone_number
+        }
+      }
+    `
+
+    createPatron(mutation);
+
+
+  }
 
   return (
     <div className="signup-container">
@@ -89,7 +98,7 @@ function SignUpPage() {
       <div className="signup-card-container">
         <div className="signup-card card">
           <h2>Create an Account</h2>
-          {error && <div className="alert alert-danger">{error}</div>}
+          {/* {error && <div className="alert alert-danger">{error}</div>} */}
 
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
