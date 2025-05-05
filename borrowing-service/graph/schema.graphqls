@@ -21,6 +21,7 @@ type Reservation {
   expiresAt: String!
   bookCopyId: Int!
   status: ReservationStatus! # NEW: Tracks reservation lifecycle
+
 }
 
 enum BorrowStatus {
@@ -52,6 +53,8 @@ type Query {
   
   overdueRecords: [BorrowRecord!]!
   patronBorrowHistory(patronId: ID!): [BorrowRecord!]! # NEW
+  checkActiveBorrow(bookId: ID!, patronId: ID!): BorrowRecord
+  checkActiveReserve(bookId: ID!, patronId: ID!): Reservation
 }
 
 type Mutation {
@@ -86,6 +89,11 @@ enum RenewalErrorCode {
 
 
 type Subscription {
+  reservedBookAvailable(patronId: ID!): Reservation!
   reservationCreated(bookId: ID!): Reservation!
   borrowRecordUpdated(patronId: ID!): BorrowRecord!
+  broadcastReservationAvailable: Reservation!
+  broadcastReservationCreated: Reservation!
+  
+
 }

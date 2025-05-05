@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom"; // useNavigate for redirect
-import { FaBook, FaDiceD6, FaHandHolding, FaHandHoldingHand, FaRegUser, FaRightFromBracket } from "react-icons/fa6";
+import { FaBook, FaDiceD6, FaHandHolding, FaHandHoldingHand, FaMoneyBill, FaRegUser, FaRightFromBracket } from "react-icons/fa6";
 import { supabase } from "../supabaseClient"; // adjust path if necessary
 
 function Sidebar() {
@@ -43,6 +43,11 @@ function Sidebar() {
             <li>
               <Link to="/add-book" className="sidebar-link">
                 <FaHandHoldingHand /> Returned Books
+              </Link>
+            </li>
+            <li>
+              <Link to="/fines" className="sidebar-link">
+                <FaMoneyBill /> Fines
               </Link>
             </li>
             <li>

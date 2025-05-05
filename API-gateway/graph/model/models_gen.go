@@ -18,11 +18,12 @@ type Author struct {
 }
 
 type Book struct {
-	ID            string `json:"id"`
-	Title         string `json:"title"`
-	AuthorName    string `json:"author_name"`
-	DatePublished string `json:"date_published"`
-	Description   string `json:"description"`
+	ID            string  `json:"id"`
+	Title         string  `json:"title"`
+	AuthorName    string  `json:"author_name"`
+	DatePublished string  `json:"date_published"`
+	Description   string  `json:"description"`
+	Image         *string `json:"image,omitempty"`
 }
 
 type BookCopies struct {

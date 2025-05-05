@@ -15,15 +15,20 @@ import (
 )
 
 // AddBook is the resolver for the addBook field.
-func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName string, datePublished string, description string) (*model.Book, error) {
+func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName string, datePublished string, description string, image *string) (*model.Book, error) {
+	var img string = "image"
+	if image != nil {
+		img = *image
+	}
 	query := `
-        mutation AddBook($title: String!, $author_name: String!, $datePublished: String!, $description: String!) {
-            addBook(title: $title, author_name: $author_name, datePublished: $datePublished, description: $description) {
+        mutation AddBook($title: String!, $author_name: String!, $datePublished: String!, $description: String!, $image: String) {
+            addBook(title: $title, author_name: $author_name, datePublished: $datePublished, description: $description,image:$image) {
                 id
                 title
                 author_name
                 date_published
                 description
+				image
             }
         }
     `
@@ -33,6 +38,7 @@ func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName
 		"author_name":   authorName,
 		"datePublished": datePublished,
 		"description":   description,
+		"image":         img,
 	}
 
 	resp, err := forwardRequest(ctx, query, variables, bookServiceURL)
@@ -649,6 +655,7 @@ func (r *queryResolver) GetBooks(ctx context.Context) ([]*model.Book, error) {
                 author_name
                 date_published
                 description
+				image
             }
         }
     `
@@ -681,6 +688,7 @@ func (r *queryResolver) GetBookByID(ctx context.Context, id string) (*model.Book
                 author_name
                 date_published
                 description
+				image
             }
         }
     `
@@ -1073,6 +1081,7 @@ func (r *queryResolver) OverdueRecords(ctx context.Context) ([]*model.BorrowReco
 	return result.Data.OverdueRecords, nil
 }
 
+// PatronBorrowHistory is the resolver for the patronBorrowHistory field.
 func (r *queryResolver) PatronBorrowHistory(ctx context.Context, patronID string) ([]*model.BorrowRecord, error) {
 	query := `
         query PatronBorrowHistory($patronId: ID!) {
@@ -1147,6 +1156,100 @@ func (r *queryResolver) CancelReservation(ctx context.Context, id string) (bool,
 // FulfillReservation is the resolver for the fulfillReservation field.
 func (r *queryResolver) FulfillReservation(ctx context.Context, id string) (*model.Reservation, error) {
 	panic(fmt.Errorf("not implemented: FulfillReservation - fulfillReservation"))
+}
+
+// CheckActiveBorrow is the resolver for the checkActiveBorrow field.
+func (r *queryResolver) CheckActiveBorrow(ctx context.Context, bookID string, patronID string) (*model.BorrowRecord, error) {
+	// Forward the request to the borrowing service
+	query := `
+        query CheckActiveBorrow($bookId: ID!, $patronId: ID!) {
+            checkActiveBorrow(bookId: $bookId, patronId: $patronId) {
+                id
+                bookId
+                patronId
+                bookCopyId
+                borrowedAt
+                dueDate
+                returnedAt
+                renewalCount
+                status
+                previousDueDate
+            }
+        }`
+
+	variables := map[string]interface{}{
+		"bookId":   bookID,
+		"patronId": patronID,
+	}
+
+	resp, err := forwardRequest(ctx, query, variables, borrowingServiceURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check active borrow: %v", err)
+	}
+
+	var result struct {
+		Data struct {
+			CheckActiveBorrow *model.BorrowRecord `json:"checkActiveBorrow"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	if len(result.Errors) > 0 {
+		return nil, fmt.Errorf("service error: %s", result.Errors[0].Message)
+	}
+
+	return result.Data.CheckActiveBorrow, nil
+}
+
+func (r *queryResolver) CheckActiveReserve(ctx context.Context, bookID string, patronID string) (*model.Reservation, error) {
+	// Forward the request to the borrowing service
+	query := `
+        query CheckActiveReserve($bookId: ID!, $patronId: ID!) {
+            checkActiveReserve(bookId: $bookId, patronId: $patronId) {
+                id
+                bookId
+                patronId
+                bookCopyId
+                reservedAt
+                expiresAt
+                status
+            }
+        }`
+
+	variables := map[string]interface{}{
+		"bookId":   bookID,
+		"patronId": patronID,
+	}
+
+	resp, err := forwardRequest(ctx, query, variables, borrowingServiceURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check active reserve: %v", err)
+	}
+
+	var result struct {
+		Data struct {
+			CheckActiveReserve *model.Reservation `json:"checkActiveReserve"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	if len(result.Errors) > 0 {
+		return nil, fmt.Errorf("service error: %s", result.Errors[0].Message)
+	}
+
+	return result.Data.CheckActiveReserve, nil
 }
 
 // BookAdded is the resolver for the bookAdded field.
