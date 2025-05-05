@@ -63,6 +63,7 @@ func CreateSupabaseAuthUser(email string, password string) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		log.Printf(resp.Status)
 		return "", fmt.Errorf("supabase auth user creation failed: %v", resp.Status)
 	}
 

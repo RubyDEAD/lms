@@ -19,7 +19,12 @@ function SignUpPage() {
   const createPatron = async (mutation) => {
     try {
       const response = await axios.post(API_URL, {query: mutation})
-      console.log(response)
+      console.log("response: ", response)
+
+      if (response.data.errors && response.data.errors.length > 0) {
+        console.error("GraphQL errors:", response.errors);
+        return; 
+      }
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email: inputs.email,
@@ -64,8 +69,8 @@ function SignUpPage() {
     }
 
     //Forward request to API-GATEWAY
-    const mutation = `
-      mutation {
+    const mutation = 
+      `mutation {
         createPatron(
           first_name: "${inputs.first_name}"
           last_name: "${inputs.last_name}"
