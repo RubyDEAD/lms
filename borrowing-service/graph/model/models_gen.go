@@ -2,25 +2,190 @@
 
 package model
 
-type Mutation struct {
+import (
+	"fmt"
+	"io"
+	"strconv"
+)
+
+type RenewLoanResult interface {
+	IsRenewLoanResult()
 }
 
-type NewTodo struct {
-	Text   string `json:"text"`
-	UserID string `json:"userId"`
+type BorrowRecord struct {
+	ID              string       `json:"id"`
+	BookID          string       `json:"bookId"`
+	PatronID        string       `json:"patronId"`
+	BorrowedAt      string       `json:"borrowedAt"`
+	DueDate         string       `json:"dueDate"`
+	ReturnedAt      *string      `json:"returnedAt,omitempty"`
+	RenewalCount    int32        `json:"renewalCount"`
+	PreviousDueDate *string      `json:"previousDueDate,omitempty"`
+	Status          BorrowStatus `json:"status"`
+	BookCopyID      int32        `json:"bookCopyId"`
+}
+
+func (BorrowRecord) IsRenewLoanResult() {}
+
+type Mutation struct {
 }
 
 type Query struct {
 }
 
-type Todo struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
-	Done bool   `json:"done"`
-	User *User  `json:"user"`
+type RenewalError struct {
+	Code    RenewalErrorCode `json:"code"`
+	Message string           `json:"message"`
 }
 
-type User struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+func (RenewalError) IsRenewLoanResult() {}
+
+type Reservation struct {
+	ID         string            `json:"id"`
+	BookID     string            `json:"bookId"`
+	PatronID   string            `json:"patronId"`
+	ReservedAt string            `json:"reservedAt"`
+	ExpiresAt  string            `json:"expiresAt"`
+	BookCopyID int32             `json:"bookCopyId"`
+	Status     ReservationStatus `json:"status"`
+}
+
+type Subscription struct {
+}
+
+type BorrowStatus string
+
+const (
+	BorrowStatusActive   BorrowStatus = "ACTIVE"
+	BorrowStatusReturned BorrowStatus = "RETURNED"
+	BorrowStatusOverdue  BorrowStatus = "OVERDUE"
+	BorrowStatusRenewed  BorrowStatus = "RENEWED"
+)
+
+var AllBorrowStatus = []BorrowStatus{
+	BorrowStatusActive,
+	BorrowStatusReturned,
+	BorrowStatusOverdue,
+	BorrowStatusRenewed,
+}
+
+func (e BorrowStatus) IsValid() bool {
+	switch e {
+	case BorrowStatusActive, BorrowStatusReturned, BorrowStatusOverdue, BorrowStatusRenewed:
+		return true
+	}
+	return false
+}
+
+func (e BorrowStatus) String() string {
+	return string(e)
+}
+
+func (e *BorrowStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = BorrowStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid BorrowStatus", str)
+	}
+	return nil
+}
+
+func (e BorrowStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+type RenewalErrorCode string
+
+const (
+	RenewalErrorCodeMaxRenewalsReached  RenewalErrorCode = "MAX_RENEWALS_REACHED"
+	RenewalErrorCodeItemReserved        RenewalErrorCode = "ITEM_RESERVED"
+	RenewalErrorCodePatronBlocked       RenewalErrorCode = "PATRON_BLOCKED"
+	RenewalErrorCodeLoanNotFound        RenewalErrorCode = "LOAN_NOT_FOUND"
+	RenewalErrorCodeLoanAlreadyReturned RenewalErrorCode = "LOAN_ALREADY_RETURNED"
+)
+
+var AllRenewalErrorCode = []RenewalErrorCode{
+	RenewalErrorCodeMaxRenewalsReached,
+	RenewalErrorCodeItemReserved,
+	RenewalErrorCodePatronBlocked,
+	RenewalErrorCodeLoanNotFound,
+	RenewalErrorCodeLoanAlreadyReturned,
+}
+
+func (e RenewalErrorCode) IsValid() bool {
+	switch e {
+	case RenewalErrorCodeMaxRenewalsReached, RenewalErrorCodeItemReserved, RenewalErrorCodePatronBlocked, RenewalErrorCodeLoanNotFound, RenewalErrorCodeLoanAlreadyReturned:
+		return true
+	}
+	return false
+}
+
+func (e RenewalErrorCode) String() string {
+	return string(e)
+}
+
+func (e *RenewalErrorCode) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RenewalErrorCode(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RenewalErrorCode", str)
+	}
+	return nil
+}
+
+func (e RenewalErrorCode) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+type ReservationStatus string
+
+const (
+	ReservationStatusPending   ReservationStatus = "PENDING"
+	ReservationStatusFulfilled ReservationStatus = "FULFILLED"
+	ReservationStatusCancelled ReservationStatus = "CANCELLED"
+	ReservationStatusExpired   ReservationStatus = "EXPIRED"
+)
+
+var AllReservationStatus = []ReservationStatus{
+	ReservationStatusPending,
+	ReservationStatusFulfilled,
+	ReservationStatusCancelled,
+	ReservationStatusExpired,
+}
+
+func (e ReservationStatus) IsValid() bool {
+	switch e {
+	case ReservationStatusPending, ReservationStatusFulfilled, ReservationStatusCancelled, ReservationStatusExpired:
+		return true
+	}
+	return false
+}
+
+func (e ReservationStatus) String() string {
+	return string(e)
+}
+
+func (e *ReservationStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ReservationStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ReservationStatus", str)
+	}
+	return nil
+}
+
+func (e ReservationStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
 }

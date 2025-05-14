@@ -1,28 +1,99 @@
-# GraphQL schema example
-#
-# https://gqlgen.com/getting-started/
+# borrowing-service/schema.graphql
 
-type Todo {
+type BorrowRecord {
   id: ID!
-  text: String!
-  done: Boolean!
-  user: User!
+  bookId: ID!
+  patronId: ID!
+  borrowedAt: String!
+  dueDate: String!
+  returnedAt: String
+  renewalCount: Int!
+  previousDueDate: String
+  status: BorrowStatus! # NEW: Helps track loan state
+  bookCopyId: Int!
 }
 
-type User {
+type Reservation {
   id: ID!
-  name: String!
+  bookId: ID!
+  patronId: ID!
+  reservedAt: String!
+  expiresAt: String!
+  bookCopyId: Int!
+  status: ReservationStatus! # NEW: Tracks reservation lifecycle
+
+}
+
+enum BorrowStatus {
+  ACTIVE
+  RETURNED
+  OVERDUE
+  RENEWED
+}
+
+enum ReservationStatus {
+  PENDING
+  FULFILLED
+  CANCELLED
+  EXPIRED
 }
 
 type Query {
-  todos: [Todo!]!
-}
-
-input NewTodo {
-  text: String!
-  userId: String!
+  borrowRecords(
+    patronId: ID # NEW: Filter by patron
+    bookId: ID   # NEW: Filter by book
+    status: BorrowStatus # NEW: Filter by status
+  ): [BorrowRecord!]!
+  
+  reservations(
+    patronId: ID
+    bookId: ID
+    status: ReservationStatus
+  ): [Reservation!]!
+  
+  overdueRecords: [BorrowRecord!]!
+  patronBorrowHistory(patronId: ID!): [BorrowRecord!]! # NEW
+  checkActiveBorrow(bookId: ID!, patronId: ID!): BorrowRecord
+  checkActiveReserve(bookId: ID!, patronId: ID!): Reservation
 }
 
 type Mutation {
-  createTodo(input: NewTodo!): Todo!
+  # Borrowing operations
+  borrowBook(bookId: ID!, patronId: ID!): BorrowRecord!
+  returnBook(recordId: ID!): BorrowRecord!
+  renewLoan(recordId: ID!): RenewLoanResult! # CHANGED: Better return type
+  
+  # Reservation operations
+  reserveBook(bookId: ID!, patronId: ID!): Reservation!
+  cancelReservation(id: ID!): Boolean!
+  fulfillReservation(id: ID!): Reservation! # NEW: When reservation becomes a loan
+}
+
+# NEW: Better return type for renewals
+
+
+union RenewLoanResult = BorrowRecord | RenewalError
+
+type RenewalError {
+  code: RenewalErrorCode!
+  message: String!
+}
+
+enum RenewalErrorCode {
+  MAX_RENEWALS_REACHED
+  ITEM_RESERVED
+  PATRON_BLOCKED
+  LOAN_NOT_FOUND
+  LOAN_ALREADY_RETURNED
+}
+
+
+type Subscription {
+  reservedBookAvailable(patronId: ID!): Reservation!
+  reservationCreated(bookId: ID!): Reservation!
+  borrowRecordUpdated(patronId: ID!): BorrowRecord!
+  broadcastReservationAvailable: Reservation!
+  broadcastReservationCreated: Reservation!
+  
+
 }

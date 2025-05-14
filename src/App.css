@@ -1,3 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Lilita+One&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: "Roboto", sans-serif;
+  height: 100%;
+}
 
 .App {
   text-align: center;
@@ -7,7 +23,6 @@
   height: 40vmin;
   pointer-events: none;
 }
-
 
 .App-header {
   background-color: #282c34;
@@ -24,9 +39,9 @@
   color: #61dafb;
 }
 
-
+/* --- Sidebar --- */
 .sidebar {
-  width: 250px;
+  width: 300px;
   background-color: #BBAB8C;
   color: white;
   height: 100vh;
@@ -34,7 +49,8 @@
   top: 0;
   left: 0;
   padding-top: 20px;
-  padding-left: 20px;
+  padding-left: 30px;
+  margin-top: 80px;
 }
 
 .sidebar-title h1 {
@@ -43,9 +59,9 @@
   color: #fff;
   margin-bottom: 40px;
   margin-right: 20px;
+  font-family: "Roboto";
 }
 
-/* Sidebar navigation */
 .sidebar-nav ul {
   list-style-type: none;
   padding: 0;
@@ -53,7 +69,9 @@
 }
 
 .sidebar-nav li {
-  margin: 20px 0;
+  margin: 30px 20px;
+  font-family: "Roboto";
+  text-align: left;
 }
 
 .sidebar-nav .sidebar-link {
@@ -67,6 +85,398 @@
 
 .sidebar-nav .sidebar-link:hover {
   background-color: #FAEED1;
-  color:black;
+  color: black;
   border-radius: 10px;
+}
+
+/* --- Topbar --- */
+.topbar {
+  width: 100%;
+  height: 80px;
+  background-color: #333;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  z-index: 1000;
+}
+
+.topbar-container {
+  width: 100%;
+  max-width: 2000px;
+  padding: 50px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.top-left h1 {
+  font-size: 30px;
+  font-weight: bold;
+  color: white;
+  margin-left: 0px;
+}
+
+.top-right {
+  display: flex;
+  align-items: center;
+}
+
+.topbar-icon-container {
+  position: relative;
+  margin-left: 20px;
+  cursor: pointer;
+}
+
+.topbar-icon-container i {
+  font-size: 20px;
+  color: white;
+}
+
+.top-icon-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 18px;
+  height: 18px;
+  background-color: red;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.topbar-avatar-link {
+  margin-left: 20px;
+  cursor: pointer;
+}
+
+.topbar-avatar-link svg {
+  color: white;
+}
+
+.topbar-icon-container:hover i,
+.topbar-avatar-link:hover svg {
+  color: #4e89e2;
+}
+
+/* --- Dashboard --- */
+.custom-bg {
+  background-color: #432580;
+}
+
+.dashboard-container {
+  margin-left: 100px;
+  padding: 40px 20px;
+  min-height: 100vh;
+  font-family: "Roboto", sans-serif;
+}
+
+.dashboard-title {
+  font-size: 32px;
+  margin-bottom: 30px;
+  color: #333;
+  font-family: "Lilita One", cursive;
+}
+
+.dashboard-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.dashboard-card {
+  flex: 1 1 22%;
+  background-color: #FAEED1;
+  border-radius: 12px;
+  padding: 30px 20px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: center;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-card-title {
+  font-size: 20px;
+  margin-bottom: 15px;
+  color: #432580;
+  font-weight: 600;
+}
+
+.dashboard-card-value {
+  font-size: 32px;
+  color: #333;
+  font-weight: bold;
+}
+
+/* --- Signup Layout (LMS + SignUp Form) --- */
+.signup-container {
+  display: flex;
+  height: 100vh;
+  background-color: white;
+  overflow: hidden;
+  margin: -20px;
+  border:none;
+  border-style: none;
+}
+
+.lms-banner {
+  flex: 1;
+  background-color: #000;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-top-right-radius: 100px;
+  border-bottom-right-radius: 100px;
+  padding: 2rem;
+  margin-left: 0px;
+  text-align: center;
+}
+
+.lms-banner h1 {
+  font-size: 3.5rem;
+  font-family: "Lilita One", cursive;
+  margin-bottom: 10px;
+}
+
+.lms-banner p {
+  font-size: 1rem;
+  margin-bottom: 20px;
+}
+
+.lms-banner button {
+  padding: 10px 30px;
+  background-color: transparent;
+  border: 2px solid white;
+  color: white;
+  font-weight: bold;
+  border-radius: 10px;
+  transition: 0.3s ease;
+}
+
+.lms-banner button:hover {
+  background-color: white;
+  color: black;
+}
+
+.signup-card-container {
+  flex: 1;
+  display: flex;
+  padding:0;
+  margin:0;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  border:none;
+  border-style: none;
+}
+
+.signup-card {
+  width: 100%;
+  max-width: 480px;
+  background-color: white;
+  padding: 2.5rem;
+  border-radius: 20px;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.08);
+  animation: fadeInRight 0.6s ease-in-out;
+  border-style: none;
+  border:none;
+}
+
+.signup-card h2 {
+  text-align: center;
+  margin-bottom: 1rem;
+  font-weight: 700;
+  color: black;
+}
+
+.signup-card .form-label {
+  font-weight: 500;
+}
+
+.signup-card .btn-primary {
+  background-color: black;
+  border: none;
+  border-radius: 15px;
+  padding: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.signup-card .btn-primary:hover {
+  background-color: #333;
+}
+
+.signup-card .btn-link {
+  font-weight: 500;
+  color: #000;
+}
+
+.signup-card .btn-link:hover {
+  text-decoration: underline;
+}
+
+.alert-danger {
+  animation: shake 0.3s;
+}
+
+/* Animations */
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shake {
+  0% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  100% { transform: translateX(0); }
+}
+
+/* --- Layout for Login Page --- */
+.login-container {
+  display: flex;
+  height: 100vh;
+  background-color: #fff;
+  overflow: hidden;
+  margin: -20px;
+  border: none;
+  border-style: none;
+}
+
+.lms-banner-login {
+  flex: 1;
+  background-color: #000;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-top-left-radius: 60px;
+  border-bottom-left-radius: 60px;
+  border-top-right-radius: 0px;
+  border-bottom-right-radius: 0px;
+  padding: 5rem;
+  margin-left: 0px;
+  text-align: center;
+}
+
+.lms-banner-login h1 {
+  font-size: 3.5rem;
+  font-family: "Lilita One", cursive;
+  margin-bottom: 10px;
+}
+
+.lms-banner-login p {
+  font-size: 1rem;
+  margin-bottom: 20px;
+}
+
+.lms-banner-login button {
+  padding: 10px 30px;
+  background-color: transparent;
+  border: 2px solid white;
+  color: white;
+  font-weight: bold;
+  border-radius: 10px;
+  transition: 0.3s ease;
+}
+
+.lms-bannerlogin button:hover {
+  background-color: white;
+  color: black;
+}
+
+.login-card-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  border: none;
+  border-style: none;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 480px;
+  background-color: white;
+  padding: 2.5rem;
+  border-radius: 20px;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.08);
+  animation: fadeInRight 0.6s ease-in-out;
+  border-style: none;
+  border: none;
+}
+
+.login-card h2 {
+  text-align: center;
+  margin-bottom: 1rem;
+  font-weight: 700;
+  color: black;
+}
+
+.login-card .form-label {
+  font-weight: 500;
+}
+
+.login-card .btn-primary {
+  background-color: black;
+  border: none;
+  border-radius: 15px;
+  padding: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.login-card .btn-primary:hover {
+  background-color: #333;
+}
+
+.login-card .btn-link {
+  font-weight: 500;
+  color: #000;
+}
+
+.login-card .btn-link:hover {
+  text-decoration: underline;
+}
+
+.alert-danger {
+  animation: shake 0.3s;
+}
+
+/* Animations */
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shake {
+  0% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  100% { transform: translateX(0); }
 }
