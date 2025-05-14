@@ -575,24 +575,8 @@ function Books() {
                                             <p><strong>Description:</strong></p>
                                             <p>{bookDetails.description}</p>
                                             <div className="mt-3">
-                                                <button 
-                                                    className="btn btn-primary me-2"
-                                                    onClick={() => {
-                                                        setBookDetails(null);
-                                                        fetchAvailableBookCopyById(bookDetails.id);
-                                                    }}
-                                                >
-                                                    Check Availability
-                                                </button>
-                                                <button 
-                                                    className="btn btn-success"
-                                                    onClick={() => {
-                                                        setBookDetails(null);
-                                                        borrowBook(bookDetails.id);
-                                                    }}
-                                                >
-                                                    Borrow This Book
-                                                </button>
+                                     
+                            
                                             </div>
                                         </div>
                                     </div>

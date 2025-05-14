@@ -103,6 +103,11 @@ func (r *mutationResolver) CreateFine(ctx context.Context, patronID string, book
 		}
 	}
 
+	// After creating the fine, notify subscribers
+    for _, subscriber := range r.FineCreatedSubscribers {
+        subscriber <- fine // Push the newly created fine to the subscriber
+    }
+
 	return fine, nil
 }
 
@@ -161,14 +166,21 @@ func (r *mutationResolver) CreateViolationRecord(ctx context.Context, patronID s
 		return nil, err
 	}
 
-	return &model.ViolationRecord{
+	record := &model.ViolationRecord{
 		ViolationRecordID: id,
 		PatronID:          patronID,
 		ViolationType:     violationType,
 		ViolationInfo:     violationInfo,
 		ViolationCreated:  created,
 		ViolationStatus:   violationStatus,
-	}, nil
+	}
+
+	// Notify all subscribers
+	for _, sub := range r.Resolver.ViolationSubscribers {
+		sub <- record
+	}
+
+	return record, nil
 }
 
 // UpdateViolationStatus is the resolver for the updateViolationStatus field.
@@ -298,27 +310,44 @@ func (r *queryResolver) ListViolationRecords(ctx context.Context) ([]*model.Viol
 
 // FineCreated is the resolver for the fineCreated field.
 func (r *subscriptionResolver) FineCreated(ctx context.Context) (<-chan *model.Fine, error) {
-	ch := make(chan *model.Fine, 1)
+    ch := make(chan *model.Fine, 1)
+    
+    r.FineCreatedSubscribers = append(r.FineCreatedSubscribers, ch)
+    
+    // When the client disconnects, we clean up the subscriber list
+    go func() {
+        <-ctx.Done() // When the client disconnects
+        for i, subscriber := range r.FineCreatedSubscribers {
+            if subscriber == ch {
+                r.FineCreatedSubscribers = append(r.FineCreatedSubscribers[:i], r.FineCreatedSubscribers[i+1:]...)
+                break
+            }
+        }
+    }()
 
-	r.FineCreatedSubscribers = append(r.FineCreatedSubscribers, ch)
-
-	go func() {
-		<-ctx.Done() // When the client disconnects
-		// Remove the channel from subscribers
-		for i, subscriber := range r.FineCreatedSubscribers {
-			if subscriber == ch {
-				r.FineCreatedSubscribers = append(r.FineCreatedSubscribers[:i], r.FineCreatedSubscribers[i+1:]...)
-				break
-			}
-		}
-	}()
-
-	return ch, nil
+    return ch, nil
 }
+
 
 // ViolationRecordCreated is the resolver for the violationRecordCreated field.
 func (r *subscriptionResolver) ViolationRecordCreated(ctx context.Context) (<-chan *model.ViolationRecord, error) {
-	panic(fmt.Errorf("not implemented: ViolationRecordCreated - violationRecordCreated"))
+	    ch := make(chan *model.ViolationRecord, 1)
+
+    r.ViolationSubscribers = append(r.ViolationSubscribers, ch)
+
+    // Clean up when client disconnects
+    go func() {
+        <-ctx.Done()
+        for i, subscriber := range r.ViolationSubscribers {
+            if subscriber == ch {
+                r.ViolationSubscribers = append(r.ViolationSubscribers[:i], r.ViolationSubscribers[i+1:]...)
+                break
+            }
+        }
+    }()
+
+    return ch, nil
+
 }
 
 // Mutation returns MutationResolver implementation.
@@ -329,6 +358,7 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 // Subscription returns SubscriptionResolver implementation.
 func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
+
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

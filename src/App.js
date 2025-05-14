@@ -7,6 +7,7 @@ import Books from './components/book';
 import BorrowedBooks from './components/BorrowedBooks';
 import AddBook from './components/AddBook';
 import Profile from './components/profile';
+import Fines from "./components/fines";
 import Topbar from './components/topbar';
 import SignUpPage from './pages/signup_page';
 import LoginPage from './pages/login_page';
@@ -74,6 +75,7 @@ function App() {
                 <Route path="/borrowed-books" element={<BorrowedBooks />} />
                 <Route path="/add-book" element={<AddBook />} />
                 <Route path="/profile" element={<Profile />} />
+                 <Route path="/fines" element={<Fines />} />
               </>
             ) : (
               <Route path="*" element={<Navigate to="/login" replace />} />
