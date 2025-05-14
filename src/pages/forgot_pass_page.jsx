@@ -34,8 +34,8 @@ function ForgotPasswordPage() {
     <div className="login-container">
       {/* LMS Banner (Left Side) */}
       <div className="lms-banner">
-        <h1>LMS</h1>
-        <p>Secure. Reliable. Easy Learning.</p>
+        <h1>Welcome to LMS</h1>
+        <p>Empowering minds, one book at a time.</p>
         <button onClick={() => navigate('/login')}>Back to Login</button>
       </div>
 

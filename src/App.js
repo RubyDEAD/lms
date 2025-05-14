@@ -59,10 +59,17 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/update-password" element={<UpdatePasswordPage />} />
 
+            {/* Root Redirect */}
+            <Route
+              path="/"
+              element={
+                user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+              }
+            />
+
             {/* Protected Routes */}
             {user ? (
               <>
-                <Route path="/" element={<Dashboard />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/books" element={<Books />} />
                 <Route path="/borrowed-books" element={<BorrowedBooks />} />
