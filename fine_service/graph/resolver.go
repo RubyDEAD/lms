@@ -11,6 +11,7 @@ type Resolver struct {
 	Rabbit *amqp.Channel
 	RabbitChannel         *amqp.Channel
 	FineCreatedSubscribers []chan *model.Fine
+	ViolationSubscribers    []chan *model.ViolationRecord
 }
 
 

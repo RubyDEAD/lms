@@ -19,6 +19,7 @@ import (
 const bookServiceURL = "http://localhost:8080/query"
 const patronServiceQueue = "patron-service-queue"
 const borrowingServiceURL = "http://localhost:8082/query"
+const fineServiceURL = "http://fine-service:8000/graphql"
 
 // forwardRequest forwards HTTP requests from the gateway to individual services.
 func forwardRequest(ctx context.Context, query string, variables map[string]interface{}, serviceURL string) ([]byte, error) {
