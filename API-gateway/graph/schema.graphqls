@@ -44,6 +44,11 @@ type Query {
   checkActiveBorrow(bookId: ID!, patronId: ID!): BorrowRecord
   checkActiveReserve(bookId: ID!, patronId: ID!): Reservation
 
+  getFine(fine_id: ID!): Fine
+  listFines: [Fine!]!
+  getViolationRecord(violation_record_id: ID!): ViolationRecord
+  listViolationRecords: [ViolationRecord!]!
+
 }
 
 type Mutation {
@@ -74,6 +79,14 @@ type Mutation {
   fulfillReservation(id: ID!): Reservation! # NEW: When reservation becomes a loan
   #
 
+    createFine(patronId: ID!, bookId: ID!, ratePerDay: Float!, violationType: ViolationType!,daysLate: Int): Fine!
+  updateFine(fine_id: ID!, daysLate: Int!, ratePerDay: Float!): Fine!
+  deleteFine(fine_id: ID!): Boolean!
+
+  createViolationRecord(patron_id: ID!, violation_type: ViolationType!, violation_info: String!): ViolationRecord!
+  updateViolationStatus(violation_record_id: ID!, violation_status: ViolationStatus!): ViolationRecord!
+  deleteViolationRecord(violation_record_id: ID!): Boolean!
+
 }
 
 type Subscription {
@@ -82,6 +95,8 @@ type Subscription {
   patronStatusUpdated: PatronStatus
   reservationCreated: Reservation!
   borrowRecordUpdated: BorrowRecord!
+   fineCreated: Fine!
+  violationRecordCreated: ViolationRecord!
 }
 
 type Book {
@@ -227,6 +242,8 @@ type ViolationRecord {
   violation_created: String!
   violation_status: ViolationStatus!
 }
+
+
 
 
 
