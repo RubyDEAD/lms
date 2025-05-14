@@ -985,6 +985,7 @@ func (r *queryResolver) SearchBooks(ctx context.Context, query string) ([]*model
                 author_name
                 date_published
                 description
+				image
             }
         }
     `
@@ -1804,8 +1805,6 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 // Subscription returns SubscriptionResolver implementation.
 func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
-
-
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
