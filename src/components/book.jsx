@@ -3,6 +3,7 @@ import axios from "axios";
 import { supabase, bookservice, bucketURL } from '../supabaseClient';
 import { useNavigate } from "react-router-dom";
 import 'bootstrap/dist/css/bootstrap.min.css';
+import "../App.css"; // Ensure this file contains the spinner styles
 
 function Books() {
     const [searchTerm, setSearchTerm] = useState("");
@@ -60,7 +61,6 @@ function Books() {
 
         checkAuth();
     }, [navigate]);
-
 
     const fetchBooks = async () => {
         try {
@@ -446,7 +446,14 @@ function Books() {
         }
     };
 
-    if (authLoading) return <div className="container mt-5">Checking authentication...</div>;
+    if (authLoading) {
+        return (
+            <div className="container mt-5">
+                <div className="spinner"></div>
+                <p>Checking authentication...</p>
+            </div>
+        );
+    }
 
     if (!isAuthenticated) {
         return (
@@ -456,37 +463,46 @@ function Books() {
         );
     }
 
-    if (loading) return <div className="container mt-5">Loading books...</div>;
+    if (loading) {
+        return (
+            <div className="container mt-5">
+                <div className="spinner"></div>
+                <p>Loading books...</p>
+            </div>
+        );
+    }
 
-   const handleSearch = async (e) => {
+    const handleSearch = async (e) => {
         e.preventDefault();
         setSearchLoading(true);
-        try{
-             const { data: { session } } = await supabase.auth.getSession();
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
+
             const response = await axios.post(API_URL, {
-            query: `
-                query SearchBooks($query: String!) {
-                    searchBooks(query:$query){
-                         id
-                         author_name
-                        title
-                        date_published
-                        image
-                        description
+                query: `
+                    query SearchBooks($query: String!) {
+                        searchBooks(query: $query) {
+                            id
+                            author_name
+                            title
+                            date_published
+                            image
+                            description
+                        }
                     }
-                }
-            `,
-            variables: { query: searchTerm }
-        }, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+                `,
+                variables: { query: searchTerm }
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
             setBooks(response.data.data.searchBooks);
             setError(null);
-        }catch (err) {
+        } catch (err) {
             setError("Failed to search books. Please try again later.");
         } finally {
-        setSearchLoading(false);
+            setSearchLoading(false);
         }
     };
 

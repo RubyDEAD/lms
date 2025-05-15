@@ -43,8 +43,17 @@ function Profile() {
     getPatron();
   }, []);
 
-  if (loading) return <div className="profile-container">Loading profile...</div>;
-  if (error) return <div className="profile-container error">{error}</div>;
+  if (loading) {
+    return (
+      <div className="profile-container">
+        <div className="spinner"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="profile-container error">{error}</div>;
+  }
 
   return (
     <div className="profile-container">

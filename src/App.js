@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './App.css';
 import { Route, Routes, useLocation, Navigate } from 'react-router-dom';
-import Dashboard from './components/dashboard';
 import Sidebar from './components/sidebar';
 import Books from './components/book';
 import BorrowedBooks from './components/BorrowedBooks';
@@ -13,6 +12,7 @@ import SignUpPage from './pages/signup_page';
 import LoginPage from './pages/login_page';
 import ForgotPasswordPage from './pages/forgot_pass_page';
 import UpdatePasswordPage from './pages/update_pass_page';
+import TestClientPage from './pages/test_client_page'; // Import the TestClientPage
 import TestAdminPage from './pages/test_admin_page';
 import { supabase } from './supabaseClient';
 
@@ -71,7 +71,7 @@ function App() {
             {/* Protected Routes */}
             {user ? (
               <>
-                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/dashboard" element={<TestClientPage />} /> {/* Replaced Dashboard */}
                 <Route path="/books" element={<Books />} />
                 <Route path="/borrowed-books" element={<BorrowedBooks />} />
                 <Route path="/add-book" element={<AddBook />} />

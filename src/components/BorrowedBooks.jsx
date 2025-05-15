@@ -3,6 +3,7 @@ import axios from "axios";
 import { supabase } from '../supabaseClient';
 import { useNavigate } from "react-router-dom";
 import 'bootstrap/dist/css/bootstrap.min.css';
+import "../App.css"; // Ensure this file contains the spinner styles
 
 const BorrowedBooks = () => {
     const [borrowRecords, setBorrowRecords] = useState([]);
@@ -206,7 +207,12 @@ const BorrowedBooks = () => {
     };
 
     if (authLoading) {
-        return <div className="container mt-5">Checking authentication...</div>;
+        return (
+            <div className="container mt-5">
+                <div className="spinner"></div>
+                <p>Checking authentication...</p>
+            </div>
+        );
     }
 
     if (!isAuthenticated) {
@@ -220,7 +226,12 @@ const BorrowedBooks = () => {
     }
 
     if (loading) {
-        return <div className="container mt-5">Loading borrowed books...</div>;
+        return (
+            <div className="container mt-5">
+                <div className="spinner"></div>
+                <p>Loading borrowed books...</p>
+            </div>
+        );
     }
 
     return (

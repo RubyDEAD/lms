@@ -41,7 +41,7 @@ body, html {
 /* --- Sidebar --- */
 .sidebar {
   width: 260px;
-  background-color: black;
+  background-color: #333333;
   color: white;
   height: 100vh;
   position: fixed;
@@ -115,7 +115,7 @@ body, html {
   font-size: 30px;
   font-weight: bold;
   color: white;
-  margin-left: 0px;
+  margin-left: 1px;
 }
 
 .top-right {
@@ -529,14 +529,45 @@ body, html {
   }
 }
 
+/* Spinner Styles */
+
+.auth-loading-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh; /* Full viewport height */
+  text-align: center;
+}
+
+.spinner {
+  border: 8px solid #f3f3f3; /* Light gray */
+  border-top: 8px solid #432580; /* Purple */
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin: auto;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 /* Profile Page Styles */
 .profile-container {
+  margin-left: 50px; /* Adjust for the sidebar width */
+  height: 80vh; /* Full height minus the topbar height */
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  background-color: #f9f9f9;
-  padding: 20px;
+  padding: 10px;
+  overflow: hidden; /* Prevent scrolling */
 }
 
 .profile-card {
@@ -550,7 +581,7 @@ body, html {
 }
 
 .profile-title {
-  font-size: 28px;
+  font-size: 40px;
   font-weight: bold;
   color: #333;
   text-align: center;
