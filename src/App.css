@@ -41,7 +41,7 @@ body, html {
 /* --- Sidebar --- */
 .sidebar {
   width: 260px;
-  background-color: black;
+  background-color: #333333;
   color: white;
   height: 100vh;
   position: fixed;
@@ -115,7 +115,7 @@ body, html {
   font-size: 30px;
   font-weight: bold;
   color: white;
-  margin-left: 0px;
+  margin-left: 1px;
 }
 
 .top-right {
@@ -527,4 +527,108 @@ body, html {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Spinner Styles */
+
+.auth-loading-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh; /* Full viewport height */
+  text-align: center;
+}
+
+.spinner {
+  border: 8px solid #f3f3f3; /* Light gray */
+  border-top: 8px solid #432580; /* Purple */
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin: auto;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Profile Page Styles */
+.profile-container {
+  margin-left: 20px; /* Adjust for the sidebar width */
+  height: 80vh; /* Full height minus the topbar height */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #f9f9f9;
+  padding: 40px;
+  overflow: hidden; /* Prevent scrolling */
+}
+
+.profile-card {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+  padding: 30px;
+  max-width: 600px;
+  width: 100%;
+  font-family: "Roboto", sans-serif;
+  text-align: left;
+}
+
+.profile-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+  margin-bottom: 20px;
+  font-family: "Lilita One", cursive;
+}
+
+.profile-section {
+  margin-bottom: 20px;
+}
+
+.profile-section h2 {
+  font-size: 20px;
+  color: #432580;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.profile-section p {
+  font-size: 16px;
+  color: #555;
+  margin: 5px 0;
+}
+
+.profile-section p strong {
+  color: #333;
+}
+
+.error-card {
+  background-color: #ffe6e6;
+  border: 1px solid #ffcccc;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.error-card h2 {
+  color: #d9534f;
+  margin-bottom: 10px;
+}
+
+.error-card p {
+  color: #a94442;
+  font-size: 16px;
 }
