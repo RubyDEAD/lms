@@ -561,12 +561,13 @@ body, html {
 
 /* Profile Page Styles */
 .profile-container {
-  margin-left: 50px; /* Adjust for the sidebar width */
+  margin-left: 20px; /* Adjust for the sidebar width */
   height: 80vh; /* Full height minus the topbar height */
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 10px;
+  background-color: #f9f9f9;
+  padding: 40px;
   overflow: hidden; /* Prevent scrolling */
 }
 
@@ -578,10 +579,11 @@ body, html {
   max-width: 600px;
   width: 100%;
   font-family: "Roboto", sans-serif;
+  text-align: left;
 }
 
 .profile-title {
-  font-size: 40px;
+  font-size: 28px;
   font-weight: bold;
   color: #333;
   text-align: center;
@@ -610,8 +612,23 @@ body, html {
   color: #333;
 }
 
-.error {
-  color: red;
-  font-size: 18px;
+.error-card {
+  background-color: #ffe6e6;
+  border: 1px solid #ffcccc;
+  border-radius: 12px;
+  padding: 20px;
   text-align: center;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.error-card h2 {
+  color: #d9534f;
+  margin-bottom: 10px;
+}
+
+.error-card p {
+  color: #a94442;
+  font-size: 16px;
 }
