@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 ALTER TABLE patrons
-ADD COLUMN isAdmin BOOLEAN DEFAULT true;
+ADD COLUMN isAdmin BOOLEAN DEFAULT false;
 -- +goose StatementEnd
 
 -- +goose Down
