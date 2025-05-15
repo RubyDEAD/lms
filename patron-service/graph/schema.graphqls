@@ -4,20 +4,7 @@ type Patron {
   last_name: String!
   phone_number: String!
   patron_created: String!
-  membership: Membership
   status: PatronStatus
-}
-
-type Membership {
-  membership_id: ID!
-  patron_id: ID!
-  level: MembershipLevel!
-}
-
-enum MembershipLevel {
-  Bronze
-  Silver
-  Gold
 }
 
 type PatronStatus {
@@ -38,9 +25,6 @@ type Query {
   getPatronById(patron_id: ID!): Patron
   getAllPatrons: [Patron]
 
-  getMembershipByLevel(level: MembershipLevel!): [Membership]
-  getMembershipByPatronId(patron_id: ID!): Membership
-
   getPatronStatusByType(patron_status: Status!): [PatronStatus]
 }
 
@@ -49,8 +33,6 @@ type Mutation {
   updatePatron(patron_id: ID!, first_name: String, last_name: String, phone_number: String): Patron
   deletePatronById(patron_id: ID!): Patron
 
-  updateMembershipByPatronId(patron_id: ID!, level: MembershipLevel!): Membership
-  updateMembershipByMembershipId(membership_id: ID!, level: MembershipLevel!): Membership
   updatePatronStatus(patron_id: ID!, warning_count: Int, unpaid_fees: Float, patron_status: Status): PatronStatus
 
 }

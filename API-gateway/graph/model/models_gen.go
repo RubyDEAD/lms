@@ -63,12 +63,6 @@ type Fine struct {
 	ViolationRecordID string  `json:"violationRecordId"`
 }
 
-type Membership struct {
-	MembershipID string          `json:"membership_id"`
-	PatronID     string          `json:"patron_id"`
-	Level        MembershipLevel `json:"level"`
-}
-
 type Mutation struct {
 }
 
@@ -78,7 +72,6 @@ type Patron struct {
 	LastName      string        `json:"last_name"`
 	PhoneNumber   string        `json:"phone_number"`
 	PatronCreated string        `json:"patron_created"`
-	Membership    *Membership   `json:"membership,omitempty"`
 	Status        *PatronStatus `json:"status,omitempty"`
 }
 
@@ -174,63 +167,6 @@ func (e *BorrowStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e BorrowStatus) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
-}
-
-type MembershipLevel string
-
-const (
-	MembershipLevelBronze MembershipLevel = "Bronze"
-	MembershipLevelSilver MembershipLevel = "Silver"
-	MembershipLevelGold   MembershipLevel = "Gold"
-)
-
-var AllMembershipLevel = []MembershipLevel{
-	MembershipLevelBronze,
-	MembershipLevelSilver,
-	MembershipLevelGold,
-}
-
-func (e MembershipLevel) IsValid() bool {
-	switch e {
-	case MembershipLevelBronze, MembershipLevelSilver, MembershipLevelGold:
-		return true
-	}
-	return false
-}
-
-func (e MembershipLevel) String() string {
-	return string(e)
-}
-
-func (e *MembershipLevel) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = MembershipLevel(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid MembershipLevel", str)
-	}
-	return nil
-}
-
-func (e MembershipLevel) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *MembershipLevel) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e MembershipLevel) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
