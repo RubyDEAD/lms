@@ -463,47 +463,95 @@ function Books() {
                 </div>
 
                 {showAddForm && (
-                    <div className="card mb-4">
-                        <div className="card-body">
-                            <h2 className="card-title">Add a New Book</h2>
-                            <form onSubmit={(e) => { e.preventDefault(); addBook(); }}>
-                                <div className="mb-3">
-                                    <label htmlFor="title" className="form-label">Title *</label>
-                                    <input type="text" className="form-control" id="title"
-                                        value={newBook.title}
-                                        onChange={(e) => setNewBook({ ...newBook, title: e.target.value })}
-                                        required />
-                                </div>
-                                <div className="mb-3">
-                                    <label htmlFor="authorName" className="form-label">Author Name *</label>
-                                    <input type="text" className="form-control" id="authorName"
-                                        value={newBook.authorName}
-                                        onChange={(e) => setNewBook({ ...newBook, authorName: e.target.value })}
-                                        required />
-                                </div>
-                                <div className="mb-3">
-                                    <label htmlFor="datePublished" className="form-label">Date Published</label>
-                                    <input type="date" className="form-control" id="datePublished"
-                                        value={newBook.datePublished}
-                                        onChange={(e) => setNewBook({ ...newBook, datePublished: e.target.value })} />
-                                </div>
-                                <div className="mb-3">
-                                    <label htmlFor="description" className="form-label">Description</label>
-                                    <textarea className="form-control" id="description" rows="3"
-                                        value={newBook.description}
-                                        onChange={(e) => setNewBook({ ...newBook, description: e.target.value })}></textarea>
-                                </div>
-                                <div className="mb-3">
-                                    <label htmlFor="image" className="form-label">Book Cover Image</label>
-                                    <input type="file" className="form-control" id="image"
-                                        accept="image/*"
-                                        onChange={handleImageChange} />
-                                </div>
-                                <button type="submit" className="btn btn-primary">Add Book</button>
-                            </form>
-                        </div>
-                    </div>
-                )}
+  <div
+    className="modal fade show"
+    style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
+  >
+    <div className="modal-dialog modal-lg">
+      <div className="modal-content">
+        <div className="modal-header">
+          <h5 className="modal-title">Add a Book</h5>
+          <button
+            type="button"
+            className="btn-close"
+            onClick={() => setShowAddForm(false)}
+          ></button>
+        </div>
+        <div className="modal-body">
+          <form onSubmit={(e) => { e.preventDefault(); addBook(); }}>
+            <div className="mb-3">
+              <label className="form-label">Title *</label>
+              <input
+                type="text"
+                className="form-control"
+                value={newBook.title}
+                onChange={(e) =>
+                  setNewBook({ ...newBook, title: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Author Name *</label>
+              <input
+                type="text"
+                className="form-control"
+                value={newBook.authorName}
+                onChange={(e) =>
+                  setNewBook({ ...newBook, authorName: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Date Published</label>
+              <input
+                type="date"
+                className="form-control"
+                value={newBook.datePublished}
+                onChange={(e) =>
+                  setNewBook({ ...newBook, datePublished: e.target.value })
+                }
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Description</label>
+              <textarea
+                className="form-control"
+                rows="3"
+                value={newBook.description}
+                onChange={(e) =>
+                  setNewBook({ ...newBook, description: e.target.value })
+                }
+              ></textarea>
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Book Cover Image</label>
+              <input
+                type="file"
+                className="form-control"
+                accept="image/*"
+                onChange={handleImageChange}
+              />
+            </div>
+            <div className="d-flex justify-content-end">
+              <button
+                type="button"
+                className="btn btn-secondary me-2"
+                onClick={() => setShowAddForm(false)}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Add Book
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
                 <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                     {books.map((book) => (

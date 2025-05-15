@@ -528,3 +528,59 @@ body, html {
     transform: translateY(0);
   }
 }
+
+/* Profile Page Styles */
+.profile-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f9f9f9;
+  padding: 20px;
+}
+
+.profile-card {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+  padding: 30px;
+  max-width: 600px;
+  width: 100%;
+  font-family: "Roboto", sans-serif;
+}
+
+.profile-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+  margin-bottom: 20px;
+  font-family: "Lilita One", cursive;
+}
+
+.profile-section {
+  margin-bottom: 20px;
+}
+
+.profile-section h2 {
+  font-size: 20px;
+  color: #432580;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.profile-section p {
+  font-size: 16px;
+  color: #555;
+  margin: 5px 0;
+}
+
+.profile-section p strong {
+  color: #333;
+}
+
+.error {
+  color: red;
+  font-size: 18px;
+  text-align: center;
+}
