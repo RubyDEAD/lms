@@ -81,11 +81,13 @@ function LoginPage() {
       if (error) throw error;
       
       setSuccessMsg('Login successful! Redirecting...');
-      
       localStorage.setItem('user', JSON.stringify(data.user));
       
+      const isAdmin = data.user?.app_metadata?.isAdmin === true;
+      console.log(isAdmin ? "admin confirmed" : "something went wrong or not admin")
+
       setTimeout(() => {
-        window.location.href = '/dashboard';
+        window.location.href = isAdmin ? '/admin-test-page' : '/dashboard';
       }, 1500);
 
     } catch (error) {

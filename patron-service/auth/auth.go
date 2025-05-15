@@ -12,9 +12,10 @@ import (
 )
 
 type Request struct {
-	Email        string `json:"email"`
-	Password     string `json:"password"`
-	EmailConfirm bool   `json:"email_confirm"`
+	Email        string                 `json:"email"`
+	Password     string                 `json:"password"`
+	EmailConfirm bool                   `json:"email_confirm"`
+	AppMetadata  map[string]interface{} `json:"app_metadata,omitempty"`
 }
 
 type Response struct {
@@ -42,6 +43,9 @@ func CreateSupabaseAuthUser(email string, password string) (string, error) {
 		Email:        email,
 		Password:     password,
 		EmailConfirm: true,
+		AppMetadata: map[string]interface{}{
+			"isAdmin": false,
+		},
 	}
 
 	jsonBody, _ := json.Marshal(reqBody)
