@@ -18,7 +18,6 @@ import (
 // CreatePatron is the resolver for the createPatron field.
 func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string, email string, password string) (*model.Patron, error) {
 	var patron model.Patron
-	var membership model.Membership
 	var patron_status model.PatronStatus
 
 	tx, transactErr := r.DB.Begin(ctx)
@@ -48,22 +47,6 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 	if PatronErr != nil {
 		return nil, fmt.Errorf("failed to insert patron: %v", PatronErr)
 	}
-
-	MembershipErr := tx.QueryRow(ctx, `
-		INSERT INTO memberships (patron_id)
-		VALUES($1)
-		RETURNING membership_id, level
-	`, patron.PatronID).Scan(
-		&membership.MembershipID,
-		&membership.Level,
-	)
-
-	if MembershipErr != nil {
-		return nil, fmt.Errorf("failed to insert membership: %v", MembershipErr)
-	}
-
-	patron.Membership = &membership
-	membership.PatronID = patron.PatronID
 
 	PStatusErr := tx.QueryRow(ctx, `
 		INSERT INTO patron_status (patron_id)
@@ -105,7 +88,6 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 // UpdatePatron is the resolver for the updatePatron field.
 func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, firstName *string, lastName *string, phoneNumber *string) (*model.Patron, error) {
 	var patron model.Patron
-	var membership model.Membership
 	var patron_status model.PatronStatus
 
 	tx, transactErr := r.DB.Begin(ctx)
@@ -180,22 +162,6 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 	if FinalErr != nil {
 		return nil, fmt.Errorf("failed to update patron: %v", FinalErr)
 	} else {
-		MembershipErr := tx.QueryRow(ctx, `
-			SELECT membership_id, level
-			FROM memberships
-			WHERE patron_id = $1
-		`, patron.PatronID).Scan(
-			&membership.MembershipID,
-			&membership.Level,
-		)
-
-		if MembershipErr != nil {
-			return nil, fmt.Errorf("failed to fetch membership: %v", MembershipErr)
-		}
-
-		patron.Membership = &membership
-		membership.PatronID = patron.PatronID
-
 		PStatusErr := tx.QueryRow(ctx, `
 			SELECT warning_count, patron_status, unpaid_fees
 			FROM patron_status
@@ -225,7 +191,6 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 // DeletePatronByID is the resolver for the deletePatronById field.
 func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string) (*model.Patron, error) {
 	var patron model.Patron
-	var membership model.Membership
 	var patron_status model.PatronStatus
 
 	tx, transactErr := r.DB.Begin(ctx)
@@ -253,22 +218,6 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 		}
 		return nil, fmt.Errorf("failed to fetch patron: %v", err)
 	} else {
-		MembershipErr := tx.QueryRow(ctx, `
-			SELECT membership_id, level
-			FROM memberships
-			WHERE patron_id = $1
-		`, patron.PatronID).Scan(
-			&membership.MembershipID,
-			&membership.Level,
-		)
-
-		if MembershipErr != nil {
-			return nil, fmt.Errorf("failed to fetch membership: %v", MembershipErr)
-		}
-
-		patron.Membership = &membership
-		membership.PatronID = patron.PatronID
-
 		PStatusErr := tx.QueryRow(ctx, `
 			SELECT warning_count, patron_status, unpaid_fees
 			FROM patron_status
@@ -306,97 +255,6 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 	}
 
 	return &patron, nil
-}
-
-// UpdateMembershipByPatronID is the resolver for the updateMembershipByPatronId field.
-func (r *mutationResolver) UpdateMembershipByPatronID(ctx context.Context, patronID string, level model.MembershipLevel) (*model.Membership, error) {
-	var exists bool
-	err := r.DB.QueryRow(ctx, `
-        SELECT EXISTS(SELECT 1 FROM patrons WHERE patron_id = $1)
-    `, patronID).Scan(&exists)
-
-	if err != nil {
-		return nil, fmt.Errorf("database error checking patron existence: %v", err)
-	}
-	if !exists {
-		return nil, fmt.Errorf("patron does not exist")
-	}
-
-	var membership model.Membership
-	membership.PatronID = patronID
-
-	tx, transactErr := r.DB.Begin(ctx)
-	if transactErr != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
-	}
-
-	defer tx.Rollback(ctx)
-
-	MembershipUpErr := tx.QueryRow(ctx, `
-		UPDATE memberships
-		SET level = $1
-		WHERE patron_id = $2
-		RETURNING membership_id, level
-	`, level, patronID).Scan(
-		&membership.MembershipID,
-		&membership.Level,
-	)
-
-	if MembershipUpErr != nil {
-		return nil, fmt.Errorf("failed to update memebership: %v", MembershipUpErr)
-	}
-
-	if transactErr := tx.Commit(ctx); transactErr != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
-	}
-
-	return &membership, nil
-}
-
-// UpdateMembershipByMembershipID is the resolver for the updateMembershipByMembershipId field.
-func (r *mutationResolver) UpdateMembershipByMembershipID(ctx context.Context, membershipID string, level model.MembershipLevel) (*model.Membership, error) {
-	var membership model.Membership
-
-	var exists bool
-	err := r.DB.QueryRow(ctx, `
-        SELECT EXISTS(SELECT 1 FROM memberships WHERE membership_id = $1)
-    `, membershipID).Scan(&exists)
-
-	if err != nil {
-		return nil, fmt.Errorf("database error checking membership existence: %v", err)
-	}
-	if !exists {
-		return nil, fmt.Errorf("membership id does not exist")
-	}
-
-	membership.MembershipID = membershipID
-
-	tx, transactErr := r.DB.Begin(ctx)
-	if transactErr != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
-	}
-
-	defer tx.Rollback(ctx)
-
-	MembershipUpErr := tx.QueryRow(ctx, `
-		UPDATE memberships
-		SET level = $1
-		WHERE membership_id = $2
-		RETURNING patron_id, level
-	`, level, membershipID).Scan(
-		&membership.PatronID,
-		&membership.Level,
-	)
-
-	if MembershipUpErr != nil {
-		return nil, fmt.Errorf("failed to update memebership: %v", MembershipUpErr)
-	}
-
-	if transactErr := tx.Commit(ctx); transactErr != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
-	}
-
-	return &membership, nil
 }
 
 // UpdatePatronStatus is the resolver for the updatePatronStatus field.
@@ -497,7 +355,6 @@ func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID stri
 // GetPatronByID is the resolver for the getPatronById field.
 func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*model.Patron, error) {
 	var patron model.Patron
-	var membership model.Membership
 	var patron_status model.PatronStatus
 
 	err := r.DB.QueryRow(ctx, `
@@ -516,22 +373,6 @@ func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*mo
 	} else {
 		patron.PatronID = patronID
 	}
-
-	MembershipErr := r.DB.QueryRow(ctx, `
-	SELECT membership_id, level
-	FROM memberships
-	WHERE patron_id = $1
-	`, patron.PatronID).Scan(
-		&membership.MembershipID,
-		&membership.Level,
-	)
-
-	if MembershipErr != nil {
-		return nil, fmt.Errorf("failed to fetch membership: %v", MembershipErr)
-	}
-
-	patron.Membership = &membership
-	membership.PatronID = patron.PatronID
 
 	PStatusErr := r.DB.QueryRow(ctx, `
 		SELECT warning_count, patron_status, unpaid_fees
@@ -570,7 +411,6 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 
 	for rows.Next() {
 		var patron model.Patron
-		var membership model.Membership
 		var patron_status model.PatronStatus
 
 		err := rows.Scan(
@@ -583,22 +423,6 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan patron: %v", err)
 		}
-
-		MembershipErr := r.DB.QueryRow(ctx, `
-		SELECT membership_id, level
-		FROM memberships
-		WHERE patron_id = $1
-		`, patron.PatronID).Scan(
-			&membership.MembershipID,
-			&membership.Level,
-		)
-
-		if MembershipErr != nil {
-			return nil, fmt.Errorf("failed to fetch membership: %v", MembershipErr)
-		}
-
-		patron.Membership = &membership
-		membership.PatronID = patron.PatronID
 
 		PStatusErr := r.DB.QueryRow(ctx, `
 			SELECT warning_count, patron_status, unpaid_fees
@@ -622,63 +446,6 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 	}
 
 	return patrons, nil
-}
-
-// GetMembershipByLevel is the resolver for the getMembershipByLevel field.
-func (r *queryResolver) GetMembershipByLevel(ctx context.Context, level model.MembershipLevel) ([]*model.Membership, error) {
-	var memberships []*model.Membership
-
-	membershipRows, membershipErr := r.DB.Query(ctx, `
-		SELECT membership_id, patron_id
-		FROM memberships
-		WHERE level = $1
-	`, level)
-
-	if membershipErr != nil {
-		return nil, fmt.Errorf("failed to get memberships: %v", membershipErr)
-	}
-
-	defer membershipRows.Close()
-
-	for membershipRows.Next() {
-		var membership model.Membership
-		err := membershipRows.Scan(
-			&membership.MembershipID,
-			&membership.PatronID,
-		)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan membership: %v", err)
-		}
-
-		membership.Level = level
-
-		memberships = append(memberships, &membership)
-	}
-
-	return memberships, nil
-}
-
-// GetMembershipByPatronID is the resolver for the getMembershipByPatronId field.
-func (r *queryResolver) GetMembershipByPatronID(ctx context.Context, patronID string) (*model.Membership, error) {
-	var membership model.Membership
-
-	err := r.DB.QueryRow(ctx, `
-		SELECT membership_id, level
-		FROM memberships
-		WHERE patron_id = $1
-	`, patronID).Scan(
-		&membership.MembershipID,
-		&membership.Level,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("patron does not exist or failed getting membership: %v", err)
-	}
-
-	membership.PatronID = patronID
-
-	return &membership, nil
 }
 
 // GetPatronStatusByType is the resolver for the getPatronStatusByType field.

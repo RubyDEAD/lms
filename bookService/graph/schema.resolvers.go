@@ -457,7 +457,7 @@ func (r *queryResolver) GetBookCopiesByID(ctx context.Context, id string) ([]*mo
 
 // SearchBooks allows searching books by title or author name.
 func (r *queryResolver) SearchBooks(ctx context.Context, query string) ([]*model.Book, error) {
-	rows, err := r.DB.Query(ctx, "SELECT b.id, b.title, a.author_name, b.date_published, b.description,b.image FROM books b JOIN authors a ON b.author_id = a.id WHERE b.title ILIKE $1 OR a.author_name ILIKE $1", "%"+query+"%")
+	rows, err := r.DB.Query(ctx, "SELECT b.id, b.title, a.author_name, b.date_published, b.description,b.image FROM books b JOIN authors a ON b.author_id = a.id WHERE b.title ILIKE $1 OR a.author_name ILIKE $1 OR b.description ILIKE $1", "%"+query+"%")
 	if err != nil {
 		return nil, fmt.Errorf("failed to search books: %v", err)
 	}

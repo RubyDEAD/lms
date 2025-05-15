@@ -49,25 +49,16 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
-	Membership struct {
-		Level        func(childComplexity int) int
-		MembershipID func(childComplexity int) int
-		PatronID     func(childComplexity int) int
-	}
-
 	Mutation struct {
-		CreatePatron                   func(childComplexity int, firstName string, lastName string, phoneNumber string, email string, password string) int
-		DeletePatronByID               func(childComplexity int, patronID string) int
-		UpdateMembershipByMembershipID func(childComplexity int, membershipID string, level model.MembershipLevel) int
-		UpdateMembershipByPatronID     func(childComplexity int, patronID string, level model.MembershipLevel) int
-		UpdatePatron                   func(childComplexity int, patronID string, firstName *string, lastName *string, phoneNumber *string) int
-		UpdatePatronStatus             func(childComplexity int, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) int
+		CreatePatron       func(childComplexity int, firstName string, lastName string, phoneNumber string, email string, password string) int
+		DeletePatronByID   func(childComplexity int, patronID string) int
+		UpdatePatron       func(childComplexity int, patronID string, firstName *string, lastName *string, phoneNumber *string) int
+		UpdatePatronStatus func(childComplexity int, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) int
 	}
 
 	Patron struct {
 		FirstName     func(childComplexity int) int
 		LastName      func(childComplexity int) int
-		Membership    func(childComplexity int) int
 		PatronCreated func(childComplexity int) int
 		PatronID      func(childComplexity int) int
 		PhoneNumber   func(childComplexity int) int
@@ -82,11 +73,9 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		GetAllPatrons           func(childComplexity int) int
-		GetMembershipByLevel    func(childComplexity int, level model.MembershipLevel) int
-		GetMembershipByPatronID func(childComplexity int, patronID string) int
-		GetPatronByID           func(childComplexity int, patronID string) int
-		GetPatronStatusByType   func(childComplexity int, patronStatus model.Status) int
+		GetAllPatrons         func(childComplexity int) int
+		GetPatronByID         func(childComplexity int, patronID string) int
+		GetPatronStatusByType func(childComplexity int, patronStatus model.Status) int
 	}
 
 	Subscription struct {
@@ -99,15 +88,11 @@ type MutationResolver interface {
 	CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string, email string, password string) (*model.Patron, error)
 	UpdatePatron(ctx context.Context, patronID string, firstName *string, lastName *string, phoneNumber *string) (*model.Patron, error)
 	DeletePatronByID(ctx context.Context, patronID string) (*model.Patron, error)
-	UpdateMembershipByPatronID(ctx context.Context, patronID string, level model.MembershipLevel) (*model.Membership, error)
-	UpdateMembershipByMembershipID(ctx context.Context, membershipID string, level model.MembershipLevel) (*model.Membership, error)
 	UpdatePatronStatus(ctx context.Context, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) (*model.PatronStatus, error)
 }
 type QueryResolver interface {
 	GetPatronByID(ctx context.Context, patronID string) (*model.Patron, error)
 	GetAllPatrons(ctx context.Context) ([]*model.Patron, error)
-	GetMembershipByLevel(ctx context.Context, level model.MembershipLevel) ([]*model.Membership, error)
-	GetMembershipByPatronID(ctx context.Context, patronID string) (*model.Membership, error)
 	GetPatronStatusByType(ctx context.Context, patronStatus model.Status) ([]*model.PatronStatus, error)
 }
 type SubscriptionResolver interface {
@@ -134,27 +119,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	_ = ec
 	switch typeName + "." + field {
 
-	case "Membership.level":
-		if e.complexity.Membership.Level == nil {
-			break
-		}
-
-		return e.complexity.Membership.Level(childComplexity), true
-
-	case "Membership.membership_id":
-		if e.complexity.Membership.MembershipID == nil {
-			break
-		}
-
-		return e.complexity.Membership.MembershipID(childComplexity), true
-
-	case "Membership.patron_id":
-		if e.complexity.Membership.PatronID == nil {
-			break
-		}
-
-		return e.complexity.Membership.PatronID(childComplexity), true
-
 	case "Mutation.createPatron":
 		if e.complexity.Mutation.CreatePatron == nil {
 			break
@@ -178,30 +142,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.DeletePatronByID(childComplexity, args["patron_id"].(string)), true
-
-	case "Mutation.updateMembershipByMembershipId":
-		if e.complexity.Mutation.UpdateMembershipByMembershipID == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_updateMembershipByMembershipId_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.UpdateMembershipByMembershipID(childComplexity, args["membership_id"].(string), args["level"].(model.MembershipLevel)), true
-
-	case "Mutation.updateMembershipByPatronId":
-		if e.complexity.Mutation.UpdateMembershipByPatronID == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_updateMembershipByPatronId_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.UpdateMembershipByPatronID(childComplexity, args["patron_id"].(string), args["level"].(model.MembershipLevel)), true
 
 	case "Mutation.updatePatron":
 		if e.complexity.Mutation.UpdatePatron == nil {
@@ -240,13 +180,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Patron.LastName(childComplexity), true
-
-	case "Patron.membership":
-		if e.complexity.Patron.Membership == nil {
-			break
-		}
-
-		return e.complexity.Patron.Membership(childComplexity), true
 
 	case "Patron.patron_created":
 		if e.complexity.Patron.PatronCreated == nil {
@@ -310,30 +243,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.GetAllPatrons(childComplexity), true
-
-	case "Query.getMembershipByLevel":
-		if e.complexity.Query.GetMembershipByLevel == nil {
-			break
-		}
-
-		args, err := ec.field_Query_getMembershipByLevel_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.GetMembershipByLevel(childComplexity, args["level"].(model.MembershipLevel)), true
-
-	case "Query.getMembershipByPatronId":
-		if e.complexity.Query.GetMembershipByPatronID == nil {
-			break
-		}
-
-		args, err := ec.field_Query_getMembershipByPatronId_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.GetMembershipByPatronID(childComplexity, args["patron_id"].(string)), true
 
 	case "Query.getPatronById":
 		if e.complexity.Query.GetPatronByID == nil {
@@ -631,88 +540,6 @@ func (ec *executionContext) field_Mutation_deletePatronById_argsPatronID(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_updateMembershipByMembershipId_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_updateMembershipByMembershipId_argsMembershipID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["membership_id"] = arg0
-	arg1, err := ec.field_Mutation_updateMembershipByMembershipId_argsLevel(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["level"] = arg1
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_updateMembershipByMembershipId_argsMembershipID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("membership_id"))
-	if tmp, ok := rawArgs["membership_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updateMembershipByMembershipId_argsLevel(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (model.MembershipLevel, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("level"))
-	if tmp, ok := rawArgs["level"]; ok {
-		return ec.unmarshalNMembershipLevel2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembershipLevel(ctx, tmp)
-	}
-
-	var zeroVal model.MembershipLevel
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updateMembershipByPatronId_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_updateMembershipByPatronId_argsPatronID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patron_id"] = arg0
-	arg1, err := ec.field_Mutation_updateMembershipByPatronId_argsLevel(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["level"] = arg1
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_updateMembershipByPatronId_argsPatronID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
-	if tmp, ok := rawArgs["patron_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updateMembershipByPatronId_argsLevel(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (model.MembershipLevel, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("level"))
-	if tmp, ok := rawArgs["level"]; ok {
-		return ec.unmarshalNMembershipLevel2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembershipLevel(ctx, tmp)
-	}
-
-	var zeroVal model.MembershipLevel
-	return zeroVal, nil
-}
-
 func (ec *executionContext) field_Mutation_updatePatronStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -890,52 +717,6 @@ func (ec *executionContext) field_Query___type_argsName(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_getMembershipByLevel_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_getMembershipByLevel_argsLevel(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["level"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Query_getMembershipByLevel_argsLevel(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (model.MembershipLevel, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("level"))
-	if tmp, ok := rawArgs["level"]; ok {
-		return ec.unmarshalNMembershipLevel2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembershipLevel(ctx, tmp)
-	}
-
-	var zeroVal model.MembershipLevel
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_getMembershipByPatronId_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_getMembershipByPatronId_argsPatronID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patron_id"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Query_getMembershipByPatronId_argsPatronID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
-	if tmp, ok := rawArgs["patron_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
 func (ec *executionContext) field_Query_getPatronById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1082,138 +863,6 @@ func (ec *executionContext) field___Type_fields_argsIncludeDeprecated(
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _Membership_membership_id(ctx context.Context, field graphql.CollectedField, obj *model.Membership) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Membership_membership_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.MembershipID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Membership_membership_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Membership",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Membership_patron_id(ctx context.Context, field graphql.CollectedField, obj *model.Membership) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Membership_patron_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PatronID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Membership_patron_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Membership",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Membership_level(ctx context.Context, field graphql.CollectedField, obj *model.Membership) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Membership_level(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Level, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(model.MembershipLevel)
-	fc.Result = res
-	return ec.marshalNMembershipLevel2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembershipLevel(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Membership_level(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Membership",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type MembershipLevel does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Mutation_createPatron(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Mutation_createPatron(ctx, field)
 	if err != nil {
@@ -1260,8 +909,6 @@ func (ec *executionContext) fieldContext_Mutation_createPatron(ctx context.Conte
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "membership":
-				return ec.fieldContext_Patron_membership(ctx, field)
 			case "status":
 				return ec.fieldContext_Patron_status(ctx, field)
 			}
@@ -1328,8 +975,6 @@ func (ec *executionContext) fieldContext_Mutation_updatePatron(ctx context.Conte
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "membership":
-				return ec.fieldContext_Patron_membership(ctx, field)
 			case "status":
 				return ec.fieldContext_Patron_status(ctx, field)
 			}
@@ -1396,8 +1041,6 @@ func (ec *executionContext) fieldContext_Mutation_deletePatronById(ctx context.C
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "membership":
-				return ec.fieldContext_Patron_membership(ctx, field)
 			case "status":
 				return ec.fieldContext_Patron_status(ctx, field)
 			}
@@ -1412,126 +1055,6 @@ func (ec *executionContext) fieldContext_Mutation_deletePatronById(ctx context.C
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deletePatronById_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_updateMembershipByPatronId(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_updateMembershipByPatronId(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateMembershipByPatronID(rctx, fc.Args["patron_id"].(string), fc.Args["level"].(model.MembershipLevel))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.Membership)
-	fc.Result = res
-	return ec.marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_updateMembershipByPatronId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "membership_id":
-				return ec.fieldContext_Membership_membership_id(ctx, field)
-			case "patron_id":
-				return ec.fieldContext_Membership_patron_id(ctx, field)
-			case "level":
-				return ec.fieldContext_Membership_level(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Membership", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_updateMembershipByPatronId_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_updateMembershipByMembershipId(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_updateMembershipByMembershipId(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateMembershipByMembershipID(rctx, fc.Args["membership_id"].(string), fc.Args["level"].(model.MembershipLevel))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.Membership)
-	fc.Result = res
-	return ec.marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_updateMembershipByMembershipId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "membership_id":
-				return ec.fieldContext_Membership_membership_id(ctx, field)
-			case "patron_id":
-				return ec.fieldContext_Membership_patron_id(ctx, field)
-			case "level":
-				return ec.fieldContext_Membership_level(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Membership", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_updateMembershipByMembershipId_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -1820,55 +1343,6 @@ func (ec *executionContext) fieldContext_Patron_patron_created(_ context.Context
 	return fc, nil
 }
 
-func (ec *executionContext) _Patron_membership(ctx context.Context, field graphql.CollectedField, obj *model.Patron) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Patron_membership(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Membership, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.Membership)
-	fc.Result = res
-	return ec.marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Patron_membership(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Patron",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "membership_id":
-				return ec.fieldContext_Membership_membership_id(ctx, field)
-			case "patron_id":
-				return ec.fieldContext_Membership_patron_id(ctx, field)
-			case "level":
-				return ec.fieldContext_Membership_level(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Membership", field.Name)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Patron_status(ctx context.Context, field graphql.CollectedField, obj *model.Patron) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Patron_status(ctx, field)
 	if err != nil {
@@ -2142,8 +1616,6 @@ func (ec *executionContext) fieldContext_Query_getPatronById(ctx context.Context
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "membership":
-				return ec.fieldContext_Patron_membership(ctx, field)
 			case "status":
 				return ec.fieldContext_Patron_status(ctx, field)
 			}
@@ -2210,133 +1682,11 @@ func (ec *executionContext) fieldContext_Query_getAllPatrons(_ context.Context, 
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "membership":
-				return ec.fieldContext_Patron_membership(ctx, field)
 			case "status":
 				return ec.fieldContext_Patron_status(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_getMembershipByLevel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getMembershipByLevel(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetMembershipByLevel(rctx, fc.Args["level"].(model.MembershipLevel))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.([]*model.Membership)
-	fc.Result = res
-	return ec.marshalOMembership2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_getMembershipByLevel(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "membership_id":
-				return ec.fieldContext_Membership_membership_id(ctx, field)
-			case "patron_id":
-				return ec.fieldContext_Membership_patron_id(ctx, field)
-			case "level":
-				return ec.fieldContext_Membership_level(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Membership", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_getMembershipByLevel_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_getMembershipByPatronId(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getMembershipByPatronId(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetMembershipByPatronID(rctx, fc.Args["patron_id"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.Membership)
-	fc.Result = res
-	return ec.marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_getMembershipByPatronId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "membership_id":
-				return ec.fieldContext_Membership_membership_id(ctx, field)
-			case "patron_id":
-				return ec.fieldContext_Membership_patron_id(ctx, field)
-			case "level":
-				return ec.fieldContext_Membership_level(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Membership", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_getMembershipByPatronId_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
 	}
 	return fc, nil
 }
@@ -2594,8 +1944,6 @@ func (ec *executionContext) fieldContext_Subscription_patronCreated(_ context.Co
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "membership":
-				return ec.fieldContext_Patron_membership(ctx, field)
 			case "status":
 				return ec.fieldContext_Patron_status(ctx, field)
 			}
@@ -4629,55 +3977,6 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** object.gotpl ****************************
 
-var membershipImplementors = []string{"Membership"}
-
-func (ec *executionContext) _Membership(ctx context.Context, sel ast.SelectionSet, obj *model.Membership) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, membershipImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("Membership")
-		case "membership_id":
-			out.Values[i] = ec._Membership_membership_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "patron_id":
-			out.Values[i] = ec._Membership_patron_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "level":
-			out.Values[i] = ec._Membership_level(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
 var mutationImplementors = []string{"Mutation"}
 
 func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -4708,14 +4007,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "deletePatronById":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deletePatronById(ctx, field)
-			})
-		case "updateMembershipByPatronId":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_updateMembershipByPatronId(ctx, field)
-			})
-		case "updateMembershipByMembershipId":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_updateMembershipByMembershipId(ctx, field)
 			})
 		case "updatePatronStatus":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
@@ -4780,8 +4071,6 @@ func (ec *executionContext) _Patron(ctx context.Context, sel ast.SelectionSet, o
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "membership":
-			out.Values[i] = ec._Patron_membership(ctx, field, obj)
 		case "status":
 			out.Values[i] = ec._Patron_status(ctx, field, obj)
 		default:
@@ -4909,44 +4198,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_getAllPatrons(ctx, field)
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "getMembershipByLevel":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_getMembershipByLevel(ctx, field)
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "getMembershipByPatronId":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_getMembershipByPatronId(ctx, field)
 				return res
 			}
 
@@ -5423,16 +4674,6 @@ func (ec *executionContext) marshalNInt2int32(ctx context.Context, sel ast.Selec
 	return res
 }
 
-func (ec *executionContext) unmarshalNMembershipLevel2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembershipLevel(ctx context.Context, v any) (model.MembershipLevel, error) {
-	var res model.MembershipLevel
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNMembershipLevel2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembershipLevel(ctx context.Context, sel ast.SelectionSet, v model.MembershipLevel) graphql.Marshaler {
-	return v
-}
-
 func (ec *executionContext) unmarshalNStatus2githubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐStatus(ctx context.Context, v any) (model.Status, error) {
 	var res model.Status
 	err := res.UnmarshalGQL(v)
@@ -5767,54 +5008,6 @@ func (ec *executionContext) marshalOInt2ᚖint32(ctx context.Context, sel ast.Se
 	}
 	res := graphql.MarshalInt32(*v)
 	return res
-}
-
-func (ec *executionContext) marshalOMembership2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx context.Context, sel ast.SelectionSet, v []*model.Membership) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	return ret
-}
-
-func (ec *executionContext) marshalOMembership2ᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐMembership(ctx context.Context, sel ast.SelectionSet, v *model.Membership) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._Membership(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOPatron2ᚕᚖgithubᚗcomᚋGSaliseᚋlmsᚋpatronᚑserviceᚋgraphᚋmodelᚐPatron(ctx context.Context, sel ast.SelectionSet, v []*model.Patron) graphql.Marshaler {

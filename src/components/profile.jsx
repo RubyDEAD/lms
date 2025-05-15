@@ -21,10 +21,6 @@ function Profile() {
           patron_status
           warning_count
         }
-        membership {
-          membership_id
-          level
-        }
       }
     }
   `;
@@ -56,11 +52,6 @@ function Profile() {
               <p>Unpaid Fees: {patron.status.unpaid_fees}</p>
               <p>Status: {patron.status.patron_status}</p>
               <p>Warning Count: {patron.status.warning_count}</p>
-            </div>
-            <div>
-              <p>Membership: </p>
-              <p>Membership ID: {patron.membership.membership_id}</p>
-              <p>Level: {patron.membership.level}</p>
             </div>
           </>
         ) : (

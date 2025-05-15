@@ -5,12 +5,14 @@ import { useNavigate } from "react-router-dom";
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function Books() {
+    const [searchTerm, setSearchTerm] = useState("");
+    const [searchLoading, setSearchLoading] = useState(false);
     const [borrowRecords, setBorrowRecords] = useState([]);
     const [showBorrowRecordsModal, setShowBorrowRecordsModal] = useState(false);
     const [books, setBooks] = useState([]);
     const [bookDetails, setBookDetails] = useState(null);
     const [bookCopies, setBookCopies] = useState([]);
-    const [availableCopy, setAvailableCopy] = useState(null);
+    const [availableCopy, setAvailableCopy] = useState(undefined);
     const [loading, setLoading] = useState(true);
     const [authLoading, setAuthLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -193,7 +195,7 @@ function Books() {
             });
 
             setBookDetails(response.data.data.getBookById);
-            setAvailableCopy(null);
+            setAvailableCopy(undefined);
             setBookCopies([]);
             setError(null);
         } catch (err) {
@@ -225,7 +227,7 @@ function Books() {
 
             setBookCopies(response.data.data.getBookCopiesById);
             setBookDetails(null);
-            setAvailableCopy(null);
+            setAvailableCopy(undefined);
             setError(null);
         } catch (err) {
             console.error("Error fetching book copies:", err);
@@ -254,14 +256,20 @@ function Books() {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            const availableCopy = response.data.data.getAvailbleBookCopyByID;
+            const availableCopy =       response.data &&
+                                        response.data.data &&
+                                        response.data.data.getAvailbleBookCopyByID
+                                        ? response.data.data.getAvailbleBookCopyByID
+                                        : null;
 
             if (availableCopy) {
+                console.log("Available copy:", availableCopy);
                 setAvailableCopy(availableCopy);
                 setBookDetails(null);
                 setBookCopies([]);
                 setError(null);
             } else {
+                console.log("No available copy found.");
                 setAvailableCopy(null);
                 setError("No available copy for this book.");
             }
@@ -416,7 +424,12 @@ function Books() {
             setError("Failed to return the book. Please try again later.");
         }
     };
-
+        useEffect(() => {
+        if (searchTerm === "") {
+            fetchBooks();
+        }
+        // eslint-disable-next-line
+    }, [searchTerm]);
     const handleImageChange = (e) => {
         if (e.target.files && e.target.files[0]) {
             setNewBook({ ...newBook, imageFile: e.target.files[0] });
@@ -435,6 +448,39 @@ function Books() {
 
     if (loading) return <div className="container mt-5">Loading books...</div>;
 
+   const handleSearch = async (e) => {
+        e.preventDefault();
+        setSearchLoading(true);
+        try{
+             const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            const response = await axios.post(API_URL, {
+            query: `
+                query SearchBooks($query: String!) {
+                    searchBooks(query:$query){
+                         id
+                         author_name
+                        title
+                        date_published
+                        image
+                        description
+                    }
+                }
+            `,
+            variables: { query: searchTerm }
+        }, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+            setBooks(response.data.data.searchBooks);
+            setError(null);
+        }catch (err) {
+            setError("Failed to search books. Please try again later.");
+        } finally {
+        setSearchLoading(false);
+        }
+    };
+
+    
     return (
         <div className="body">
             <div className="container mt-4">
@@ -446,7 +492,20 @@ function Books() {
                         <button className="btn-close float-end" onClick={() => setError(null)}></button>
                     </div>
                 )}
-
+                <form className="mb-4" onSubmit={handleSearch}>
+                    <div className="input-group">
+                    <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Search by title, author, or description..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
+                    <button className="btn btn-outline-primary" type="submit" disabled={searchLoading}>
+                    {searchLoading ? "Searching..." : "Search"}
+                    </button>
+                    </div>
+                </form>
                 <div className="d-flex justify-content-between mb-4">
                     <button
                         className="btn btn-primary"
@@ -691,13 +750,13 @@ function Books() {
                     </div>
                 )}
 
-                {availableCopy !== null && (
+                {availableCopy !== undefined && (
                     <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
                         <div className="modal-dialog">
                             <div className="modal-content">
                                 <div className="modal-header">
                                     <h5 className="modal-title">Copy Availability</h5>
-                                    <button className="btn-close" onClick={() => setAvailableCopy(null)}></button>
+                                    <button className="btn-close" onClick={() => setAvailableCopy(undefined)}></button>
                                 </div>
                                 <div className="modal-body">
                                     {availableCopy ? (
@@ -707,9 +766,6 @@ function Books() {
                                                 <p>Copy ID: {availableCopy.id}</p>
                                                 <p>Status: <span className="badge bg-success">{availableCopy.book_status}</span></p>
                                             </div>
-                                            <div className="d-flex justify-content-end">
-        
-                                            </div>
                                         </>
                                     ) : (
                                         <div className="alert alert-warning">
@@ -718,7 +774,7 @@ function Books() {
                                     )}
                                 </div>
                                 <div className="modal-footer">
-                                    <button className="btn btn-secondary" onClick={() => setAvailableCopy(null)}>Close</button>
+                                    <button className="btn btn-secondary" onClick={() => setAvailableCopy(undefined)}>Close</button>
                                 </div>
                             </div>
                         </div>
