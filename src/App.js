@@ -13,6 +13,7 @@ import SignUpPage from './pages/signup_page';
 import LoginPage from './pages/login_page';
 import ForgotPasswordPage from './pages/forgot_pass_page';
 import UpdatePasswordPage from './pages/update_pass_page';
+import TestAdminPage from './pages/test_admin_page';
 import { supabase } from './supabaseClient';
 
 function App() {
@@ -75,7 +76,10 @@ function App() {
                 <Route path="/borrowed-books" element={<BorrowedBooks />} />
                 <Route path="/add-book" element={<AddBook />} />
                 <Route path="/profile" element={<Profile />} />
-                 <Route path="/fines" element={<Fines />} />
+                <Route path="/fines" element={<Fines />} />
+
+                {/* Testing rani nako, kamo bahala unsaon pag protecteed route sa admin kay di nako kamao ana */}
+                <Route path="/admin-test-page" element={<TestAdminPage />} />
               </>
             ) : (
               <Route path="*" element={<Navigate to="/login" replace />} />
