@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './App.css';
 import { Route, Routes, useLocation, Navigate } from 'react-router-dom';
-import Dashboard from './components/dashboard';
 import Sidebar from './components/sidebar';
 import Books from './components/book';
 import BorrowedBooks from './components/BorrowedBooks';
@@ -64,14 +63,13 @@ function App() {
             <Route
               path="/"
               element={
-                user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+                user ? <Navigate to="books" replace /> : <Navigate to="/login" replace />
               }
             />
 
             {/* Protected Routes */}
             {user ? (
               <>
-                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/books" element={<Books />} />
                 <Route path="/borrowed-books" element={<BorrowedBooks />} />
                 <Route path="/add-book" element={<AddBook />} />

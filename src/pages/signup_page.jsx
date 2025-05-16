@@ -30,7 +30,7 @@ function SignUpPage() {
       localStorage.setItem('user', JSON.stringify(data.user));
 
       setTimeout(() => {
-        window.location.href = '/dashboard';
+        window.location.href = '/books';
       }, 1500);
 
     } catch (err){
