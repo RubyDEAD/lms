@@ -16,6 +16,9 @@
 -    Fine-Service:
           cd fine_service then
           go run main.go
+-    API-Gateway:
+          cd API-gateway then
+          go run server.go
 
 (NOTE: AFTER "go run server.go/main.go" ON EACH SERVICES, IT SHOULD GIVE YOU A GRAPHQL ENDPOINT)
 
