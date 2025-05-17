@@ -310,33 +310,6 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 	return result.Data.DeletePatronByID, nil
 }
 
-// UpdatePatronStatus is the resolver for the updatePatronStatus field.
-func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) (*model.PatronStatus, error) {
-	variables := map[string]interface{}{
-		"patron_id":     patronID,
-		"warning_count": warningCount,
-		"unpaid_fees":   unpaidFees,
-		"status":        patronStatus,
-	}
-
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "updatePatronStatus")
-	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
-	}
-
-	var result struct {
-		Data struct {
-			UpdatePatronStatus *model.PatronStatus `json:"updatePatronStatus"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
-	}
-
-	return result.Data.UpdatePatronStatus, nil
-}
-
 // BorrowBook is the resolver for the borrowBook field.
 func (r *mutationResolver) BorrowBook(ctx context.Context, bookID string, patronID string) (*model.BorrowRecord, error) {
 	query := `
@@ -1048,30 +1021,6 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 	return result.Data.GetAllPatrons, nil
 }
 
-// GetPatronStatusByType is the resolver for the getPatronStatusByType field.
-func (r *queryResolver) GetPatronStatusByType(ctx context.Context, patronStatus model.Status) ([]*model.PatronStatus, error) {
-	variables := map[string]interface{}{
-		"status": patronStatus,
-	}
-
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "getPatronStatusByType")
-	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
-	}
-
-	var result struct {
-		Data struct {
-			GetPatronStatusByType []*model.PatronStatus `json:"getPatronStatusByType"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
-	}
-
-	return result.Data.GetPatronStatusByType, nil
-}
-
 // BorrowRecords is the resolver for the borrowRecords field.
 func (r *queryResolver) BorrowRecords(ctx context.Context, patronID *string, bookID *string, status *model.BorrowStatus) ([]*model.BorrowRecord, error) {
 	query := `
@@ -1560,76 +1509,6 @@ func (r *subscriptionResolver) PatronCreated(ctx context.Context) (<-chan *model
 	return patronChan, nil
 }
 
-// PatronStatusUpdated is the resolver for the patronStatusUpdated field.
-func (r *subscriptionResolver) PatronStatusUpdated(ctx context.Context) (<-chan *model.PatronStatus, error) {
-	patronUpdatesChan := make(chan *model.PatronStatus)
-
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("failed to open channel: %w", err)
-	}
-
-	_, err = ch.QueueDeclare(
-		"patron-subscription-updatesChan-queue",
-		false,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		ch.Close()
-		conn.Close()
-		return nil, fmt.Errorf("failed to declare queue: %w", err)
-	}
-
-	msgs, err := ch.Consume(
-		"patron-subscription-updatesChan-queue",
-		"",
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		ch.Close()
-		conn.Close()
-		return nil, fmt.Errorf("failed to consume: %w", err)
-	}
-
-	go func() {
-		defer ch.Close()
-		defer conn.Close()
-
-		for {
-			select {
-			case <-ctx.Done():
-				close(patronUpdatesChan)
-				return
-			case msg := <-msgs:
-				var response struct {
-					Data struct {
-						PatronStatusUpdate *model.PatronStatus `json:"updatePatronStatus"`
-					} `json:"data"`
-				}
-
-				if err := json.Unmarshal(msg.Body, &response); err == nil {
-					patronUpdatesChan <- response.Data.PatronStatusUpdate
-				}
-			}
-		}
-	}()
-
-	return patronUpdatesChan, nil
-}
-
 // ReservationCreated is the resolver for the reservationCreated field.
 func (r *subscriptionResolver) ReservationCreated(ctx context.Context) (<-chan *model.Reservation, error) {
 	panic(fmt.Errorf("not implemented: ReservationCreated - reservationCreated"))
@@ -1719,20 +1598,22 @@ type subscriptionResolver struct{ *Resolver }
 //    it when you're done.
 //  - You have helper methods in this file. Move them out to keep these resolver files clean.
 /*
-	func (r *mutationResolver) UpdateMembershipByPatronID(ctx context.Context, patronID string, level model.MembershipLevel) (*model.Membership, error) {
+	func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) (*model.PatronStatus, error) {
 	variables := map[string]interface{}{
-		"patron_id": patronID,
-		"level":     level,
+		"patron_id":     patronID,
+		"warning_count": warningCount,
+		"unpaid_fees":   unpaidFees,
+		"status":        patronStatus,
 	}
 
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "updateMembershipByPatronId")
+	resp, err := forwardRequestMQ(patronServiceQueue, variables, "updatePatronStatus")
 	if err != nil {
 		return nil, fmt.Errorf("failed to forward request: %v", err)
 	}
 
 	var result struct {
 		Data struct {
-			UpdateMembershipByPatronID *model.Membership `json:"updateMembershipByPatronId"`
+			UpdatePatronStatus *model.PatronStatus `json:"updatePatronStatus"`
 		} `json:"data"`
 	}
 
@@ -1740,22 +1621,21 @@ type subscriptionResolver struct{ *Resolver }
 		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
 	}
 
-	return result.Data.UpdateMembershipByPatronID, nil
+	return result.Data.UpdatePatronStatus, nil
 }
-func (r *mutationResolver) UpdateMembershipByMembershipID(ctx context.Context, membershipID string, level model.MembershipLevel) (*model.Membership, error) {
+func (r *queryResolver) GetPatronStatusByType(ctx context.Context, patronStatus model.Status) ([]*model.PatronStatus, error) {
 	variables := map[string]interface{}{
-		"membership_id": membershipID,
-		"level":         level,
+		"status": patronStatus,
 	}
 
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "updateMembershipByMembershipId")
+	resp, err := forwardRequestMQ(patronServiceQueue, variables, "getPatronStatusByType")
 	if err != nil {
 		return nil, fmt.Errorf("failed to forward request: %v", err)
 	}
 
 	var result struct {
 		Data struct {
-			UpdateMembershipByMembershipID *model.Membership `json:"updateMembershipByMembershipId"`
+			GetPatronStatusByType []*model.PatronStatus `json:"getPatronStatusByType"`
 		} `json:"data"`
 	}
 
@@ -1763,50 +1643,74 @@ func (r *mutationResolver) UpdateMembershipByMembershipID(ctx context.Context, m
 		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
 	}
 
-	return result.Data.UpdateMembershipByMembershipID, nil
+	return result.Data.GetPatronStatusByType, nil
 }
-func (r *queryResolver) GetMembershipByLevel(ctx context.Context, level model.MembershipLevel) ([]*model.Membership, error) {
-	variables := map[string]interface{}{
-		"level": level,
-	}
+func (r *subscriptionResolver) PatronStatusUpdated(ctx context.Context) (<-chan *model.PatronStatus, error) {
+	patronUpdatesChan := make(chan *model.PatronStatus)
 
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "getMembershipByLevel")
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
+		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
 
-	var result struct {
-		Data struct {
-			GetMembershipByLevel []*model.Membership `json:"getMembershipByLevel"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
-	}
-
-	return result.Data.GetMembershipByLevel, nil
-}
-func (r *queryResolver) GetMembershipByPatronID(ctx context.Context, patronID string) (*model.Membership, error) {
-	variables := map[string]interface{}{
-		"patron_id": patronID,
-	}
-
-	resp, err := forwardRequestMQ(patronServiceQueue, variables, "getMembershipByPatronId")
+	ch, err := conn.Channel()
 	if err != nil {
-		return nil, fmt.Errorf("failed to forward request: %v", err)
+		conn.Close()
+		return nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
-	var result struct {
-		Data struct {
-			GetMembershipByPatronID *model.Membership `json:"getMembershipByPatronId"`
-		} `json:"data"`
+	_, err = ch.QueueDeclare(
+		"patron-subscription-updatesChan-queue",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		ch.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to declare queue: %w", err)
 	}
 
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response: %v", err)
+	msgs, err := ch.Consume(
+		"patron-subscription-updatesChan-queue",
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		ch.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to consume: %w", err)
 	}
 
-	return result.Data.GetMembershipByPatronID, nil
+	go func() {
+		defer ch.Close()
+		defer conn.Close()
+
+		for {
+			select {
+			case <-ctx.Done():
+				close(patronUpdatesChan)
+				return
+			case msg := <-msgs:
+				var response struct {
+					Data struct {
+						PatronStatusUpdate *model.PatronStatus `json:"updatePatronStatus"`
+					} `json:"data"`
+				}
+
+				if err := json.Unmarshal(msg.Body, &response); err == nil {
+					patronUpdatesChan <- response.Data.PatronStatusUpdate
+				}
+			}
+		}
+	}()
+
+	return patronUpdatesChan, nil
 }
 */

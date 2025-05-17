@@ -2,78 +2,19 @@
 
 package model
 
-import (
-	"fmt"
-	"io"
-	"strconv"
-)
-
 type Mutation struct {
 }
 
 type Patron struct {
-	PatronID      string        `json:"patron_id"`
-	FirstName     string        `json:"first_name"`
-	LastName      string        `json:"last_name"`
-	PhoneNumber   string        `json:"phone_number"`
-	PatronCreated string        `json:"patron_created"`
-	Status        *PatronStatus `json:"status,omitempty"`
-}
-
-type PatronStatus struct {
-	PatronID     string  `json:"patron_id"`
-	WarningCount int32   `json:"warning_count"`
-	PatronStatus Status  `json:"patron_status"`
-	UnpaidFees   float64 `json:"unpaid_fees"`
+	PatronID      string `json:"patron_id"`
+	FirstName     string `json:"first_name"`
+	LastName      string `json:"last_name"`
+	PhoneNumber   string `json:"phone_number"`
+	PatronCreated string `json:"patron_created"`
 }
 
 type Query struct {
 }
 
 type Subscription struct {
-}
-
-type Status string
-
-const (
-	StatusGood    Status = "Good"
-	StatusWarned  Status = "Warned"
-	StatusBanned  Status = "Banned"
-	StatusPending Status = "Pending"
-)
-
-var AllStatus = []Status{
-	StatusGood,
-	StatusWarned,
-	StatusBanned,
-	StatusPending,
-}
-
-func (e Status) IsValid() bool {
-	switch e {
-	case StatusGood, StatusWarned, StatusBanned, StatusPending:
-		return true
-	}
-	return false
-}
-
-func (e Status) String() string {
-	return string(e)
-}
-
-func (e *Status) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = Status(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid Status", str)
-	}
-	return nil
-}
-
-func (e Status) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
 }

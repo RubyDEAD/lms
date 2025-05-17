@@ -18,11 +18,6 @@ function Profile() {
           first_name
           last_name
           patron_id
-          status {
-            unpaid_fees
-            patron_status
-            warning_count
-          }
         }
       }
     `;
@@ -96,7 +91,7 @@ function Profile() {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-3 gap-4 pt-4">
+                {/* <div className="grid grid-cols-3 gap-4 pt-4">
                   <div className="bg-indigo-50/50 p-3 rounded-xl text-center border border-indigo-100">
                     <p className="text-xs text-indigo-500 font-medium">Status</p>
                     <span className={`text-sm font-semibold ${getStatusColor(patron.status.patron_status).replace('bg-', '')}`}>
@@ -115,7 +110,7 @@ function Profile() {
                       {patron.status.warning_count}
                     </p>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Details Section */}
                 <div className="space-y-4 pt-2">
@@ -131,7 +126,7 @@ function Profile() {
                     </div>
                   </div>
 
-                  <div className="p-4 bg-gray-50/50 rounded-xl border border-gray-200">
+                  {/* <div className="p-4 bg-gray-50/50 rounded-xl border border-gray-200">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                       Account Details
                     </h3>
@@ -149,7 +144,7 @@ function Profile() {
                         </span>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             ) : (

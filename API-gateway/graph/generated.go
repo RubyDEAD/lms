@@ -118,7 +118,6 @@ type ComplexityRoot struct {
 		UpdateBookCopyStatus  func(childComplexity int, id string, bookStatus *string) int
 		UpdateFine            func(childComplexity int, fineID string, daysLate int32, ratePerDay float64) int
 		UpdatePatron          func(childComplexity int, patronID string, firstName *string, lastName *string, phoneNumber *string) int
-		UpdatePatronStatus    func(childComplexity int, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) int
 		UpdateViolationStatus func(childComplexity int, violationRecordID string, violationStatus model.ViolationStatus) int
 	}
 
@@ -128,14 +127,6 @@ type ComplexityRoot struct {
 		PatronCreated func(childComplexity int) int
 		PatronID      func(childComplexity int) int
 		PhoneNumber   func(childComplexity int) int
-		Status        func(childComplexity int) int
-	}
-
-	PatronStatus struct {
-		PatronID     func(childComplexity int) int
-		PatronStatus func(childComplexity int) int
-		UnpaidFees   func(childComplexity int) int
-		WarningCount func(childComplexity int) int
 	}
 
 	Query struct {
@@ -152,7 +143,6 @@ type ComplexityRoot struct {
 		GetBooks                func(childComplexity int) int
 		GetFine                 func(childComplexity int, fineID string) int
 		GetPatronByID           func(childComplexity int, patronID string) int
-		GetPatronStatusByType   func(childComplexity int, patronStatus model.Status) int
 		GetViolationRecord      func(childComplexity int, violationRecordID string) int
 		ListFines               func(childComplexity int) int
 		ListViolationRecords    func(childComplexity int) int
@@ -184,7 +174,6 @@ type ComplexityRoot struct {
 		BorrowRecordUpdated    func(childComplexity int) int
 		FineCreated            func(childComplexity int) int
 		PatronCreated          func(childComplexity int) int
-		PatronStatusUpdated    func(childComplexity int) int
 		ReservationCreated     func(childComplexity int) int
 		ViolationRecordCreated func(childComplexity int) int
 	}
@@ -209,7 +198,6 @@ type MutationResolver interface {
 	CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string, email string, password string) (*model.Patron, error)
 	UpdatePatron(ctx context.Context, patronID string, firstName *string, lastName *string, phoneNumber *string) (*model.Patron, error)
 	DeletePatronByID(ctx context.Context, patronID string) (*model.Patron, error)
-	UpdatePatronStatus(ctx context.Context, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) (*model.PatronStatus, error)
 	BorrowBook(ctx context.Context, bookID string, patronID string) (*model.BorrowRecord, error)
 	ReturnBook(ctx context.Context, recordID string) (*model.BorrowRecord, error)
 	RenewLoan(ctx context.Context, recordID string) (model.RenewLoanResult, error)
@@ -231,7 +219,6 @@ type QueryResolver interface {
 	GetAvailbleBookCopyByID(ctx context.Context, id string) (*model.BookCopies, error)
 	GetPatronByID(ctx context.Context, patronID string) (*model.Patron, error)
 	GetAllPatrons(ctx context.Context) ([]*model.Patron, error)
-	GetPatronStatusByType(ctx context.Context, patronStatus model.Status) ([]*model.PatronStatus, error)
 	BorrowRecords(ctx context.Context, patronID *string, bookID *string, status *model.BorrowStatus) ([]*model.BorrowRecord, error)
 	Reservations(ctx context.Context, patronID *string, bookID *string, status *model.ReservationStatus) ([]*model.Reservation, error)
 	OverdueRecords(ctx context.Context) ([]*model.BorrowRecord, error)
@@ -252,7 +239,6 @@ type QueryResolver interface {
 type SubscriptionResolver interface {
 	BookAdded(ctx context.Context) (<-chan *model.Book, error)
 	PatronCreated(ctx context.Context) (<-chan *model.Patron, error)
-	PatronStatusUpdated(ctx context.Context) (<-chan *model.PatronStatus, error)
 	ReservationCreated(ctx context.Context) (<-chan *model.Reservation, error)
 	BorrowRecordUpdated(ctx context.Context) (<-chan *model.BorrowRecord, error)
 	FineCreated(ctx context.Context) (<-chan *model.Fine, error)
@@ -749,18 +735,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Mutation.UpdatePatron(childComplexity, args["patron_id"].(string), args["first_name"].(*string), args["last_name"].(*string), args["phone_number"].(*string)), true
 
-	case "Mutation.updatePatronStatus":
-		if e.complexity.Mutation.UpdatePatronStatus == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_updatePatronStatus_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.UpdatePatronStatus(childComplexity, args["patron_id"].(string), args["warning_count"].(*int32), args["unpaid_fees"].(*float64), args["patron_status"].(*model.Status)), true
-
 	case "Mutation.updateViolationStatus":
 		if e.complexity.Mutation.UpdateViolationStatus == nil {
 			break
@@ -807,41 +781,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Patron.PhoneNumber(childComplexity), true
-
-	case "Patron.status":
-		if e.complexity.Patron.Status == nil {
-			break
-		}
-
-		return e.complexity.Patron.Status(childComplexity), true
-
-	case "PatronStatus.patron_id":
-		if e.complexity.PatronStatus.PatronID == nil {
-			break
-		}
-
-		return e.complexity.PatronStatus.PatronID(childComplexity), true
-
-	case "PatronStatus.patron_status":
-		if e.complexity.PatronStatus.PatronStatus == nil {
-			break
-		}
-
-		return e.complexity.PatronStatus.PatronStatus(childComplexity), true
-
-	case "PatronStatus.unpaid_fees":
-		if e.complexity.PatronStatus.UnpaidFees == nil {
-			break
-		}
-
-		return e.complexity.PatronStatus.UnpaidFees(childComplexity), true
-
-	case "PatronStatus.warning_count":
-		if e.complexity.PatronStatus.WarningCount == nil {
-			break
-		}
-
-		return e.complexity.PatronStatus.WarningCount(childComplexity), true
 
 	case "Query.borrowBook":
 		if e.complexity.Query.BorrowBook == nil {
@@ -988,18 +927,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.GetPatronByID(childComplexity, args["patron_id"].(string)), true
-
-	case "Query.getPatronStatusByType":
-		if e.complexity.Query.GetPatronStatusByType == nil {
-			break
-		}
-
-		args, err := ec.field_Query_getPatronStatusByType_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.GetPatronStatusByType(childComplexity, args["patron_status"].(model.Status)), true
 
 	case "Query.getViolationRecord":
 		if e.complexity.Query.GetViolationRecord == nil {
@@ -1189,13 +1116,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Subscription.PatronCreated(childComplexity), true
-
-	case "Subscription.patronStatusUpdated":
-		if e.complexity.Subscription.PatronStatusUpdated == nil {
-			break
-		}
-
-		return e.complexity.Subscription.PatronStatusUpdated(childComplexity), true
 
 	case "Subscription.reservationCreated":
 		if e.complexity.Subscription.ReservationCreated == nil {
@@ -2244,83 +2164,6 @@ func (ec *executionContext) field_Mutation_updateFine_argsRatePerDay(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_updatePatronStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Mutation_updatePatronStatus_argsPatronID(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patron_id"] = arg0
-	arg1, err := ec.field_Mutation_updatePatronStatus_argsWarningCount(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["warning_count"] = arg1
-	arg2, err := ec.field_Mutation_updatePatronStatus_argsUnpaidFees(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["unpaid_fees"] = arg2
-	arg3, err := ec.field_Mutation_updatePatronStatus_argsPatronStatus(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patron_status"] = arg3
-	return args, nil
-}
-func (ec *executionContext) field_Mutation_updatePatronStatus_argsPatronID(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_id"))
-	if tmp, ok := rawArgs["patron_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updatePatronStatus_argsWarningCount(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*int32, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("warning_count"))
-	if tmp, ok := rawArgs["warning_count"]; ok {
-		return ec.unmarshalOInt2ᚖint32(ctx, tmp)
-	}
-
-	var zeroVal *int32
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updatePatronStatus_argsUnpaidFees(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*float64, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("unpaid_fees"))
-	if tmp, ok := rawArgs["unpaid_fees"]; ok {
-		return ec.unmarshalOFloat2ᚖfloat64(ctx, tmp)
-	}
-
-	var zeroVal *float64
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_updatePatronStatus_argsPatronStatus(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*model.Status, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_status"))
-	if tmp, ok := rawArgs["patron_status"]; ok {
-		return ec.unmarshalOStatus2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐStatus(ctx, tmp)
-	}
-
-	var zeroVal *model.Status
-	return zeroVal, nil
-}
-
 func (ec *executionContext) field_Mutation_updatePatron_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2802,29 +2645,6 @@ func (ec *executionContext) field_Query_getPatronById_argsPatronID(
 	}
 
 	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_getPatronStatusByType_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_getPatronStatusByType_argsPatronStatus(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["patron_status"] = arg0
-	return args, nil
-}
-func (ec *executionContext) field_Query_getPatronStatusByType_argsPatronStatus(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (model.Status, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("patron_status"))
-	if tmp, ok := rawArgs["patron_status"]; ok {
-		return ec.unmarshalNStatus2githubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐStatus(ctx, tmp)
-	}
-
-	var zeroVal model.Status
 	return zeroVal, nil
 }
 
@@ -5022,8 +4842,6 @@ func (ec *executionContext) fieldContext_Mutation_createPatron(ctx context.Conte
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "status":
-				return ec.fieldContext_Patron_status(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
@@ -5088,8 +4906,6 @@ func (ec *executionContext) fieldContext_Mutation_updatePatron(ctx context.Conte
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "status":
-				return ec.fieldContext_Patron_status(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
@@ -5154,8 +4970,6 @@ func (ec *executionContext) fieldContext_Mutation_deletePatronById(ctx context.C
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "status":
-				return ec.fieldContext_Patron_status(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
@@ -5168,68 +4982,6 @@ func (ec *executionContext) fieldContext_Mutation_deletePatronById(ctx context.C
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deletePatronById_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_updatePatronStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_updatePatronStatus(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdatePatronStatus(rctx, fc.Args["patron_id"].(string), fc.Args["warning_count"].(*int32), fc.Args["unpaid_fees"].(*float64), fc.Args["patron_status"].(*model.Status))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.PatronStatus)
-	fc.Result = res
-	return ec.marshalOPatronStatus2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐPatronStatus(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Mutation_updatePatronStatus(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "patron_id":
-				return ec.fieldContext_PatronStatus_patron_id(ctx, field)
-			case "warning_count":
-				return ec.fieldContext_PatronStatus_warning_count(ctx, field)
-			case "patron_status":
-				return ec.fieldContext_PatronStatus_patron_status(ctx, field)
-			case "unpaid_fees":
-				return ec.fieldContext_PatronStatus_unpaid_fees(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type PatronStatus", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_updatePatronStatus_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -6252,233 +6004,6 @@ func (ec *executionContext) fieldContext_Patron_patron_created(_ context.Context
 	return fc, nil
 }
 
-func (ec *executionContext) _Patron_status(ctx context.Context, field graphql.CollectedField, obj *model.Patron) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Patron_status(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Status, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.PatronStatus)
-	fc.Result = res
-	return ec.marshalOPatronStatus2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐPatronStatus(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Patron_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Patron",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "patron_id":
-				return ec.fieldContext_PatronStatus_patron_id(ctx, field)
-			case "warning_count":
-				return ec.fieldContext_PatronStatus_warning_count(ctx, field)
-			case "patron_status":
-				return ec.fieldContext_PatronStatus_patron_status(ctx, field)
-			case "unpaid_fees":
-				return ec.fieldContext_PatronStatus_unpaid_fees(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type PatronStatus", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _PatronStatus_patron_id(ctx context.Context, field graphql.CollectedField, obj *model.PatronStatus) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_PatronStatus_patron_id(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PatronID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_PatronStatus_patron_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PatronStatus",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _PatronStatus_warning_count(ctx context.Context, field graphql.CollectedField, obj *model.PatronStatus) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_PatronStatus_warning_count(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.WarningCount, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(int32)
-	fc.Result = res
-	return ec.marshalNInt2int32(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_PatronStatus_warning_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PatronStatus",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _PatronStatus_patron_status(ctx context.Context, field graphql.CollectedField, obj *model.PatronStatus) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_PatronStatus_patron_status(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PatronStatus, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(model.Status)
-	fc.Result = res
-	return ec.marshalNStatus2githubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐStatus(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_PatronStatus_patron_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PatronStatus",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Status does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _PatronStatus_unpaid_fees(ctx context.Context, field graphql.CollectedField, obj *model.PatronStatus) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_PatronStatus_unpaid_fees(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.UnpaidFees, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(float64)
-	fc.Result = res
-	return ec.marshalNFloat2float64(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_PatronStatus_unpaid_fees(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PatronStatus",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Float does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Query_getBooks(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Query_getBooks(ctx, field)
 	if err != nil {
@@ -6860,8 +6385,6 @@ func (ec *executionContext) fieldContext_Query_getPatronById(ctx context.Context
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "status":
-				return ec.fieldContext_Patron_status(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
@@ -6926,73 +6449,9 @@ func (ec *executionContext) fieldContext_Query_getAllPatrons(_ context.Context, 
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "status":
-				return ec.fieldContext_Patron_status(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
 		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_getPatronStatusByType(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_getPatronStatusByType(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetPatronStatusByType(rctx, fc.Args["patron_status"].(model.Status))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.([]*model.PatronStatus)
-	fc.Result = res
-	return ec.marshalOPatronStatus2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐPatronStatus(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_getPatronStatusByType(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "patron_id":
-				return ec.fieldContext_PatronStatus_patron_id(ctx, field)
-			case "warning_count":
-				return ec.fieldContext_PatronStatus_warning_count(ctx, field)
-			case "patron_status":
-				return ec.fieldContext_PatronStatus_patron_status(ctx, field)
-			case "unpaid_fees":
-				return ec.fieldContext_PatronStatus_unpaid_fees(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type PatronStatus", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_getPatronStatusByType_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
 	}
 	return fc, nil
 }
@@ -8699,75 +8158,8 @@ func (ec *executionContext) fieldContext_Subscription_patronCreated(_ context.Co
 				return ec.fieldContext_Patron_phone_number(ctx, field)
 			case "patron_created":
 				return ec.fieldContext_Patron_patron_created(ctx, field)
-			case "status":
-				return ec.fieldContext_Patron_status(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Patron", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Subscription_patronStatusUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
-	fc, err := ec.fieldContext_Subscription_patronStatusUpdated(ctx, field)
-	if err != nil {
-		return nil
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = nil
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().PatronStatusUpdated(rctx)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return nil
-	}
-	if resTmp == nil {
-		return nil
-	}
-	return func(ctx context.Context) graphql.Marshaler {
-		select {
-		case res, ok := <-resTmp.(<-chan *model.PatronStatus):
-			if !ok {
-				return nil
-			}
-			return graphql.WriterFunc(func(w io.Writer) {
-				w.Write([]byte{'{'})
-				graphql.MarshalString(field.Alias).MarshalGQL(w)
-				w.Write([]byte{':'})
-				ec.marshalOPatronStatus2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐPatronStatus(ctx, field.Selections, res).MarshalGQL(w)
-				w.Write([]byte{'}'})
-			})
-		case <-ctx.Done():
-			return nil
-		}
-	}
-}
-
-func (ec *executionContext) fieldContext_Subscription_patronStatusUpdated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Subscription",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "patron_id":
-				return ec.fieldContext_PatronStatus_patron_id(ctx, field)
-			case "warning_count":
-				return ec.fieldContext_PatronStatus_warning_count(ctx, field)
-			case "patron_status":
-				return ec.fieldContext_PatronStatus_patron_status(ctx, field)
-			case "unpaid_fees":
-				return ec.fieldContext_PatronStatus_unpaid_fees(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type PatronStatus", field.Name)
 		},
 	}
 	return fc, nil
@@ -11718,10 +11110,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deletePatronById(ctx, field)
 			})
-		case "updatePatronStatus":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_updatePatronStatus(ctx, field)
-			})
 		case "borrowBook":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_borrowBook(ctx, field)
@@ -11862,62 +11250,6 @@ func (ec *executionContext) _Patron(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "patron_created":
 			out.Values[i] = ec._Patron_patron_created(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "status":
-			out.Values[i] = ec._Patron_status(ctx, field, obj)
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var patronStatusImplementors = []string{"PatronStatus"}
-
-func (ec *executionContext) _PatronStatus(ctx context.Context, sel ast.SelectionSet, obj *model.PatronStatus) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, patronStatusImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("PatronStatus")
-		case "patron_id":
-			out.Values[i] = ec._PatronStatus_patron_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "warning_count":
-			out.Values[i] = ec._PatronStatus_warning_count(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "patron_status":
-			out.Values[i] = ec._PatronStatus_patron_status(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "unpaid_fees":
-			out.Values[i] = ec._PatronStatus_unpaid_fees(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -12099,25 +11431,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_getAllPatrons(ctx, field)
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "getPatronStatusByType":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_getPatronStatusByType(ctx, field)
 				return res
 			}
 
@@ -12623,8 +11936,6 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_bookAdded(ctx, fields[0])
 	case "patronCreated":
 		return ec._Subscription_patronCreated(ctx, fields[0])
-	case "patronStatusUpdated":
-		return ec._Subscription_patronStatusUpdated(ctx, fields[0])
 	case "reservationCreated":
 		return ec._Subscription_reservationCreated(ctx, fields[0])
 	case "borrowRecordUpdated":
@@ -13431,16 +12742,6 @@ func (ec *executionContext) marshalNReservationStatus2githubᚗcomᚋCat6utpcabl
 	return v
 }
 
-func (ec *executionContext) unmarshalNStatus2githubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐStatus(ctx context.Context, v any) (model.Status, error) {
-	var res model.Status
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNStatus2githubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐStatus(ctx context.Context, sel ast.SelectionSet, v model.Status) graphql.Marshaler {
-	return v
-}
-
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -13855,23 +13156,6 @@ func (ec *executionContext) marshalOFine2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋ
 	return ec._Fine(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOFloat2ᚖfloat64(ctx context.Context, v any) (*float64, error) {
-	if v == nil {
-		return nil, nil
-	}
-	res, err := graphql.UnmarshalFloatContext(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOFloat2ᚖfloat64(ctx context.Context, sel ast.SelectionSet, v *float64) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	_ = sel
-	res := graphql.MarshalFloatContext(*v)
-	return graphql.WrapContextMarshaler(ctx, res)
-}
-
 func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v any) (*string, error) {
 	if v == nil {
 		return nil, nil
@@ -13956,54 +13240,6 @@ func (ec *executionContext) marshalOPatron2ᚖgithubᚗcomᚋCat6utpcableclarke�
 	return ec._Patron(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOPatronStatus2ᚕᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐPatronStatus(ctx context.Context, sel ast.SelectionSet, v []*model.PatronStatus) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalOPatronStatus2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐPatronStatus(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	return ret
-}
-
-func (ec *executionContext) marshalOPatronStatus2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐPatronStatus(ctx context.Context, sel ast.SelectionSet, v *model.PatronStatus) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._PatronStatus(ctx, sel, v)
-}
-
 func (ec *executionContext) marshalOReservation2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐReservation(ctx context.Context, sel ast.SelectionSet, v *model.Reservation) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -14021,22 +13257,6 @@ func (ec *executionContext) unmarshalOReservationStatus2ᚖgithubᚗcomᚋCat6ut
 }
 
 func (ec *executionContext) marshalOReservationStatus2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐReservationStatus(ctx context.Context, sel ast.SelectionSet, v *model.ReservationStatus) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return v
-}
-
-func (ec *executionContext) unmarshalOStatus2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐStatus(ctx context.Context, v any) (*model.Status, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var res = new(model.Status)
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOStatus2ᚖgithubᚗcomᚋCat6utpcableclarkeᚋAPIᚑgatewayᚋgraphᚋmodelᚐStatus(ctx context.Context, sel ast.SelectionSet, v *model.Status) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

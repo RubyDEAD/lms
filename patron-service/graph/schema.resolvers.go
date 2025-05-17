@@ -18,7 +18,6 @@ import (
 // CreatePatron is the resolver for the createPatron field.
 func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, lastName string, phoneNumber string, email string, password string) (*model.Patron, error) {
 	var patron model.Patron
-	var patron_status model.PatronStatus
 
 	tx, transactErr := r.DB.Begin(ctx)
 	if transactErr != nil {
@@ -48,23 +47,6 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 		return nil, fmt.Errorf("failed to insert patron: %v", PatronErr)
 	}
 
-	PStatusErr := tx.QueryRow(ctx, `
-		INSERT INTO patron_status (patron_id)
-		VALUES($1)
-		RETURNING warning_count, patron_status, unpaid_fees 
-	`, patron.PatronID).Scan(
-		&patron_status.WarningCount,
-		&patron_status.PatronStatus,
-		&patron_status.UnpaidFees,
-	)
-
-	if PStatusErr != nil {
-		return nil, fmt.Errorf("failed to insert patron_status: %v", PStatusErr)
-	}
-
-	patron.Status = &patron_status
-	patron_status.PatronID = patron.PatronID
-
 	if transactErr := tx.Commit(ctx); transactErr != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
 	}
@@ -88,7 +70,6 @@ func (r *mutationResolver) CreatePatron(ctx context.Context, firstName string, l
 // UpdatePatron is the resolver for the updatePatron field.
 func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, firstName *string, lastName *string, phoneNumber *string) (*model.Patron, error) {
 	var patron model.Patron
-	var patron_status model.PatronStatus
 
 	tx, transactErr := r.DB.Begin(ctx)
 	if transactErr != nil {
@@ -161,24 +142,6 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 
 	if FinalErr != nil {
 		return nil, fmt.Errorf("failed to update patron: %v", FinalErr)
-	} else {
-		PStatusErr := tx.QueryRow(ctx, `
-			SELECT warning_count, patron_status, unpaid_fees
-			FROM patron_status
-			WHERE patron_id = $1 
-		`, patron.PatronID).Scan(
-			&patron_status.WarningCount,
-			&patron_status.PatronStatus,
-			&patron_status.UnpaidFees,
-		)
-
-		if PStatusErr != nil {
-			return nil, fmt.Errorf("failed to fetch patron_status: %v", PStatusErr)
-		}
-
-		patron.Status = &patron_status
-		patron_status.PatronID = patron.PatronID
-
 	}
 
 	if transactErr := tx.Commit(ctx); transactErr != nil {
@@ -191,7 +154,6 @@ func (r *mutationResolver) UpdatePatron(ctx context.Context, patronID string, fi
 // DeletePatronByID is the resolver for the deletePatronById field.
 func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string) (*model.Patron, error) {
 	var patron model.Patron
-	var patron_status model.PatronStatus
 
 	tx, transactErr := r.DB.Begin(ctx)
 	if transactErr != nil {
@@ -217,24 +179,6 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 			return nil, fmt.Errorf("patron not found")
 		}
 		return nil, fmt.Errorf("failed to fetch patron: %v", err)
-	} else {
-		PStatusErr := tx.QueryRow(ctx, `
-			SELECT warning_count, patron_status, unpaid_fees
-			FROM patron_status
-			WHERE patron_id = $1 
-		`, patron.PatronID).Scan(
-			&patron_status.WarningCount,
-			&patron_status.PatronStatus,
-			&patron_status.UnpaidFees,
-		)
-
-		if PStatusErr != nil {
-			return nil, fmt.Errorf("failed to fetch patron_status: %v", PStatusErr)
-		}
-
-		patron.Status = &patron_status
-		patron_status.PatronID = patron.PatronID
-
 	}
 
 	_, DeleteErr := tx.Exec(ctx, `
@@ -257,105 +201,9 @@ func (r *mutationResolver) DeletePatronByID(ctx context.Context, patronID string
 	return &patron, nil
 }
 
-// UpdatePatronStatus is the resolver for the updatePatronStatus field.
-func (r *mutationResolver) UpdatePatronStatus(ctx context.Context, patronID string, warningCount *int32, unpaidFees *float64, patronStatus *model.Status) (*model.PatronStatus, error) {
-	var exists bool
-	err := r.DB.QueryRow(ctx, `
-	    SELECT EXISTS(SELECT 1 FROM patrons WHERE patron_id = $1)
-	`, patronID).Scan(&exists)
-
-	if err != nil {
-		return nil, fmt.Errorf("database error checking patron existence: %v", err)
-	}
-	if !exists {
-		return nil, fmt.Errorf("patron does not exist")
-	}
-
-	var patron_status model.PatronStatus
-	patron_status.PatronID = patronID
-
-	tx, transactErr := r.DB.Begin(ctx)
-	if transactErr != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %v", transactErr)
-	}
-
-	defer tx.Rollback(ctx)
-
-	if warningCount != nil {
-		_, StatusUpErr := tx.Exec(ctx, `
-			UPDATE patron_status
-			SET warning_count = $1
-			WHERE patron_id = $2
-		`, warningCount, patronID)
-
-		if StatusUpErr != nil {
-			return nil, fmt.Errorf("updating warning count failed: %v", StatusUpErr)
-		}
-	}
-
-	if patronStatus != nil {
-		_, StatusUpErr := tx.Exec(ctx, `
-			UPDATE patron_status
-			SET patron_status = $1
-			WHERE patron_id = $2
-		`, patronStatus, patronID)
-
-		if StatusUpErr != nil {
-			return nil, fmt.Errorf("updating patron_status failed: %v", StatusUpErr)
-		}
-	}
-
-	if unpaidFees != nil {
-		_, StatusUpErr := tx.Exec(ctx, `
-			UPDATE patron_status
-			SET unpaid_fees = $1
-			WHERE patron_id = $2
-		`, unpaidFees, patronID)
-
-		if StatusUpErr != nil {
-			return nil, fmt.Errorf("inserting warning count failed: %v", StatusUpErr)
-		}
-	}
-
-	FinalErr := tx.QueryRow(ctx, `
-		SELECT warning_count, patron_status, unpaid_fees
-		FROM patron_status
-		WHERE patron_id = $1
-	`, patronID).Scan(
-		&patron_status.WarningCount,
-		&patron_status.PatronStatus,
-		&patron_status.UnpaidFees,
-	)
-
-	if FinalErr != nil {
-		return nil, fmt.Errorf("fetching updated patron status failed: %v", FinalErr)
-	}
-
-	if transactErr := tx.Commit(ctx); transactErr != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %v", transactErr)
-	}
-
-	subscriptionCopy := patron_status
-
-	r.SubscribersMutex.Lock()
-	for subscriber := range r.UpdatesSubscrubers {
-		select {
-		case subscriber <- &subscriptionCopy:
-
-		default:
-			log.Printf("Subscriber channel full, skipping notification for patron %s", patron_status.PatronID)
-		}
-	}
-
-	r.SubscribersMutex.Unlock()
-
-	return &patron_status, nil
-}
-
 // GetPatronByID is the resolver for the getPatronById field.
 func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*model.Patron, error) {
 	var patron model.Patron
-	var patron_status model.PatronStatus
 
 	err := r.DB.QueryRow(ctx, `
 		SELECT first_name, last_name, phone_number, patron_created::text
@@ -373,23 +221,6 @@ func (r *queryResolver) GetPatronByID(ctx context.Context, patronID string) (*mo
 	} else {
 		patron.PatronID = patronID
 	}
-
-	PStatusErr := r.DB.QueryRow(ctx, `
-		SELECT warning_count, patron_status, unpaid_fees
-		FROM patron_status
-		WHERE patron_id = $1 
-	`, patron.PatronID).Scan(
-		&patron_status.WarningCount,
-		&patron_status.PatronStatus,
-		&patron_status.UnpaidFees,
-	)
-
-	if PStatusErr != nil {
-		return nil, fmt.Errorf("failed to fetch patron_status: %v", PStatusErr)
-	}
-
-	patron.Status = &patron_status
-	patron_status.PatronID = patron.PatronID
 
 	return &patron, nil
 }
@@ -411,7 +242,6 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 
 	for rows.Next() {
 		var patron model.Patron
-		var patron_status model.PatronStatus
 
 		err := rows.Scan(
 			&patron.PatronID,
@@ -424,63 +254,11 @@ func (r *queryResolver) GetAllPatrons(ctx context.Context) ([]*model.Patron, err
 			return nil, fmt.Errorf("failed to scan patron: %v", err)
 		}
 
-		PStatusErr := r.DB.QueryRow(ctx, `
-			SELECT warning_count, patron_status, unpaid_fees
-			FROM patron_status
-			WHERE patron_id = $1 
-		`, patron.PatronID).Scan(
-			&patron_status.WarningCount,
-			&patron_status.PatronStatus,
-			&patron_status.UnpaidFees,
-		)
-
-		if PStatusErr != nil {
-			return nil, fmt.Errorf("failed to fetch patron_status: %v", PStatusErr)
-		}
-
-		patron.Status = &patron_status
-		patron_status.PatronID = patron.PatronID
-
 		patrons = append(patrons, &patron)
 
 	}
 
 	return patrons, nil
-}
-
-// GetPatronStatusByType is the resolver for the getPatronStatusByType field.
-func (r *queryResolver) GetPatronStatusByType(ctx context.Context, patronStatus model.Status) ([]*model.PatronStatus, error) {
-	var patron_statuses []*model.PatronStatus
-
-	statusRows, statusErr := r.DB.Query(ctx, `
-		SELECT patron_id, warning_count, unpaid_fees
-		FROM patron_status
-		WHERE patron_status = $1
-	`, patronStatus)
-
-	if statusErr != nil {
-		return nil, fmt.Errorf("failed to fetch patron_status_list: %v", statusErr)
-	}
-
-	defer statusRows.Close()
-
-	for statusRows.Next() {
-		var patron_status model.PatronStatus
-		err := statusRows.Scan(
-			&patron_status.PatronID,
-			&patron_status.WarningCount,
-			&patron_status.UnpaidFees,
-		)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan patron status: %v", err)
-		}
-
-		patron_status.PatronStatus = patronStatus
-		patron_statuses = append(patron_statuses, &patron_status)
-	}
-
-	return patron_statuses, nil
 }
 
 // PatronCreated is the resolver for the patronCreated field.
@@ -500,25 +278,6 @@ func (r *subscriptionResolver) PatronCreated(ctx context.Context) (<-chan *model
 	}()
 
 	return patronChan, nil
-}
-
-// PatronStatusUpdated is the resolver for the patronStatusUpdated field.
-func (r *subscriptionResolver) PatronStatusUpdated(ctx context.Context) (<-chan *model.PatronStatus, error) {
-	updatesChan := make(chan *model.PatronStatus, 1)
-
-	r.SubscribersMutex.Lock()
-	r.UpdatesSubscrubers[updatesChan] = true
-	r.SubscribersMutex.Unlock()
-
-	go func() {
-		<-ctx.Done()
-		r.SubscribersMutex.Lock()
-		delete(r.UpdatesSubscrubers, updatesChan)
-		close(updatesChan)
-		r.SubscribersMutex.Unlock()
-	}()
-
-	return updatesChan, nil
 }
 
 // Mutation returns MutationResolver implementation.

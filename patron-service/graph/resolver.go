@@ -16,8 +16,7 @@ type Resolver struct {
 	PatronStore map[string]model.Patron
 
 	// This stores the connection of the clients of the subscribers
-	PatronSubscribers  map[chan *model.Patron]bool
-	UpdatesSubscrubers map[chan *model.PatronStatus]bool
+	PatronSubscribers map[chan *model.Patron]bool
 	// protects the subscribers from concurrent access
 	SubscribersMutex sync.Mutex
 }

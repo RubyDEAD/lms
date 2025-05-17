@@ -67,19 +67,11 @@ type Mutation struct {
 }
 
 type Patron struct {
-	PatronID      string        `json:"patron_id"`
-	FirstName     string        `json:"first_name"`
-	LastName      string        `json:"last_name"`
-	PhoneNumber   string        `json:"phone_number"`
-	PatronCreated string        `json:"patron_created"`
-	Status        *PatronStatus `json:"status,omitempty"`
-}
-
-type PatronStatus struct {
-	PatronID     string  `json:"patron_id"`
-	WarningCount int32   `json:"warning_count"`
-	PatronStatus Status  `json:"patron_status"`
-	UnpaidFees   float64 `json:"unpaid_fees"`
+	PatronID      string `json:"patron_id"`
+	FirstName     string `json:"first_name"`
+	LastName      string `json:"last_name"`
+	PhoneNumber   string `json:"phone_number"`
+	PatronCreated string `json:"patron_created"`
 }
 
 type Query struct {

@@ -4,40 +4,19 @@ type Patron {
   last_name: String!
   phone_number: String!
   patron_created: String!
-  status: PatronStatus
-}
-
-type PatronStatus {
-  patron_id: ID!
-  warning_count: Int!
-  patron_status: Status!
-  unpaid_fees: Float!
-}
-
-enum Status {
-  Good
-  Warned
-  Banned
-  Pending
 }
 
 type Query {
   getPatronById(patron_id: ID!): Patron
   getAllPatrons: [Patron]
-
-  getPatronStatusByType(patron_status: Status!): [PatronStatus]
 }
 
 type Mutation {
   createPatron(first_name: String!, last_name: String!, phone_number: String! email: String!, password: String!): Patron
   updatePatron(patron_id: ID!, first_name: String, last_name: String, phone_number: String): Patron
   deletePatronById(patron_id: ID!): Patron
-
-  updatePatronStatus(patron_id: ID!, warning_count: Int, unpaid_fees: Float, patron_status: Status): PatronStatus
-
 }
 
 type Subscription {
   patronCreated: Patron
-  patronStatusUpdated: PatronStatus
 }

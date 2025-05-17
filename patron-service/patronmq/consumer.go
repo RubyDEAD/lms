@@ -10,7 +10,6 @@ import (
 	"syscall"
 
 	"github.com/GSalise/lms/patron-service/graph"
-	"github.com/GSalise/lms/patron-service/graph/model"
 	"github.com/jackc/pgx/v5/pgxpool"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -296,76 +295,6 @@ func resolversConnect(ch *amqp.Channel, data GraphQLMessage, msg amqp.Delivery, 
 			log.Printf("failed to publish message: %v", err)
 		}
 
-	case "updatePatronStatus":
-		patron_id, _ := data.Variables["patron_id"].(string)
-		var warning_count *int32
-		if raw, ok := data.Variables["warning_count"]; ok && raw != nil {
-			if val, ok := raw.(float64); ok {
-				conv := int32(val)
-				warning_count = &conv
-			}
-		}
-
-		var unpaid_fees *float64
-		if raw, ok := data.Variables["unpaid_fees"]; ok && raw != nil {
-			if val, ok := raw.(float64); ok {
-				unpaid_fees = &val
-			}
-		}
-
-		var status *string
-		if raw, ok := data.Variables["status"].(string); ok && raw != "" {
-			status = &raw
-		}
-
-		patron, ResolverErr := resolver.Mutation().UpdatePatronStatus(ctx, patron_id, warning_count, unpaid_fees, (*model.Status)(status))
-
-		if ResolverErr != nil {
-			log.Printf("Update Patron Status Resolver err: %v", ResolverErr)
-		}
-
-		response := map[string]interface{}{
-			"data": map[string]interface{}{
-				"updatePatronStatus": patron,
-			},
-		}
-
-		result, err := json.Marshal(response)
-		if err != nil {
-			log.Printf("Error marshalling patron to JSON: %v", err)
-		}
-
-		err = ch.Publish(
-			"",
-			msg.ReplyTo,
-			false,
-			false,
-			amqp.Publishing{
-				ContentType:   "application/json",
-				CorrelationId: msg.CorrelationId,
-				Body:          result,
-			},
-		)
-
-		if err != nil {
-			log.Printf("failed to publish message: %v", err)
-		}
-
-		SubErr := ch.Publish(
-			"",
-			"patron-subscription-updatesChan-queue",
-			false,
-			false,
-			amqp.Publishing{
-				ContentType: "application/json",
-				Body:        result,
-			},
-		)
-
-		if SubErr != nil {
-			log.Printf("failed to publish message: %v", SubErr)
-		}
-
 	case "getPatronById":
 		patron_id, _ := data.Variables["patron_id"].(string)
 
@@ -410,41 +339,6 @@ func resolversConnect(ch *amqp.Channel, data GraphQLMessage, msg amqp.Delivery, 
 		response := map[string]interface{}{
 			"data": map[string]interface{}{
 				"getAllPatrons": patron,
-			},
-		}
-
-		result, err := json.Marshal(response)
-		if err != nil {
-			log.Printf("Error marshalling patron to JSON: %v", err)
-		}
-
-		err = ch.Publish(
-			"",
-			msg.ReplyTo,
-			false,
-			false,
-			amqp.Publishing{
-				ContentType:   "application/json",
-				CorrelationId: msg.CorrelationId,
-				Body:          result,
-			},
-		)
-
-		if err != nil {
-			log.Printf("failed to publish message: %v", err)
-		}
-
-	case "getPatronStatusByType":
-		status, _ := data.Variables["status"].(string)
-
-		patron, ResolverErr := resolver.Query().GetPatronStatusByType(ctx, model.Status(status))
-		if ResolverErr != nil {
-			log.Printf("Get Patron By ID Resolver err: %v", ResolverErr)
-		}
-
-		response := map[string]interface{}{
-			"data": map[string]interface{}{
-				"getPatronStatusByType": patron,
 			},
 		}
 
