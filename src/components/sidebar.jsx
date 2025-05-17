@@ -26,11 +26,6 @@ function Sidebar() {
         <div className="sidebar-nav">
           <ul>
             <li>
-              <Link to="/" className="sidebar-link">
-                <FaDiceD6 /> Dashboard
-              </Link>
-            </li>
-            <li>
               <Link to="/books" className="sidebar-link">
                 <FaBook /> Books
               </Link>

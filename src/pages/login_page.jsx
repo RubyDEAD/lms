@@ -87,7 +87,7 @@ function LoginPage() {
       console.log(isAdmin ? "admin confirmed" : "something went wrong or not admin")
 
       setTimeout(() => {
-        window.location.href = isAdmin ? '/admin-test-page' : '/dashboard';
+        window.location.href = isAdmin ? '/admin-test-page' : '/books';
       }, 1500);
 
     } catch (error) {

@@ -17,6 +17,8 @@ function Books() {
     const [authLoading, setAuthLoading] = useState(true);
     const [error, setError] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false); 
     const [newBook, setNewBook] = useState({
         title: "",
         authorName: "",
@@ -24,9 +26,8 @@ function Books() {
         description: "",
         imageFile: null
     });
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const navigate = useNavigate();
 
+    const navigate = useNavigate();
     const API_URL = "http://localhost:8081/query";
 
     useEffect(() => {
@@ -35,11 +36,18 @@ function Books() {
                 setAuthLoading(true);
                 const { data: { session }, error } = await supabase.auth.getSession();
                 if (error) throw error;
-                setIsAuthenticated(!!session);
+
                 if (!session) {
+                    setIsAuthenticated(false);
                     navigate('/login');
                     return;
                 }
+
+                setIsAuthenticated(true);
+
+                const adminFlag = session.user?.app_metadata?.isAdmin === true;
+                setIsAdmin(adminFlag);
+
                 await fetchBooks();
             } catch (err) {
                 console.error("Authentication error:", err);
@@ -49,8 +57,10 @@ function Books() {
                 setAuthLoading(false);
             }
         };
+
         checkAuth();
     }, [navigate]);
+
 
     const fetchBooks = async () => {
         try {
@@ -480,6 +490,7 @@ function Books() {
         }
     };
 
+
     
     return (
         <div className="body">
@@ -507,12 +518,15 @@ function Books() {
                     </div>
                 </form>
                 <div className="d-flex justify-content-between mb-4">
-                    <button
-                        className="btn btn-primary"
-                        onClick={() => setShowAddForm(!showAddForm)}
-                    >
-                        {showAddForm ? "Cancel" : "+ Add Book"}
-                    </button>
+                {isAdmin && (
+                <button
+                    className="btn btn-primary"
+                    onClick={() => setShowAddForm(!showAddForm)}
+                >
+                    {showAddForm ? "Cancel" : "+ Add Book"}
+                </button>
+                )}
+
                     <button 
                         className="btn btn-outline-secondary"
                         onClick={() => fetchBorrowRecords()}
@@ -558,7 +572,9 @@ function Books() {
                                         accept="image/*"
                                         onChange={handleImageChange} />
                                 </div>
-                                <button type="submit" className="btn btn-primary">Add Book</button>
+                                {isAdmin && (
+                        <button type="submit" className="btn btn-primary mb-3">Add Book</button>
+                            )} 
                             </form>
                         </div>
                     </div>

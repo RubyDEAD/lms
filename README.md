@@ -1,34 +1,32 @@
-# Library Management System
-## BE WARY OF PORTS BEING USED
-### API-GATEWAY
-#### Port Number used: 8081
+**DEPENDENCIES:**
+-    RABBITMQ
+-    REACT (NPM INSTALL)
+-    GO LANG
 
-### Book Service
-#### Port Number used: 8080
+**TO RUN THE SERVICES (RUN THEM SIMULTANEOUSLY):**
+-    Book-Service:
+          cd bookService then
+          go run server.go
+-    Patron-Service:
+          cd patron-service then
+          go run server.go
+-    Borrowing-Service:
+          cd borrowing-service then
+          go run server.go
+-    Fine-Service:
+          cd fine_service then
+          go run main.go
+-    API-Gateway:
+          cd API-gateway then
+          go run server.go
 
-##### query notes:
-
-### Fine Service
-#### Port Number used: 
-
-### Borrowing Service
-#### Port Number used: 8082
-
-### Patron Service
-#### Port Number used: 8069
-<br>
-Notes for Front-End:
-Inig himo sa patron-creation page, applyi og regex ang phone number na field <br>
-Mao ni ako gi gamit : '^[0-9]{10,15}$'
-<br><br>
-Notes for communicating with Patron-Service:<br>
-Patron Service makes us of rabbitmq queues which are seperated into two main queues:<br>
-
-1. "patron-service-queue"
-    - this queue is used exclusively for API-GATEWAY
-2. "patron-service-internal-queue" 
-    - this queue is used exclusively for interservice communication
-    - use this queue in order to access the mutations, queries, and subscriptions of the patron service
+(NOTE: AFTER "go run server.go/main.go" ON EACH SERVICES, IT SHOULD GIVE YOU A GRAPHQL ENDPOINT)
 
 
+**TO RUN THE WEBPAGE (RUN THE SERVICES FIRST BEFORE THE WEBPAGE):
+          cd lms then npm run start**
 
+**ONLY ADMIN CAN ADD A BOOK TO TEST THIS FUNCTION USE THIS ACCOUNT:
+**EMAIL: admin@gmail.com
+PASSWORD: admin123****
+     

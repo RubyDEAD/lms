@@ -1,51 +1,33 @@
-import React, { useState } from 'react';
-import { FaBell, FaCog, FaUserCircle } from 'react-icons/fa';
-import '../App.css'; // Make sure to style accordingly
+import React from 'react';
 
 const Topbar = () => {
-  const [showNotifications, setShowNotifications] = useState(false);
-
-  const toggleNotifications = () => {
-    setShowNotifications(prev => !prev);
-  };
-
-  // Dummy notification data
-  const notifications = [
-    "New book 'React Basics' added.",
-    "Overdue: 'Modern JS Guide'.",
-    "Library maintenance on Friday.",
-  ];
-
   return (
-    <header className="topbar">
-      <div className="topbar-container">
-        {/* Logo and title */}
-        <div className="top-left">
-          <h1>Library Management System</h1>
-        </div>
-
-        {/* Right side icons and profile */}
-        <div className="top-right">
-          <div className="icon-wrapper" onClick={toggleNotifications}>
-            <FaBell className="topbar-icon" />
-            {notifications.length > 0 && <span className="notification-badge">{notifications.length}</span>}
-          </div>
-
-          <FaUserCircle className="topbar-icon" />
-          <FaCog className="topbar-icon" />
-
-          {/* Notifications Panel */}
-          {showNotifications && (
-            <div className="notification-panel">
-              <h6>Notifications</h6>
-              <ul>
-                {notifications.map((note, idx) => (
-                  <li key={idx}>{note}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+    <header className="topbar" style={{
+      position: 'sticky',
+      top: 0,
+      zIndex: 50,
+      width: '100%',
+      backgroundColor: 'black',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+      padding: '1rem 0',
+      marginBottom: '2rem' // Space below the topbar
+    }}>
+      <div style={{
+        maxWidth: '1200px',
+        margin: '0 auto',
+        padding: '0 1.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        height: '100%'
+      }}>
+        <h1 style={{
+          margin: 0,
+          fontSize: '1.5rem',
+          fontWeight: 600,
+          color: 'white'
+        }}>
+          Library Management System
+        </h1>
       </div>
     </header>
   );
