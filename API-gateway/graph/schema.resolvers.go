@@ -62,8 +62,8 @@ func (r *mutationResolver) AddBook(ctx context.Context, title string, authorName
 // AddBCopy is the resolver for the addBCopy field.
 func (r *mutationResolver) AddBCopy(ctx context.Context, bookID string) (*model.BookCopies, error) {
 	query := `
-        mutation AddBCopy($bookID: String!) {
-            addBCopy(bookID: $bookID) {
+        mutation AddBCopy($book_id: String!) {
+            addBCopy(book_id: $book_id) {
                 id
                 book_id
                 book_status
@@ -72,7 +72,7 @@ func (r *mutationResolver) AddBCopy(ctx context.Context, bookID string) (*model.
     `
 
 	variables := map[string]interface{}{
-		"bookID": bookID,
+		"book_id": bookID,
 	}
 
 	resp, err := forwardRequest(ctx, query, variables, bookServiceURL)

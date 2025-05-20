@@ -5,6 +5,9 @@ import { useNavigate } from "react-router-dom";
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function Books() {
+    const [showAddCopyModal, setShowAddCopyModal] = useState(false);
+    const [addCopyBookId, setAddCopyBookId] = useState(null);
+    const [copyCount, setCopyCount] = useState(1);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchLoading, setSearchLoading] = useState(false);
     const [borrowRecords, setBorrowRecords] = useState([]);
@@ -490,8 +493,41 @@ function Books() {
         }
     };
 
+    const addCopy = async (bookId, quantity) => {
+        if(quantity<1){
+            alert("Please enter a valid number of copies to add.");
+            return;
+        }
+        try {
+            const {data: {session} } = await supabase.auth.getSession();
+            if (!session) {
+                navigate('/login');
+                return;
+            }
+            const token = session.access_token;
 
-    
+            for (let i = 0; i < quantity; i++) {
+                await axios.post(API_URL, {
+                    query: `
+                    mutation addCopy($book_id:String!){
+                    addBCopy(book_id:$book_id){
+                        id
+                        book_id
+                        book_status
+                        }
+                    }`,
+                    variables: { book_id: bookId }
+                },{
+                    headers: { Authorization: `Bearer ${token}` }   
+                });
+            }
+            alert(`${quantity} copies added successfully!`);
+            fetchBooks();
+        }catch (err) {
+            console.error("Error adding book copies:", err);
+            setError("Failed to add book copies. Please try again later.");
+        }
+    }
     return (
         <div className="body">
             <div className="container mt-4">
@@ -615,6 +651,18 @@ function Books() {
                                         onClick={() => borrowBook(book.id)}>
                                         Borrow
                                     </button>
+                                    {isAdmin && (
+                                        <button
+                                            className="btn btn-sm btn-outline-danger"
+                                            onClick={() => {
+                                                setAddCopyBookId(book.id);
+                                                setCopyCount(1);
+                                                setShowAddCopyModal(true);
+                                            }}
+                                        >
+                                            Add Copy
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -748,6 +796,41 @@ function Books() {
                         </div>
                     </div>
                 )}
+                {showAddCopyModal && (
+                <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <div className="modal-dialog">
+                        <div className="modal-content">
+                            <div className="modal-header">
+                                <h5 className="modal-title">Add Book Copies</h5>
+                                <button className="btn-close" onClick={() => setShowAddCopyModal(false)}></button>
+                            </div>
+                            <div className="modal-body">
+                                <label htmlFor="copyCount" className="form-label">Number of Copies</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    className="form-control"
+                                    id="copyCount"
+                                    value={copyCount}
+                                    onChange={e => setCopyCount(Number(e.target.value))}
+                                />
+                            </div>
+                            <div className="modal-footer">
+                                <button className="btn btn-secondary" onClick={() => setShowAddCopyModal(false)}>Cancel</button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={async () => {
+                                        await addCopy(addCopyBookId, copyCount);
+                                        setShowAddCopyModal(false);
+                                    }}
+                                >
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
                 {showBorrowRecordsModal && (
                     <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
