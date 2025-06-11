@@ -283,12 +283,12 @@ function Books() {
                 setError(null);
             } else {
                 console.log("No available copy found.");
-                setAvailableCopy(null);
+                setAvailableCopy(undefined);
                 setError("No available copy for this book.");
             }
         } catch (err) {
             console.error("Error fetching available book copy:", err);
-            setAvailableCopy(null);
+            setAvailableCopy(undefined);
             setError("Failed to check availability. Please try again later.");
         }
     };
@@ -775,14 +775,14 @@ function Books() {
                                     <button className="btn-close" onClick={() => setAvailableCopy(undefined)}></button>
                                 </div>
                                 <div className="modal-body">
-                                    {availableCopy ? (
-                                        <>
+                                    {availableCopy!==undefined ? (
+                                        
                                             <div className="alert alert-success">
                                                 <h6>Available Copy Found!</h6>
                                                 <p>Copy ID: {availableCopy.id}</p>
                                                 <p>Status: <span className="badge bg-success">{availableCopy.book_status}</span></p>
                                             </div>
-                                        </>
+                                        
                                     ) : (
                                         <div className="alert alert-warning">
                                             No available copies for this book at the moment.
